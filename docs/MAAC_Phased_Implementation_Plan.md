@@ -17,22 +17,24 @@ The implementation should preserve the central architectural decision from the B
 
 ## Phase 1: Prototype Alignment & Product Shell
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-1-console` (commit `92c93c3`). Built with shadcn-based primitives styled to match the prototype, team-scoped routing, and a front-end persona switcher. Verified: 93/93 Pest tests pass, ESLint/Prettier/`tsc`/`vite build`/Pint all clean, and every console screen confirmed rendering in the browser (light + dark) with no JS console errors. Demo login: `demo@milaha.com` / `password`.
+
 ### Goal
 
 Convert the handoff prototype into a Laravel/Inertia MAAC console baseline that establishes the product navigation, visual language, role-aware information architecture, and mock-backed screen coverage.
 
 ### Checklist
 
-- [ ] Create an authenticated MAAC console area inside the current Inertia app.
-- [ ] Keep management pages within the existing Laravel authentication and team-aware shell until MAAC-specific roles are formalized.
-- [ ] Implement the MAAC sidebar/topbar structure from the prototype: Dashboard, Applications, Projects, Agents, Tools, SDK Implementation, Agent Playground, Runs & Audit Logs, LLM Providers, Governance, and Settings.
-- [ ] Translate Milaha design tokens from the prototype into the app's Tailwind/shadcn-style component system, including navy, purple, orange, teal, status tones, typography, compact cards, tables, badges, and dark-mode compatibility.
-- [ ] Build mock-backed dashboard metrics for runs, costs, token usage, LLM usage, tool implementation gaps, and governance alerts.
-- [ ] Build mock-backed list/detail pages for Applications, Projects, Agents, Tools, SDK Implementation Center, Playground, Runs, LLM Providers, Governance, and Settings.
-- [ ] Implement the Create Agent wizard screens for basic details, prompt, LLM selection, tools, runtime/safety, and review.
-- [ ] Implement the prototype's persona/scope behavior as an internal UX model or documented placeholder until final RBAC is available.
-- [ ] Use Wayfinder route helpers for frontend navigation and form/action wiring.
-- [ ] Add feature or browser smoke coverage for the authenticated MAAC pages and no-JavaScript-error checks on the main console routes.
+- [x] Create an authenticated MAAC console area inside the current Inertia app.
+- [x] Keep management pages within the existing Laravel authentication and team-aware shell until MAAC-specific roles are formalized.
+- [x] Implement the MAAC sidebar/topbar structure from the prototype: Dashboard, Applications, Projects, Agents, Tools, SDK Implementation, Agent Playground, Runs & Audit Logs, LLM Providers, Governance, and Settings.
+- [x] Translate Milaha design tokens from the prototype into the app's Tailwind/shadcn-style component system, including navy, purple, orange, teal, status tones, typography, compact cards, tables, badges, and dark-mode compatibility.
+- [x] Build mock-backed dashboard metrics for runs, costs, token usage, LLM usage, tool implementation gaps, and governance alerts.
+- [x] Build mock-backed list/detail pages for Applications, Projects, Agents, Tools, SDK Implementation Center, Playground, Runs, LLM Providers, Governance, and Settings.
+- [x] Implement the Create Agent wizard screens for basic details, prompt, LLM selection, tools, runtime/safety, and review.
+- [x] Implement the prototype's persona/scope behavior as an internal UX model or documented placeholder until final RBAC is available.
+- [x] Use Wayfinder route helpers for frontend navigation and form/action wiring.
+- [x] Add feature or browser smoke coverage for the authenticated MAAC pages and no-JavaScript-error checks on the main console routes.
 
 ### Deliverables
 
