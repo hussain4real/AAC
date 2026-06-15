@@ -3,13 +3,13 @@ name: linter
 on:
   push:
     branches:
-      - develop
+      - dev
       - main
       - master
       - workos
   pull_request:
     branches:
-      - develop
+      - dev
       - main
       - master
       - workos
