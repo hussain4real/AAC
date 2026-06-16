@@ -29,13 +29,14 @@ import {
     Badge,
     scopeBadge,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Agent, Tool } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 export default function Show({ id }: { id: string }) {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const tool = MAAC.toolById(id);
 
     if (!tool) {

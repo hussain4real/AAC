@@ -19,10 +19,10 @@ import {
     SENS_TONE,
 } from '@/components/maac/ui';
 import type { TabDef, Tone } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { ApprovalItem, Policy, Role, SensitivityLevel } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ── Local sub-components ─────────────────────────────────── */
 
@@ -236,6 +236,8 @@ function ApprovalQueues({ A }: { A: ApprovalBuckets }) {
 }
 
 function RolesPerms() {
+    const MAAC = useMaacData();
+
     return (
         <div>
             <div
@@ -376,6 +378,8 @@ function PolicyRow({ policy, border }: { policy: Policy; border: boolean }) {
 }
 
 function SecurityPolicies() {
+    const MAAC = useMaacData();
+
     return (
         <div
             style={{
@@ -468,6 +472,8 @@ function SecurityPolicies() {
 }
 
 function DataSensitivity() {
+    const MAAC = useMaacData();
+
     return (
         <div
             style={{
@@ -577,6 +583,7 @@ function DataSensitivity() {
 
 export default function Governance() {
     const { scope } = useMaacNav();
+    const MAAC = useMaacData();
     const isAdmin = scope.isAll;
     const appNames = new Set(scope.apps.map((a) => a.name).concat('Platform'));
     const filt = (items: ApprovalItem[]) =>

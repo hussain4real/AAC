@@ -13,10 +13,11 @@ import {
     RunBadge,
     SectionHeader,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Agent, Llm, Run } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
+import type { MaacData } from '@/maac/use-data';
 
 /* ---------- local types ---------- */
 
@@ -92,7 +93,11 @@ function CheckLine({ ok, label }: CheckLineProps) {
     );
 }
 
-function buildTrace(run: Run, ag: Agent | undefined): TraceEvent[] {
+function buildTrace(
+    run: Run,
+    ag: Agent | undefined,
+    MAAC: MaacData,
+): TraceEvent[] {
     const toolName = run.tools[0]
         ? (MAAC.toolById(run.tools[0])?.name ?? 'getOperationalRecords')
         : 'getOperationalRecords';
@@ -360,6 +365,7 @@ function TraceTimeline({ events }: TraceTimelineProps) {
 
 export default function Show({ id }: { id: string }) {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const run = MAAC.byId(MAAC.runs, id) || MAAC.runs[0];
 
     if (!scope.has.run(run.id)) {
@@ -370,7 +376,7 @@ export default function Show({ id }: { id: string }) {
     const llm = MAAC.llmById(run.llm);
     const failed = ['failed', 'expired'].includes(run.status);
 
-    const events = buildTrace(run, ag);
+    const events = buildTrace(run, ag, MAAC);
 
     const finalOutput: string | null =
         (

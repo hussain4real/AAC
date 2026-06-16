@@ -22,5 +22,9 @@ class DatabaseSeeder extends Seeder
             'name' => 'Layla Hassan',
             'email' => 'demo@milaha.com',
         ]);
+
+        // MAAC platform data (Phase 2): reproduces the Phase 1 console fixture
+        // as governed database records for the demo team.
+        $this->call(MaacDemoSeeder::class);
     }
 }

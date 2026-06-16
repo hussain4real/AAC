@@ -17,10 +17,10 @@ import {
     Textarea,
     Toggle,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Application, Llm, Project, Tool } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ── Wizard data shape ─────────────────────────────────────── */
 interface AgentDraft {
@@ -66,6 +66,7 @@ function StepHeader({ title, sub }: { title: string; sub: string }) {
 /* ── StepBasic ─────────────────────────────────────────────── */
 function StepBasic({ data, set }: StepProps) {
     const { scope } = useMaacNav();
+    const MAAC = useMaacData();
     const apps: Application[] = scope.apps.length ? scope.apps : MAAC.apps;
     const projs: Project[] = scope.projects.filter((p) => p.appId === data.app);
 
@@ -221,6 +222,8 @@ function StepPrompt({ data, set }: StepProps) {
 
 /* ── StepLLM ───────────────────────────────────────────────── */
 function StepLLM({ data, set }: StepProps) {
+    const MAAC = useMaacData();
+
     return (
         <div>
             <StepHeader
@@ -353,6 +356,7 @@ function StepLLM({ data, set }: StepProps) {
 
 /* ── StepTools ─────────────────────────────────────────────── */
 function StepTools({ data, set }: StepProps) {
+    const MAAC = useMaacData();
     const groups: { title: string; scope: Tool['scope']; desc: string }[] = [
         {
             title: 'Global Tools',
@@ -628,6 +632,7 @@ function StepRuntime({ data, set }: StepProps) {
 
 /* ── StepReview ────────────────────────────────────────────── */
 function StepReview({ data, go }: StepReviewProps) {
+    const MAAC = useMaacData();
     const llm: Llm | undefined = MAAC.llmById(data.llm);
     const app: Application | undefined = MAAC.appById(data.app);
     const proj: Project | undefined = MAAC.projectById(data.project);

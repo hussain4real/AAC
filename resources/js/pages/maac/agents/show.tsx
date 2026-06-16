@@ -33,11 +33,11 @@ import {
     TOOL_TYPE_META,
 } from '@/components/maac/ui';
 import type { KVItem } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Agent, Llm, Project, Application, Tool, Run } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
 import type { RouteName } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ---------- SafetyToggle (local) ---------- */
 function SafetyToggle({ initial }: { initial: boolean }) {
@@ -64,6 +64,7 @@ function AgentOverview({
     go: (name: RouteName, params?: Record<string, string | undefined>) => void;
     setTab: (tab: string) => void;
 }) {
+    const MAAC = useMaacData();
     const spark = [62, 70, 66, 78, 74, 88, 84, 96, 90, 104, 98, 112];
 
     return (
@@ -399,6 +400,7 @@ function AgentTools({
     agent: Agent;
     go: (name: RouteName, params?: Record<string, string | undefined>) => void;
 }) {
+    const MAAC = useMaacData();
     const tools = agent.tools
         .map((t) => MAAC.toolById(t))
         .filter((t): t is Tool => t !== undefined);
@@ -535,6 +537,7 @@ function AgentTools({
 
 /* ---------- AgentAPI (local) ---------- */
 function AgentAPI({ agent }: { agent: Agent }) {
+    const MAAC = useMaacData();
     const llm = MAAC.llmById(agent.llm);
     const reqBody = `{
   "input": "Summarize today's operations and flag any delays over 6 hours.",
@@ -856,6 +859,7 @@ function AgentVersions({ agent }: { agent: Agent }) {
 
 /* ---------- AgentSafety (local) ---------- */
 function AgentSafety({ agent, llm }: { agent: Agent; llm: Llm | undefined }) {
+    const MAAC = useMaacData();
     const settings = [
         {
             label: 'Prompt guardrails',
@@ -964,6 +968,7 @@ function AgentSafety({ agent, llm }: { agent: Agent; llm: Llm | undefined }) {
 /* ---------- Page ---------- */
 export default function Show({ id }: { id: string }) {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const agent = MAAC.agentById(id);
     const [tab, setTab] = useState('overview');
 

@@ -1,5 +1,8 @@
 <?php
 
+use App\Enums\TeamRole;
+use App\Models\Team;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +50,29 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Build a team owner (MAAC Platform Admin) and their current team.
+ *
+ * @return array{0: User, 1: Team}
+ */
+function ownerAndTeam(): array
+{
+    $owner = User::factory()->create();
+
+    return [$owner, $owner->currentTeam];
+}
+
+/**
+ * Add a plain team member (not a Platform Admin) to the given team and make it
+ * their current team.
+ */
+function teamMember(Team $team): User
+{
+    $member = User::factory()->create();
+    $team->members()->attach($member, ['role' => TeamRole::Member->value]);
+    $member->switchTeam($team);
+
+    return $member;
 }

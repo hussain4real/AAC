@@ -21,9 +21,9 @@ import {
     Tr,
 } from '@/components/maac/ui';
 import type { TabDef } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ── Local sub-components ─────────────────────────────────── */
 
@@ -100,6 +100,8 @@ function UsageBar({
 }
 
 function GeneralSettings() {
+    const MAAC = useMaacData();
+
     return (
         <div
             style={{

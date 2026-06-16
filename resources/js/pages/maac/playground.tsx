@@ -20,10 +20,10 @@ import {
     SensBadge,
     Textarea,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Agent, Application, Tool } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ── module consts ── */
 
@@ -395,6 +395,8 @@ function PlaygroundTimeline({
     agent,
     tool,
 }: PlaygroundTimelineProps) {
+    const MAAC = useMaacData();
+
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
             {PLAY_STEPS.map((s, i) => {
@@ -557,6 +559,7 @@ function PlaygroundTimeline({
 
 export default function Playground() {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const agentParam = new URLSearchParams(
         typeof window !== 'undefined' ? window.location.search : '',
     ).get('agent');

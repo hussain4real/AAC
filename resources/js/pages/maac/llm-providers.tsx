@@ -20,10 +20,11 @@ import {
     Toggle,
     Tr,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import { Icon } from '@/maac/icons';
+import { useMaacData } from '@/maac/use-data';
 
 export default function LLMProviders() {
+    const MAAC = useMaacData();
     const [showAdd, setShowAdd] = useState(false);
     const approved = MAAC.llms.filter((l) => l.status === 'Approved');
     const totalRuns = MAAC.llms.reduce((s, l) => s + l.runs, 0);

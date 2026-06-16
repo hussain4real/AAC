@@ -28,11 +28,11 @@ import {
     Td,
     Tr,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Agent, Application, Project, Tool } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
 import type { MaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ---- Local sub-components ---- */
 
@@ -162,6 +162,7 @@ function AppOverview({
     go: MaacNav['go'];
     setTab: (tab: string) => void;
 }) {
+    const MAAC = useMaacData();
     const missing = tools.filter((t) =>
         ['required', 'outdated', 'incompatible'].includes(t.impl),
     );
@@ -507,6 +508,8 @@ function AppProjects({
 }
 
 function AppAgents({ agents, go }: { agents: Agent[]; go: MaacNav['go'] }) {
+    const MAAC = useMaacData();
+
     return (
         <Table
             columns={[
@@ -543,6 +546,8 @@ function AppAgents({ agents, go }: { agents: Agent[]; go: MaacNav['go'] }) {
 }
 
 function AppTools({ tools, go }: { tools: Tool[]; go: MaacNav['go'] }) {
+    const MAAC = useMaacData();
+
     return (
         <Table
             columns={[
@@ -1057,6 +1062,7 @@ console.log(res.output);`;
 
 export default function Show({ id }: { id: string }) {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const app = MAAC.appById(id);
     const [tab, setTab] = useState('overview');
 

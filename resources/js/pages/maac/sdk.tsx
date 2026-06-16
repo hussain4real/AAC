@@ -22,11 +22,11 @@ import {
     Td,
     Tr,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Application, Tool } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
 import type { MaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ── local sub-components ── */
 
@@ -93,6 +93,7 @@ interface ToolImplPanelProps {
 }
 
 function ToolImplPanel({ tool, app, onClose }: ToolImplPanelProps) {
+    const MAAC = useMaacData();
     const [lang, setLang] = useState<'ts' | 'php' | 'py'>('ts');
     const [copied, setCopied] = useState(false);
     const ag = MAAC.agentById(tool.usedBy[0]);
@@ -371,6 +372,7 @@ function ToolImplPanel({ tool, app, onClose }: ToolImplPanelProps) {
 
 export default function SDKCenter() {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const appsInScope = scope.apps.length ? scope.apps : MAAC.apps;
     const [appId, setAppId] = useState(() => {
         const withMissing = appsInScope.find((a) =>

@@ -3,9 +3,9 @@
    theme toggle, notifications). Bespoke chrome from prototype.
    ============================================================ */
 import { useEffect, useRef, useState } from 'react';
-import { MAAC } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 import { Badge, inputStyle, Select } from './ui';
 
 function NotifMenu({
@@ -15,6 +15,7 @@ function NotifMenu({
     onClose: () => void;
     go: (name: 'governance') => void;
 }) {
+    const MAAC = useMaacData();
     const ref = useRef<HTMLDivElement>(null);
     useEffect(() => {
         const h = (e: MouseEvent) => {

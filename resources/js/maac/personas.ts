@@ -3,8 +3,8 @@
    Phase 1 RBAC is a front-end UX mock (the "Switch view" menu).
    Real RBAC arrives with the Phase 2 ownership model.
    ============================================================ */
-import { MAAC } from './data';
 import type { Agent, Application, Project, Run, Tool } from './data';
+import type { MaacDataset } from './use-data';
 
 export type ScreenId =
     | 'dashboard'
@@ -181,16 +181,16 @@ export type Scope = {
     };
 };
 
-export function computeScope(persona: Persona): Scope {
+export function computeScope(persona: Persona, data: MaacDataset): Scope {
     if (!persona || persona.scope === 'all') {
         return {
             isAll: true,
             role: persona,
-            apps: MAAC.apps,
-            projects: MAAC.projects,
-            agents: MAAC.agents,
-            tools: MAAC.tools,
-            runs: MAAC.runs,
+            apps: data.apps,
+            projects: data.projects,
+            agents: data.agents,
+            tools: data.tools,
+            runs: data.runs,
             has: {
                 app: () => true,
                 project: () => true,
@@ -202,19 +202,19 @@ export function computeScope(persona: Persona): Scope {
     }
 
     const projIds = new Set(persona.projectIds || []);
-    const projects = MAAC.projects.filter((p) => projIds.has(p.id));
+    const projects = data.projects.filter((p) => projIds.has(p.id));
     const appIds = new Set([
         ...(persona.appIds || []),
         ...projects.map((p) => p.appId),
     ]);
-    const apps = MAAC.apps.filter((a) => appIds.has(a.id));
-    const agents = MAAC.agents.filter((a) => projIds.has(a.projectId));
+    const apps = data.apps.filter((a) => appIds.has(a.id));
+    const agents = data.agents.filter((a) => projIds.has(a.projectId));
     const agentIds = new Set(agents.map((a) => a.id));
-    const tools = MAAC.tools.filter(
+    const tools = data.tools.filter(
         (t) => t.scope === 'Global' || t.usedBy.some((u) => agentIds.has(u)),
     );
     const toolIds = new Set(tools.map((t) => t.id));
-    const runs = MAAC.runs.filter((r) => agentIds.has(r.agentId));
+    const runs = data.runs.filter((r) => agentIds.has(r.agentId));
 
     return {
         isAll: false,

@@ -2,10 +2,10 @@
    MAAC — Cross-screen shared helpers
    ============================================================ */
 import type { CSSProperties, ReactNode } from 'react';
-import { MAAC } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
 import type { Scope } from '@/maac/personas';
+import { useMaacData } from '@/maac/use-data';
 import {
     Avatar,
     Badge,
@@ -47,6 +47,7 @@ export function Lbl({
 /** Run-history table for an application (shared by Application + Agent detail). */
 export function AppHistory({ app }: { app: { id: string } }) {
     const { go } = useMaacNav();
+    const MAAC = useMaacData();
     const appRuns = MAAC.runs.filter((r) => r.appId === app.id);
 
     return (

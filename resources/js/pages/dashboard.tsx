@@ -26,16 +26,17 @@ import {
     Tr,
 } from '@/components/maac/ui';
 import PendingInvitationsModal from '@/components/pending-invitations-modal';
-import { MAAC } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
 import type { RouteName } from '@/maac/nav';
 import { navAllowed } from '@/maac/personas';
+import { useMaacData } from '@/maac/use-data';
 import type { DashboardInvitation } from '@/types';
 
 type Props = { pendingInvitations?: DashboardInvitation[] };
 
 export default function Dashboard({ pendingInvitations = [] }: Props) {
+    const MAAC = useMaacData();
     const [showInvitations, setShowInvitations] = useState(
         pendingInvitations.length > 0,
     );

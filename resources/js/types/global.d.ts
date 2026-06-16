@@ -1,3 +1,4 @@
+import type { Agent, Application, Llm, Project, Run, Tool } from '@/maac/data';
 import type { Auth } from '@/types/auth';
 import type { Team } from '@/types/teams';
 
@@ -16,6 +17,14 @@ declare module '@inertiajs/core' {
             sidebarOpen: boolean;
             currentTeam: Team | null;
             teams: Team[];
+            maac: {
+                apps: Application[];
+                projects: Project[];
+                agents: Agent[];
+                tools: Tool[];
+                runs: Run[];
+                llms: Llm[];
+            } | null;
             [key: string]: unknown;
         };
     }

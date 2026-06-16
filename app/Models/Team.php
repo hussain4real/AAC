@@ -25,6 +25,10 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, TeamInvitation> $invitations
  * @property-read Collection<int, Membership> $memberships
  * @property-read Collection<int, User> $members
+ * @property-read Collection<int, Application> $applications
+ * @property-read Collection<int, LlmProvider> $llmProviders
+ * @property-read Collection<int, ToolContract> $toolContracts
+ * @property-read Collection<int, AuditEvent> $auditEvents
  */
 #[Fillable(['name', 'slug', 'is_personal'])]
 class Team extends Model
@@ -93,6 +97,46 @@ class Team extends Model
     public function invitations(): HasMany
     {
         return $this->hasMany(TeamInvitation::class);
+    }
+
+    /**
+     * Get the MAAC applications registered under this team.
+     *
+     * @return HasMany<Application, $this>
+     */
+    public function applications(): HasMany
+    {
+        return $this->hasMany(Application::class);
+    }
+
+    /**
+     * Get the approved LLM catalog for this team.
+     *
+     * @return HasMany<LlmProvider, $this>
+     */
+    public function llmProviders(): HasMany
+    {
+        return $this->hasMany(LlmProvider::class);
+    }
+
+    /**
+     * Get the tool contracts owned by this team.
+     *
+     * @return HasMany<ToolContract, $this>
+     */
+    public function toolContracts(): HasMany
+    {
+        return $this->hasMany(ToolContract::class);
+    }
+
+    /**
+     * Get the audit events recorded for this team.
+     *
+     * @return HasMany<AuditEvent, $this>
+     */
+    public function auditEvents(): HasMany
+    {
+        return $this->hasMany(AuditEvent::class);
     }
 
     /**

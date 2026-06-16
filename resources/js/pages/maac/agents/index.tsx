@@ -14,13 +14,14 @@ import {
     Select,
     inputStyle,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Agent } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 /* ---------- AgentCard (local) ---------- */
 function AgentCard({ agent, onOpen }: { agent: Agent; onOpen: () => void }) {
+    const MAAC = useMaacData();
     const llm = MAAC.llmById(agent.llm);
     const app = MAAC.appById(agent.appId);
     const clientTools = agent.tools
@@ -190,6 +191,7 @@ function AgentCard({ agent, onOpen }: { agent: Agent; onOpen: () => void }) {
 /* ---------- Page ---------- */
 export default function Agents() {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const [q, setQ] = useState('');
     const [filters, setFilters] = useState({
         app: 'All',

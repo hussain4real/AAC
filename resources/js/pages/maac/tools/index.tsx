@@ -22,12 +22,13 @@ import {
     inputStyle,
     scopeBadge,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 export default function Tools() {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const [q, setQ] = useState('');
     const [scopeF, setScopeF] = useState('All');
     const [mode, setMode] = useState('All');

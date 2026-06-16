@@ -19,6 +19,7 @@ import { useAppearance } from '@/hooks/use-appearance';
 import { dashboard } from '@/routes';
 import { computeScope, navAllowed, PERSONAS, SCREEN_OF } from './personas';
 import type { Persona, PersonaId, Scope, ScreenId } from './personas';
+import { useMaacDataset } from './use-data';
 
 type Environment = 'Production' | 'Staging' | 'Development';
 
@@ -158,7 +159,8 @@ export function MaacNavProvider({ children }: { children: ReactNode }) {
         );
     });
 
-    const scope = useMemo(() => computeScope(persona), [persona]);
+    const data = useMaacDataset();
+    const scope = useMemo(() => computeScope(persona, data), [persona, data]);
 
     const activeScreen: ScreenId = useMemo(() => {
         const path = page.url.split('?')[0];

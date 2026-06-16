@@ -15,12 +15,13 @@ import {
     Tr,
     inputStyle,
 } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 export default function Runs() {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const [q, setQ] = useState('');
     const [f, setF] = useState({ app: 'All', status: 'All', agent: 'All' });
 

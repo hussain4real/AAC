@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\MaacConsoleData;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -46,6 +47,9 @@ class HandleInertiaRequests extends Middleware
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
+            // MAAC console dataset for the current team (Phase 2). Feeds the
+            // client-side scope/persona layer with real records.
+            'maac' => fn () => $user?->currentTeam ? MaacConsoleData::forTeam($user->currentTeam) : null,
         ];
     }
 }

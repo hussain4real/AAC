@@ -18,10 +18,10 @@ import {
     AppMark,
 } from '@/components/maac/ui';
 import { inputStyle } from '@/components/maac/ui';
-import { MAAC } from '@/maac/data';
 import type { Project } from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
+import { useMaacData } from '@/maac/use-data';
 
 interface OwnerProps {
     label: string;
@@ -52,6 +52,7 @@ function Owner({ label, name }: OwnerProps) {
 
 export default function Projects() {
     const { go, scope } = useMaacNav();
+    const MAAC = useMaacData();
     const [q, setQ] = useState('');
     const [appFilter, setAppFilter] = useState('All applications');
     const [statusFilter, setStatusFilter] = useState('All statuses');

@@ -52,23 +52,25 @@ Convert the handoff prototype into a Laravel/Inertia MAAC console baseline that 
 
 ## Phase 2: Core Platform Data Model
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-2-data-model`. The 13 core entities + RBAC concepts moved from the Phase 1 client fixture to UUID-keyed database records (each carries a `slug` route key seeded to the fixture id, so every URL and cross-reference is preserved). The console now reads real records through a shared `maac` Inertia prop backed by Eloquent API Resources, with secure (hashed, one-time-display) credentials and policy-authorized CRUD. Verified: 142 Pest tests pass; PHPStan level 7, Pint, ESLint, Prettier, `tsc`, and `vite build` all clean; browser walkthrough confirms every console screen renders from real data with no JS console errors. Governance/dashboard **display rollups** (roles, approvals, policies, sensitivity legend, dashboard aggregates) intentionally remain fixture-sourced pending Phase 5; the full per-role authorization **test matrix** is likewise deferred to Phase 5.
+
 ### Goal
 
 Build the persistent management foundation for MAAC so applications, projects, credentials, models, agents, and tool contracts move from prototype data to governed database-backed records.
 
 ### Checklist
 
-- [ ] Create database models and migrations for Application, Project, Credential, LLM Provider, Agent, Agent Version, Tool Contract, Tool Assignment, Tool Implementation, Agent Run, Tool Call, Trace Event, and Audit Event.
-- [ ] Map the existing auth/team scaffold to the first MAAC ownership model without breaking current team routes.
-- [ ] Define role and permission concepts for Platform Admin, Project Owner, Developer, Viewer, Auditor, and Security Reviewer.
-- [ ] Implement application registration with environment-aware metadata: development, sandbox, staging, and production.
-- [ ] Implement secure application credential creation, hashed secret storage, one-time secret display, status, rotation metadata, and revocation state.
-- [ ] Implement project management under applications with member assignments, status, environment, business owner, and technical owner.
-- [ ] Implement the approved LLM catalog with provider, model code, context window, cost rates, sensitivity level, environment availability, and enabled/disabled status.
-- [ ] Implement agent drafts with slug, project, selected LLM, system prompt, runtime settings, status, version, and publication metadata.
-- [ ] Implement tool contracts with name, slug, description, scope, execution mode, input schema, output schema, sensitivity, approval requirement, timeout, payload limit, and version.
-- [ ] Implement tool assignments for global, project-level, and agent-level tools.
-- [ ] Add policies, form requests, factories, seeders, and feature tests for all core management resources.
+- [x] Create database models and migrations for Application, Project, Credential, LLM Provider, Agent, Agent Version, Tool Contract, Tool Assignment, Tool Implementation, Agent Run, Tool Call, Trace Event, and Audit Event.
+- [x] Map the existing auth/team scaffold to the first MAAC ownership model without breaking current team routes.
+- [x] Define role and permission concepts for Platform Admin, Project Owner, Developer, Viewer, Auditor, and Security Reviewer.
+- [x] Implement application registration with environment-aware metadata: development, sandbox, staging, and production.
+- [x] Implement secure application credential creation, hashed secret storage, one-time secret display, status, rotation metadata, and revocation state.
+- [x] Implement project management under applications with member assignments, status, environment, business owner, and technical owner.
+- [x] Implement the approved LLM catalog with provider, model code, context window, cost rates, sensitivity level, environment availability, and enabled/disabled status.
+- [x] Implement agent drafts with slug, project, selected LLM, system prompt, runtime settings, status, version, and publication metadata.
+- [x] Implement tool contracts with name, slug, description, scope, execution mode, input schema, output schema, sensitivity, approval requirement, timeout, payload limit, and version.
+- [x] Implement tool assignments for global, project-level, and agent-level tools.
+- [x] Add policies, form requests, factories, seeders, and feature tests for all core management resources.
 
 ### Deliverables
 
