@@ -37,30 +37,19 @@ Route::prefix('{current_team}')
         Route::get('platform-settings', [ConsoleController::class, 'settings'])->name('platform-settings');
 
         // MAAC console (Phase 2 — database-backed writes)
-        Route::post('applications', [ApplicationController::class, 'store'])->name('applications.store');
-        Route::put('applications/{application}', [ApplicationController::class, 'update'])->name('applications.update');
-        Route::delete('applications/{application}', [ApplicationController::class, 'destroy'])->name('applications.destroy');
-
         Route::post('applications/{application}/credentials', [CredentialController::class, 'store'])->name('applications.credentials.store');
         Route::post('credentials/{credential}/rotate', [CredentialController::class, 'rotate'])->name('credentials.rotate');
         Route::post('credentials/{credential}/revoke', [CredentialController::class, 'revoke'])->name('credentials.revoke');
 
-        Route::post('projects', [ProjectController::class, 'store'])->name('projects.store');
-        Route::put('projects/{project}', [ProjectController::class, 'update'])->name('projects.update');
-        Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->name('projects.destroy');
-
-        Route::post('agents', [AgentController::class, 'store'])->name('agents.store');
-        Route::put('agents/{agent}', [AgentController::class, 'update'])->name('agents.update');
         Route::post('agents/{agent}/publish', [AgentController::class, 'publish'])->name('agents.publish');
-        Route::delete('agents/{agent}', [AgentController::class, 'destroy'])->name('agents.destroy');
 
-        Route::post('tools', [ToolContractController::class, 'store'])->name('tools.store');
-        Route::put('tools/{tool}', [ToolContractController::class, 'update'])->name('tools.update');
-        Route::delete('tools/{tool}', [ToolContractController::class, 'destroy'])->name('tools.destroy');
-
-        Route::post('llm-providers', [LlmProviderController::class, 'store'])->name('llm-providers.store');
-        Route::put('llm-providers/{llmProvider}', [LlmProviderController::class, 'update'])->name('llm-providers.update');
-        Route::delete('llm-providers/{llmProvider}', [LlmProviderController::class, 'destroy'])->name('llm-providers.destroy');
+        Route::resource('applications', ApplicationController::class)->only(['store', 'update', 'destroy']);
+        Route::resource('projects', ProjectController::class)->only(['store', 'update', 'destroy']);
+        Route::resource('agents', AgentController::class)->only(['store', 'update', 'destroy']);
+        Route::resource('tools', ToolContractController::class)->only(['store', 'update', 'destroy']);
+        Route::resource('llm-providers', LlmProviderController::class)
+            ->only(['store', 'update', 'destroy'])
+            ->parameters(['llm-providers' => 'llmProvider']);
     });
 
 Route::middleware(['auth'])->group(function () {

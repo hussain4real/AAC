@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Maac;
 
-use App\Enums\ImplStatus;
+use App\Actions\Maac\CreateToolContract;
+use App\Actions\Maac\DeleteToolContract;
+use App\Actions\Maac\UpdateToolContract;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maac\StoreToolContractRequest;
 use App\Http\Requests\Maac\UpdateToolContractRequest;
 use App\Models\ToolContract;
-use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,25 +19,12 @@ class ToolContractController extends Controller
     /**
      * Create a new tool contract.
      */
-    public function store(StoreToolContractRequest $request): RedirectResponse
+    public function store(StoreToolContractRequest $request, CreateToolContract $createToolContract): RedirectResponse
     {
         Gate::authorize('create', ToolContract::class);
 
         $team = $request->user()->currentTeam()->firstOrFail();
-        $validated = $request->validated();
-        $implementationStatus = $request->string('execution_mode')->value() === 'client'
-            ? ImplStatus::Required->value
-            : ImplStatus::Ready->value;
-
-        ToolContract::create([
-            ...$validated,
-            'team_id' => $team->id,
-            'slug' => Slug::unique('tool_contracts', $request->string('name')->value()),
-            'status' => 'Active',
-            'implementation_status' => $implementationStatus,
-            'version' => $validated['version'] ?? '1.0.0',
-            'requires_approval' => $validated['requires_approval'] ?? false,
-        ]);
+        $createToolContract->handle($team, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Tool contract created.']);
 
@@ -46,11 +34,11 @@ class ToolContractController extends Controller
     /**
      * Update the given tool contract.
      */
-    public function update(UpdateToolContractRequest $request, string $currentTeam, ToolContract $tool): RedirectResponse
+    public function update(UpdateToolContractRequest $request, string $currentTeam, ToolContract $tool, UpdateToolContract $updateToolContract): RedirectResponse
     {
         Gate::authorize('update', $tool);
 
-        $tool->update($request->validated());
+        $updateToolContract->handle($tool, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Tool contract updated.']);
 
@@ -60,11 +48,11 @@ class ToolContractController extends Controller
     /**
      * Delete (soft delete) the given tool contract.
      */
-    public function destroy(Request $request, string $currentTeam, ToolContract $tool): RedirectResponse
+    public function destroy(Request $request, string $currentTeam, ToolContract $tool, DeleteToolContract $deleteToolContract): RedirectResponse
     {
         Gate::authorize('delete', $tool);
 
-        $tool->delete();
+        $deleteToolContract->handle($tool);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Tool contract deleted.']);
 

@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Maac;
 
-use App\Enums\AppStatus;
+use App\Actions\Maac\ArchiveApplication;
+use App\Actions\Maac\CreateApplication;
+use App\Actions\Maac\UpdateApplication;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maac\StoreApplicationRequest;
 use App\Http\Requests\Maac\UpdateApplicationRequest;
 use App\Models\Application;
-use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,19 +19,12 @@ class ApplicationController extends Controller
     /**
      * Register a new application for the current team.
      */
-    public function store(StoreApplicationRequest $request): RedirectResponse
+    public function store(StoreApplicationRequest $request, CreateApplication $createApplication): RedirectResponse
     {
         Gate::authorize('create', Application::class);
 
         $team = $request->user()->currentTeam()->firstOrFail();
-        $validated = $request->validated();
-
-        Application::create([
-            ...$validated,
-            'team_id' => $team->id,
-            'slug' => Slug::unique('applications', $request->string('code')->value()),
-            'status' => $validated['status'] ?? AppStatus::Active->value,
-        ]);
+        $createApplication->handle($team, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Application registered.']);
 
@@ -40,11 +34,11 @@ class ApplicationController extends Controller
     /**
      * Update the given application.
      */
-    public function update(UpdateApplicationRequest $request, string $currentTeam, Application $application): RedirectResponse
+    public function update(UpdateApplicationRequest $request, string $currentTeam, Application $application, UpdateApplication $updateApplication): RedirectResponse
     {
         Gate::authorize('update', $application);
 
-        $application->update($request->validated());
+        $updateApplication->handle($application, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Application updated.']);
 
@@ -54,11 +48,11 @@ class ApplicationController extends Controller
     /**
      * Archive (soft delete) the given application.
      */
-    public function destroy(Request $request, string $currentTeam, Application $application): RedirectResponse
+    public function destroy(Request $request, string $currentTeam, Application $application, ArchiveApplication $archiveApplication): RedirectResponse
     {
         Gate::authorize('delete', $application);
 
-        $application->delete();
+        $archiveApplication->handle($application);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Application archived.']);
 

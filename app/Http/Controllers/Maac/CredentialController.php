@@ -2,15 +2,16 @@
 
 namespace App\Http\Controllers\Maac;
 
-use App\Enums\CredentialStatus;
-use App\Enums\Environment;
+use App\Actions\Maac\CreateCredential;
+use App\Actions\Maac\CredentialSecret;
+use App\Actions\Maac\RevokeCredential;
+use App\Actions\Maac\RotateCredential;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maac\StoreCredentialRequest;
 use App\Models\Application;
 use App\Models\Credential;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
@@ -20,25 +21,13 @@ class CredentialController extends Controller
      * Generate a new credential for an application environment. The plaintext
      * secret is flashed once and never stored.
      */
-    public function store(StoreCredentialRequest $request, string $currentTeam, Application $application): RedirectResponse
+    public function store(StoreCredentialRequest $request, string $currentTeam, Application $application, CreateCredential $createCredential): RedirectResponse
     {
         Gate::authorize('create', [Credential::class, $application]);
 
-        $environment = Environment::from($request->string('environment')->value());
-        $plainSecret = Credential::generateSecret();
-
-        $credential = new Credential([
-            'application_id' => $application->id,
-            'environment' => $environment->value,
-            'label' => $request->string('label')->value() ?: $environment->label().' credentials',
-            'client_id' => Credential::generateClientId(),
-            'status' => CredentialStatus::Active->value,
-            'created_by' => $request->user()->id,
-        ]);
-        $credential->fillSecret($plainSecret);
-        $credential->save();
-
-        $this->flashSecret($credential, $plainSecret);
+        /** @var User $creator */
+        $creator = $request->user();
+        $this->flashSecret($createCredential->handle($application, $creator, $request->validated()));
 
         return back();
     }
@@ -46,18 +35,11 @@ class CredentialController extends Controller
     /**
      * Rotate the credential's secret, preserving its identity and history.
      */
-    public function rotate(Request $request, string $currentTeam, Credential $credential): RedirectResponse
+    public function rotate(string $currentTeam, Credential $credential, RotateCredential $rotateCredential): RedirectResponse
     {
         Gate::authorize('rotate', $credential);
 
-        $plainSecret = Credential::generateSecret();
-        $credential->fillSecret($plainSecret);
-        $credential->status = CredentialStatus::Active;
-        $credential->rotated_at = Carbon::now();
-        $credential->revoked_at = null;
-        $credential->save();
-
-        $this->flashSecret($credential, $plainSecret);
+        $this->flashSecret($rotateCredential->handle($credential));
 
         return back();
     }
@@ -65,14 +47,11 @@ class CredentialController extends Controller
     /**
      * Revoke the credential so it can no longer authenticate.
      */
-    public function revoke(Request $request, string $currentTeam, Credential $credential): RedirectResponse
+    public function revoke(string $currentTeam, Credential $credential, RevokeCredential $revokeCredential): RedirectResponse
     {
         Gate::authorize('revoke', $credential);
 
-        $credential->update([
-            'status' => CredentialStatus::Revoked->value,
-            'revoked_at' => Carbon::now(),
-        ]);
+        $revokeCredential->handle($credential);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Credential revoked.']);
 
@@ -82,11 +61,11 @@ class CredentialController extends Controller
     /**
      * Flash the one-time plaintext secret for display.
      */
-    private function flashSecret(Credential $credential, string $plainSecret): void
+    private function flashSecret(CredentialSecret $credentialSecret): void
     {
         Inertia::flash('credentialSecret', [
-            'clientId' => $credential->client_id,
-            'secret' => $plainSecret,
+            'clientId' => $credentialSecret->credential->client_id,
+            'secret' => $credentialSecret->plainSecret,
         ]);
     }
 }

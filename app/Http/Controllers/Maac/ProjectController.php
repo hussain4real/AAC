@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Maac;
 
-use App\Enums\ProjectStatus;
+use App\Actions\Maac\ArchiveProject;
+use App\Actions\Maac\CreateProject;
+use App\Actions\Maac\UpdateProject;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maac\StoreProjectRequest;
 use App\Http\Requests\Maac\UpdateProjectRequest;
 use App\Models\Project;
-use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,21 +19,11 @@ class ProjectController extends Controller
     /**
      * Create a new project under an application.
      */
-    public function store(StoreProjectRequest $request): RedirectResponse
+    public function store(StoreProjectRequest $request, CreateProject $createProject): RedirectResponse
     {
         Gate::authorize('create', Project::class);
 
-        $validated = $request->validated();
-
-        $project = Project::create([
-            ...$validated,
-            'slug' => Slug::unique('projects', $request->string('name')->value()),
-            'status' => $validated['status'] ?? ProjectStatus::Active->value,
-        ]);
-
-        if ($request->has('llm_provider_ids')) {
-            $project->llmProviders()->sync($request->collect('llm_provider_ids')->all());
-        }
+        $createProject->handle($request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Project created.']);
 
@@ -42,15 +33,11 @@ class ProjectController extends Controller
     /**
      * Update the given project.
      */
-    public function update(UpdateProjectRequest $request, string $currentTeam, Project $project): RedirectResponse
+    public function update(UpdateProjectRequest $request, string $currentTeam, Project $project, UpdateProject $updateProject): RedirectResponse
     {
         Gate::authorize('update', $project);
 
-        $project->update($request->validated());
-
-        if ($request->has('llm_provider_ids')) {
-            $project->llmProviders()->sync($request->collect('llm_provider_ids')->all());
-        }
+        $updateProject->handle($project, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Project updated.']);
 
@@ -60,11 +47,11 @@ class ProjectController extends Controller
     /**
      * Archive (soft delete) the given project.
      */
-    public function destroy(Request $request, string $currentTeam, Project $project): RedirectResponse
+    public function destroy(Request $request, string $currentTeam, Project $project, ArchiveProject $archiveProject): RedirectResponse
     {
         Gate::authorize('delete', $project);
 
-        $project->delete();
+        $archiveProject->handle($project);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Project archived.']);
 

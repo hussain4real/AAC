@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Maac;
 
-use App\Enums\LlmStatus;
+use App\Actions\Maac\CreateLlmProvider;
+use App\Actions\Maac\DeleteLlmProvider;
+use App\Actions\Maac\UpdateLlmProvider;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maac\StoreLlmProviderRequest;
 use App\Http\Requests\Maac\UpdateLlmProviderRequest;
 use App\Models\LlmProvider;
-use App\Support\Slug;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -18,19 +19,12 @@ class LlmProviderController extends Controller
     /**
      * Add a model to the approved LLM catalog.
      */
-    public function store(StoreLlmProviderRequest $request): RedirectResponse
+    public function store(StoreLlmProviderRequest $request, CreateLlmProvider $createLlmProvider): RedirectResponse
     {
         Gate::authorize('create', LlmProvider::class);
 
         $team = $request->user()->currentTeam()->firstOrFail();
-        $validated = $request->validated();
-
-        LlmProvider::create([
-            ...$validated,
-            'team_id' => $team->id,
-            'slug' => Slug::unique('llm_providers', $request->string('code')->value()),
-            'status' => $validated['status'] ?? LlmStatus::Approved->value,
-        ]);
+        $createLlmProvider->handle($team, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Model added to the catalog.']);
 
@@ -40,11 +34,11 @@ class LlmProviderController extends Controller
     /**
      * Update the given catalog model.
      */
-    public function update(UpdateLlmProviderRequest $request, string $currentTeam, LlmProvider $llmProvider): RedirectResponse
+    public function update(UpdateLlmProviderRequest $request, string $currentTeam, LlmProvider $llmProvider, UpdateLlmProvider $updateLlmProvider): RedirectResponse
     {
         Gate::authorize('update', $llmProvider);
 
-        $llmProvider->update($request->validated());
+        $updateLlmProvider->handle($llmProvider, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Model updated.']);
 
@@ -54,11 +48,11 @@ class LlmProviderController extends Controller
     /**
      * Remove the given model from the catalog.
      */
-    public function destroy(Request $request, string $currentTeam, LlmProvider $llmProvider): RedirectResponse
+    public function destroy(Request $request, string $currentTeam, LlmProvider $llmProvider, DeleteLlmProvider $deleteLlmProvider): RedirectResponse
     {
         Gate::authorize('delete', $llmProvider);
 
-        $llmProvider->delete();
+        $deleteLlmProvider->handle($llmProvider);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Model removed.']);
 
