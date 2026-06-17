@@ -102,7 +102,7 @@ Prove the core MAAC integration model: tool contracts are created first in MAAC,
 - [ ] Add tool contract versioning with compatibility checks between current contract version and reported SDK implementation version.
 - [ ] Build SDK Implementation Center data from real contracts, assignments, application environments, and reported implementations.
 - [ ] Generate TypeScript and PHP SDK handler stubs from tool contracts.
-- [ ] Implement application credential authentication for SDK/API access using project/application-scoped credentials and short-lived tokens or signed requests.
+- [ ] Use Laravel Passport (`laravel/passport`) for SDK/API token issuance and validation, backed by project/application-scoped credentials and short-lived application access tokens.
 - [ ] Implement SDK manifest sync endpoints for applications to fetch required tools and report implemented handlers.
 - [ ] Add controlled errors for missing, outdated, incompatible, disabled, or unauthorized tool handlers.
 - [ ] Add tests for schema validation, implementation status transitions, credential auth, manifest sync, and stub generation.
@@ -133,10 +133,10 @@ Deliver the first real agent run lifecycle, including secure invocation, approve
 - [ ] Implement `POST /api/v1/agents/{agent_slug}/runs` for authenticated application/SDK invocation.
 - [ ] Implement run status retrieval for applications and SDKs.
 - [ ] Implement `POST /api/v1/runs/{run_id}/tool-results` for client-side tool result submission.
-- [ ] Authenticate and authorize each run against application credentials, project membership, agent publication status, environment, and model/tool policies.
+- [ ] Authenticate runtime API calls with Laravel Passport (`laravel/passport`) tokens issued to registered applications/SDK clients, then authorize each run against application credentials, project membership, agent publication status, environment, and model/tool policies.
 - [ ] Create Agent Run records with statuses: queued, running, requires_tool, waiting_for_client, completed, failed, expired, and cancelled.
 - [ ] Create Tool Call records whenever the runtime requests a tool.
-- [ ] Integrate the first approved LLM provider through an LLM Router abstraction.
+- [ ] Use Laravel AI SDK (`laravel/ai`) behind the LLM Router abstraction to call the first approved LLM provider.
 - [ ] Pass agent prompt, selected model, runtime settings, caller context, and assigned tool definitions into the runtime.
 - [ ] Detect model-requested tool calls and route them by execution mode.
 - [ ] Execute MAAC-hosted tools inside the platform for simple built-in utilities.
@@ -213,7 +213,7 @@ Extend MAAC beyond the MVP while preserving the same governance, data isolation,
 - [ ] Add streaming runtime events for chat-style or progress-oriented interfaces.
 - [ ] Add polling and webhook SDK integration modes.
 - [ ] Implement remote HTTP tools with allowlisted endpoints, method constraints, auth configuration, retries, and response validation.
-- [ ] Implement connector server support for application-owned advanced integrations.
+- [ ] Use Laravel MCP (`laravel/mcp`) to implement connector server support for application-owned advanced integrations where MCP tools, resources, or prompts fit the connector contract.
 - [ ] Implement knowledge retrieval/RAG tools with approved document sources, indexing pipeline, citation metadata, and access controls.
 - [ ] Add evaluation lab capabilities for prompt, tool, model, regression, and safety testing.
 - [ ] Add advanced model routing policies for sensitivity, cost, latency, fallback, and environment.
