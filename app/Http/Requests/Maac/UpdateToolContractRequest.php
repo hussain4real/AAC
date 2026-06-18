@@ -5,6 +5,7 @@ namespace App\Http\Requests\Maac;
 use App\Enums\ExecMode;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
+use App\Rules\ValidToolSchema;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,9 +28,9 @@ class UpdateToolContractRequest extends FormRequest
             'timeout_seconds' => ['sometimes', 'required', 'integer', 'min:1', 'max:600'],
             'max_payload_kb' => ['sometimes', 'required', 'integer', 'min:1', 'max:10240'],
             'version' => ['sometimes', 'string', 'max:32'],
-            'input_schema' => ['sometimes', 'required', 'array'],
+            'input_schema' => ['sometimes', 'required', 'array', new ValidToolSchema],
             'input_schema.*' => ['required', 'string', 'max:64'],
-            'output_schema' => ['sometimes', 'required', 'array'],
+            'output_schema' => ['sometimes', 'required', 'array', new ValidToolSchema],
             'output_schema.*' => ['required', 'string', 'max:64'],
         ];
     }

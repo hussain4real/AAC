@@ -19,6 +19,7 @@ use App\Models\Team;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
 use App\Models\User;
+use App\Support\Sdk\SdkClientManager;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -147,8 +148,12 @@ class MaacDemoSeeder extends Seeder
         ]);
 
         if (! $cred->exists) {
-            $cred->client_id = Credential::generateClientId();
-            $cred->fillSecret(Credential::generateSecret());
+            // Back the demo credential with a real Passport client so it can be
+            // exchanged for SDK tokens at /oauth/token.
+            app(SdkClientManager::class)->provision(
+                $cred,
+                $app->name.' — '.$app->environment->label(),
+            );
             $cred->created_by = $user->id;
         }
 

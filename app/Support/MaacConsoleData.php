@@ -53,7 +53,7 @@ class MaacConsoleData
             ->get();
 
         $tools = $team->toolContracts()
-            ->with(['application', 'agents'])
+            ->with(['application', 'agents', 'implementations'])
             ->orderBy('name')
             ->get();
 

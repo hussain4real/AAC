@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Concerns\RecordsAuditEvents;
 use App\Enums\AppStatus;
 use App\Enums\Environment;
+use Carbon\CarbonInterface;
 use Database\Factories\ApplicationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -132,6 +133,17 @@ class Application extends Model
             ->contains(fn (Credential $credential): bool => $credential->status->isUsable());
 
         return $hasActive ? 'Active' : 'Revoked';
+    }
+
+    /**
+     * Get a human-readable "last synced" label derived from the most recent SDK
+     * credential use, or null if the application has never authenticated.
+     */
+    public function lastSyncedAt(): ?string
+    {
+        return $this->credentials
+            ->max(fn (Credential $credential): ?CarbonInterface => $credential->last_used_at)
+            ?->diffForHumans();
     }
 
     /**

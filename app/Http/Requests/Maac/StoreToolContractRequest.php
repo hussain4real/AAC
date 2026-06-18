@@ -5,6 +5,7 @@ namespace App\Http\Requests\Maac;
 use App\Enums\ExecMode;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
+use App\Rules\ValidToolSchema;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -29,9 +30,9 @@ class StoreToolContractRequest extends FormRequest
             'max_payload_kb' => ['required', 'integer', 'min:1', 'max:10240'],
             'version' => ['sometimes', 'string', 'max:32'],
             // JSON contract schemas: an object mapping field name => type string.
-            'input_schema' => ['required', 'array'],
+            'input_schema' => ['required', 'array', new ValidToolSchema],
             'input_schema.*' => ['required', 'string', 'max:64'],
-            'output_schema' => ['required', 'array'],
+            'output_schema' => ['required', 'array', new ValidToolSchema],
             'output_schema.*' => ['required', 'string', 'max:64'],
         ];
     }

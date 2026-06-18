@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Environment;
 use App\Enums\ImplStatus;
+use App\Enums\SdkLanguage;
 use Database\Factories\ToolImplementationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -20,13 +21,14 @@ use Illuminate\Support\Carbon;
  * @property ImplStatus $status
  * @property string|null $handler_name
  * @property string|null $implemented_version
+ * @property SdkLanguage|null $language
  * @property Carbon|null $last_validated_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read ToolContract $toolContract
  * @property-read Application $application
  */
-#[Fillable(['tool_contract_id', 'application_id', 'environment', 'status', 'handler_name', 'implemented_version', 'last_validated_at'])]
+#[Fillable(['tool_contract_id', 'application_id', 'environment', 'status', 'handler_name', 'implemented_version', 'language', 'last_validated_at'])]
 class ToolImplementation extends Model
 {
     /** @use HasFactory<ToolImplementationFactory> */
@@ -62,6 +64,7 @@ class ToolImplementation extends Model
         return [
             'environment' => Environment::class,
             'status' => ImplStatus::class,
+            'language' => SdkLanguage::class,
             'last_validated_at' => 'datetime',
         ];
     }

@@ -15,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Laravel\Passport\Client;
+use Laravel\Passport\Passport;
 
 /**
  * @property string $id
@@ -22,6 +24,7 @@ use Illuminate\Support\Str;
  * @property Environment $environment
  * @property string $label
  * @property string $client_id
+ * @property string|null $oauth_client_id
  * @property string $secret_hash
  * @property string|null $last_four
  * @property CredentialStatus $status
@@ -33,8 +36,9 @@ use Illuminate\Support\Str;
  * @property Carbon|null $updated_at
  * @property-read Application $application
  * @property-read User|null $creator
+ * @property-read Client|null $oauthClient
  */
-#[Fillable(['application_id', 'environment', 'label', 'client_id', 'secret_hash', 'last_four', 'status', 'last_used_at', 'rotated_at', 'revoked_at', 'created_by'])]
+#[Fillable(['application_id', 'environment', 'label', 'client_id', 'oauth_client_id', 'secret_hash', 'last_four', 'status', 'last_used_at', 'rotated_at', 'revoked_at', 'created_by'])]
 #[Hidden(['secret_hash'])]
 class Credential extends Model
 {
@@ -59,6 +63,17 @@ class Credential extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the Passport client_credentials client that backs this credential for
+     * SDK/API token issuance.
+     *
+     * @return BelongsTo<Client, $this>
+     */
+    public function oauthClient(): BelongsTo
+    {
+        return $this->belongsTo(Passport::clientModel(), 'oauth_client_id');
     }
 
     /**

@@ -8,6 +8,7 @@ use App\Models\Application;
 use App\Models\Credential;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Passport\ClientRepository;
 
 /**
  * @extends Factory<Credential>
@@ -52,5 +53,20 @@ class CredentialFactory extends Factory
             'status' => CredentialStatus::Revoked,
             'revoked_at' => now(),
         ]);
+    }
+
+    /**
+     * Back the credential with a real Passport client_credentials client so it
+     * can be used to authenticate SDK/runtime API requests in tests.
+     */
+    public function withOauthClient(): static
+    {
+        return $this->afterMaking(function (Credential $credential): void {
+            $client = app(ClientRepository::class)->createClientCredentialsGrantClient('Test SDK client');
+
+            $credential->client_id = $client->getKey();
+            $credential->oauth_client_id = $client->getKey();
+            $credential->fillSecret((string) $client->plainSecret);
+        });
     }
 }

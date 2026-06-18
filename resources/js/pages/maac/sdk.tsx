@@ -22,11 +22,32 @@ import {
     Td,
     Tr,
 } from '@/components/maac/ui';
-import type { Application, Tool } from '@/maac/data';
+import type {
+    Application,
+    Environment,
+    ImplStatus,
+    Tool,
+    ToolImplementationRecord,
+} from '@/maac/data';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
 import type { MaacNav } from '@/maac/nav';
 import { useMaacData } from '@/maac/use-data';
+
+/* ── helpers ── */
+
+/** Resolve a client tool's reported implementation for an environment. */
+function implFor(
+    tool: Tool,
+    env: Environment,
+): ToolImplementationRecord | undefined {
+    return tool.implementations?.find((record) => record.env === env);
+}
+
+/** The effective implementation status for a tool in an environment. */
+function implStatusFor(tool: Tool, env: Environment): ImplStatus {
+    return implFor(tool, env)?.status ?? tool.impl;
+}
 
 /* ── local sub-components ── */
 
@@ -99,26 +120,28 @@ function ToolImplPanel({ tool, app, onClose }: ToolImplPanelProps) {
     const ag = MAAC.agentById(tool.usedBy[0]);
     const argList = Object.keys(tool.input);
     const stub = sdkStub(tool, lang, argList);
+    const status = implStatusFor(tool, app.env);
+    const isImplemented = status === 'implemented';
     const checklist = [
         {
             label: 'Install MAAC SDK in the application',
-            done: app.status !== 'Suspended',
+            done: !!app.lastSyncedAt,
         },
         {
             label: `Register handler for ${tool.name}`,
-            done: tool.impl === 'implemented',
+            done: isImplemented,
         },
         {
             label: 'Enforce caller permissions before returning data',
-            done: tool.impl === 'implemented',
+            done: isImplemented,
         },
         {
             label: 'Return a result matching the output schema',
-            done: tool.impl === 'implemented',
+            done: isImplemented,
         },
         {
             label: 'Run SDK validation & sync status to MAAC',
-            done: tool.impl === 'implemented',
+            done: isImplemented,
         },
     ];
 
@@ -215,7 +238,7 @@ function ToolImplPanel({ tool, app, onClose }: ToolImplPanelProps) {
                                 flexWrap: 'wrap',
                             }}
                         >
-                            <ImplBadge status={tool.impl} />
+                            <ImplBadge status={status} />
                             <SensBadge level={tool.sensitivity} />
                             <Badge tone="neutral">timeout {tool.timeout}</Badge>
                         </div>
@@ -380,7 +403,7 @@ export default function SDKCenter() {
                 (t) =>
                     t.appId === a.id &&
                     t.execMode === 'client' &&
-                    t.impl !== 'implemented',
+                    implStatusFor(t, a.env) !== 'implemented',
             ),
         );
 
@@ -393,7 +416,9 @@ export default function SDKCenter() {
     );
     const appAgents = MAAC.agentsByApp(appId);
 
-    const done = appTools.filter((t) => t.impl === 'implemented').length;
+    const done = appTools.filter(
+        (t) => implStatusFor(t, app.env) === 'implemented',
+    ).length;
     const pct = appTools.length
         ? Math.round((done / appTools.length) * 100)
         : 100;
@@ -521,13 +546,13 @@ export default function SDKCenter() {
                     >
                         <SDKStat
                             icon="check2"
-                            label="SDK installed"
+                            label="SDK connection"
                             value={
-                                app.status !== 'Suspended'
-                                    ? 'v2.4.1'
-                                    : 'Not installed'
+                                app.credStatus === 'Active'
+                                    ? 'Connected'
+                                    : 'No active credential'
                             }
-                            ok={app.status !== 'Suspended'}
+                            ok={app.credStatus === 'Active'}
                         />
                         <SDKStat
                             icon="agents"
@@ -546,13 +571,9 @@ export default function SDKCenter() {
                         <SDKStat
                             icon="refresh"
                             label="Last sync"
-                            value={
-                                app.status === 'Suspended'
-                                    ? '3 days ago'
-                                    : '2 min ago'
-                            }
+                            value={app.lastSyncedAt ?? 'Never'}
                             border
-                            ok={app.status !== 'Suspended'}
+                            ok={!!app.lastSyncedAt}
                         />
                     </div>
                 </Card>
@@ -598,6 +619,8 @@ export default function SDKCenter() {
                                 {appTools.map((t) => {
                                     const ag = MAAC.agentById(t.usedBy[0]);
                                     const isSel = selTool === t.id;
+                                    const impl = implFor(t, app.env);
+                                    const status = impl?.status ?? t.impl;
 
                                     return (
                                         <Tr
@@ -622,7 +645,7 @@ export default function SDKCenter() {
                                                 <EnvBadge env={app.env} />
                                             </Td>
                                             <Td>
-                                                <ImplBadge status={t.impl} />
+                                                <ImplBadge status={status} />
                                             </Td>
                                             <Td
                                                 align="right"
@@ -630,14 +653,10 @@ export default function SDKCenter() {
                                                     color: 'var(--text-3)',
                                                 }}
                                             >
-                                                {t.impl === 'implemented'
-                                                    ? '2h ago'
-                                                    : t.impl === 'outdated'
-                                                      ? '8d ago'
-                                                      : 'Never'}
+                                                {impl?.lastValidated ?? 'Never'}
                                             </Td>
                                             <Td align="right">
-                                                {t.impl === 'implemented' ? (
+                                                {status === 'implemented' ? (
                                                     <Badge
                                                         tone="teal"
                                                         icon="check2"

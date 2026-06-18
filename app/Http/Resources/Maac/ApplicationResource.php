@@ -38,6 +38,7 @@ class ApplicationResource extends JsonResource
             'stack' => $this->stack,
             'desc' => $this->description,
             'credStatus' => $this->whenLoaded('credentials', fn () => $this->credentialStatus()),
+            'lastSyncedAt' => $this->whenLoaded('credentials', fn () => $this->lastSyncedAt()),
             'region' => $this->region,
             'created' => $this->created_at?->format('j M Y') ?? '',
         ];

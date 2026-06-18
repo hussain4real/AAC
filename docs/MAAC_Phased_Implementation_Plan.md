@@ -89,23 +89,25 @@ Build the persistent management foundation for MAAC so applications, projects, c
 
 ## Phase 3: Tool Registry & SDK Integration MVP
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-3-sdk`. Tool contracts are now the governed source of truth, applications authenticate with Passport `client_credentials` tokens (each MAAC credential backs a Passport client; tokens issued at `/oauth/token`, 1‑hour lifetime, validated via `EnsureClientIsResourceOwner` + the `sdk.auth` middleware that resolves the credential → application). The SDK API exposes `GET /api/v1/manifest` (available agents + required client tools, schemas, contract versions, fingerprints, generated TS/PHP/Python stubs, and per‑environment implementation status) and `POST /api/v1/tool-implementations` (reports handlers; reconciles version + schema‑fingerprint compatibility into implemented/outdated/incompatible, with controlled per‑item errors for unknown/non‑client/disabled tools). Schema validation (`ToolSchema`) is enforced on contract writes and at runtime boundaries. The SDK Implementation Center renders real `ToolImplementation` records (status, last‑validated, last‑sync). Verified: 226 Pest tests pass at **100 % coverage**; PHPStan level 7, Pint, ESLint, Prettier, `tsc`, and `vite build` all clean. Full agent runtime (invoking these tools) remains Phase 4; `http`/`knowledge` execution modes exist as contract options only.
+
 ### Goal
 
 Prove the core MAAC integration model: tool contracts are created first in MAAC, then application teams implement compatible local handlers through an SDK.
 
 ### Checklist
 
-- [ ] Build the Tool Registry as the source of truth for global, project-level, and agent-level tool contracts.
-- [ ] Support initial execution modes required for MVP: MAAC-hosted, client-side, remote HTTP, and knowledge retrieval as contract options, with only MAAC-hosted and client-side needing full runtime behavior in this phase.
-- [ ] Add JSON input schema and output schema validation for tool contracts.
-- [ ] Track client-side tool implementation status per application environment: not required, requires implementation, implemented, outdated, incompatible, disabled.
-- [ ] Add tool contract versioning with compatibility checks between current contract version and reported SDK implementation version.
-- [ ] Build SDK Implementation Center data from real contracts, assignments, application environments, and reported implementations.
-- [ ] Generate TypeScript and PHP SDK handler stubs from tool contracts.
-- [ ] Use Laravel Passport (`laravel/passport`) for SDK/API token issuance and validation, backed by project/application-scoped credentials and short-lived application access tokens.
-- [ ] Implement SDK manifest sync endpoints for applications to fetch required tools and report implemented handlers.
-- [ ] Add controlled errors for missing, outdated, incompatible, disabled, or unauthorized tool handlers.
-- [ ] Add tests for schema validation, implementation status transitions, credential auth, manifest sync, and stub generation.
+- [x] Build the Tool Registry as the source of truth for global, project-level, and agent-level tool contracts.
+- [x] Support initial execution modes required for MVP: MAAC-hosted, client-side, remote HTTP, and knowledge retrieval as contract options, with only MAAC-hosted and client-side needing full runtime behavior in this phase.
+- [x] Add JSON input schema and output schema validation for tool contracts.
+- [x] Track client-side tool implementation status per application environment: not required, requires implementation, implemented, outdated, incompatible, disabled.
+- [x] Add tool contract versioning with compatibility checks between current contract version and reported SDK implementation version.
+- [x] Build SDK Implementation Center data from real contracts, assignments, application environments, and reported implementations.
+- [x] Generate TypeScript and PHP SDK handler stubs from tool contracts.
+- [x] Use Laravel Passport (`laravel/passport`) for SDK/API token issuance and validation, backed by project/application-scoped credentials and short-lived application access tokens.
+- [x] Implement SDK manifest sync endpoints for applications to fetch required tools and report implemented handlers.
+- [x] Add controlled errors for missing, outdated, incompatible, disabled, or unauthorized tool handlers.
+- [x] Add tests for schema validation, implementation status transitions, credential auth, manifest sync, and stub generation.
 
 ### Deliverables
 

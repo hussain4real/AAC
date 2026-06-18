@@ -68,6 +68,8 @@ export type Application = {
     stack: string;
     desc: string;
     credStatus: 'Active' | 'Revoked';
+    /** Humanized time of the application's most recent SDK sync, or null. */
+    lastSyncedAt?: string | null;
     region: string;
     created: string;
 };
@@ -87,6 +89,15 @@ export type Project = {
     runs7d: number;
 };
 
+export type ToolImplementationRecord = {
+    env: Environment;
+    status: ImplStatus;
+    handler: string | null;
+    version: string | null;
+    language: string | null;
+    lastValidated: string | null;
+};
+
 export type Tool = {
     id: string;
     name: string;
@@ -104,6 +115,9 @@ export type Tool = {
     maxPayload: string;
     input: Record<string, string>;
     output: Record<string, string>;
+    version?: string;
+    /** Per-environment client-side implementation records reported via the SDK. */
+    implementations?: ToolImplementationRecord[];
 };
 
 export type Agent = {

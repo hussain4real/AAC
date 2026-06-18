@@ -7,6 +7,7 @@ use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
+use App\Support\Sdk\ToolCompatibility;
 use Database\Factories\ToolContractFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -120,6 +121,24 @@ class ToolContract extends Model
     public function ownerLabel(): string
     {
         return $this->application_id === null ? 'Platform' : $this->application->slug;
+    }
+
+    /**
+     * Compute a stable fingerprint of the contract's input/output schema shape,
+     * used for SDK implementation compatibility checks.
+     */
+    public function schemaFingerprint(): string
+    {
+        return ToolCompatibility::fingerprint($this->input_schema, $this->output_schema);
+    }
+
+    /**
+     * Determine whether the tool is executed by the calling application via the
+     * SDK (and therefore requires a reported client-side implementation).
+     */
+    public function isClientSide(): bool
+    {
+        return $this->execution_mode->isClientSide();
     }
 
     /**

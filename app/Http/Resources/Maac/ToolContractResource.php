@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Maac;
 
 use App\Models\ToolContract;
+use App\Models\ToolImplementation;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -39,6 +40,19 @@ class ToolContractResource extends JsonResource
             'maxPayload' => $this->formattedPayload(),
             'input' => $this->input_schema,
             'output' => $this->output_schema,
+            'version' => $this->version,
+            // Per-environment client-side implementation status reported via the SDK.
+            'implementations' => $this->whenLoaded('implementations', fn () => $this->implementations
+                ->map(fn (ToolImplementation $implementation): array => [
+                    'env' => $implementation->environment->label(),
+                    'status' => $implementation->status->value,
+                    'handler' => $implementation->handler_name,
+                    'version' => $implementation->implemented_version,
+                    'language' => $implementation->language?->label(),
+                    'lastValidated' => $implementation->last_validated_at?->diffForHumans(),
+                ])
+                ->values()
+                ->all()),
         ];
     }
 
