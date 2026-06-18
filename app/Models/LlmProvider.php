@@ -75,6 +75,48 @@ class LlmProvider extends Model
     }
 
     /**
+     * Maps a catalog provider label to a configured `laravel/ai` driver.
+     *
+     * @var array<string, string>
+     */
+    private const DRIVER_MAP = [
+        'azure' => 'azure',
+        'bedrock' => 'bedrock',
+        'vertex' => 'gemini',
+        'gemini' => 'gemini',
+        'anthropic' => 'anthropic',
+        'claude' => 'anthropic',
+        'openai' => 'openai',
+    ];
+
+    /**
+     * Resolve the `laravel/ai` provider driver that backs this catalog entry,
+     * falling back to the application's default AI provider.
+     */
+    public function driver(): string
+    {
+        $normalized = strtolower($this->provider);
+
+        foreach (self::DRIVER_MAP as $needle => $driver) {
+            if (str_contains($normalized, $needle)) {
+                return $driver;
+            }
+        }
+
+        return (string) config('ai.default');
+    }
+
+    /**
+     * Determine whether the model may be used to run agents in the given
+     * environment (approved status and environment availability).
+     */
+    public function isAvailableIn(string $environment): bool
+    {
+        return $this->status === LlmStatus::Approved
+            && in_array($environment, $this->environments, true);
+    }
+
+    /**
      * Get the route key for the model.
      */
     public function getRouteKeyName(): string
