@@ -126,28 +126,30 @@ Prove the core MAAC integration model: tool contracts are created first in MAAC,
 
 ## Phase 4: Agent Runtime MVP
 
+> **Status: ✅ Complete** — The agent run lifecycle is live behind an `LlmRouter` abstraction (`App\Support\Runtime`). MAAC owns the orchestration loop (so it can pause for client-side tools — the `laravel/ai` auto-executing agent loop cannot); the production `AiLlmRouter` drives `laravel/ai` one turn at a time via a compact JSON tool-call protocol, and tests bind a deterministic `FakeLlmRouter`. The runtime API (`POST /api/v1/agents/{agent_slug}/runs`, `GET /api/v1/runs/{run_id}`, `POST /api/v1/runs/{run_id}/tool-results`) is authenticated by the Phase 3 `sdk.auth` Passport client_credentials flow and authorized per-application by `RunAuthorizer`. `AgentRunner` drives queued→running→(hosted tool inline / pause for client tool)→completed, validating every payload against `ToolSchema` and recording a `TraceEvent` per milestone. MAAC-hosted tools execute in-platform via `HostedToolRegistry` (`echo`, `current_time` built-ins). Timeouts/expiry, payload-size limits, step (retry) limits, model-availability policy, and agent-unpublished cancellation all fail safely. Verified: 261 Pest tests at **100 % coverage**; PHPStan level 7, Pint, ESLint, Prettier, `tsc`, and `vite build` all clean. Remote HTTP/knowledge/connector tool execution remains Phase 6 (the runtime returns a controlled `unsupported_execution_mode` for them).
+
 ### Goal
 
 Deliver the first real agent run lifecycle, including secure invocation, approved LLM calls, tool-call detection, client-side pause/resume, trace events, and final response payloads.
 
 ### Checklist
 
-- [ ] Implement `POST /api/v1/agents/{agent_slug}/runs` for authenticated application/SDK invocation.
-- [ ] Implement run status retrieval for applications and SDKs.
-- [ ] Implement `POST /api/v1/runs/{run_id}/tool-results` for client-side tool result submission.
-- [ ] Authenticate runtime API calls with Laravel Passport (`laravel/passport`) tokens issued to registered applications/SDK clients, then authorize each run against application credentials, project membership, agent publication status, environment, and model/tool policies.
-- [ ] Create Agent Run records with statuses: queued, running, requires_tool, waiting_for_client, completed, failed, expired, and cancelled.
-- [ ] Create Tool Call records whenever the runtime requests a tool.
-- [ ] Use Laravel AI SDK (`laravel/ai`) behind the LLM Router abstraction to call the first approved LLM provider.
-- [ ] Pass agent prompt, selected model, runtime settings, caller context, and assigned tool definitions into the runtime.
-- [ ] Detect model-requested tool calls and route them by execution mode.
-- [ ] Execute MAAC-hosted tools inside the platform for simple built-in utilities.
-- [ ] Pause runs for client-side tools and return a structured `requires_tool` response to the SDK.
-- [ ] Validate submitted tool results against output schema before resuming the run.
-- [ ] Resume the LLM call with validated tool results and compose a final response.
-- [ ] Enforce timeouts, payload size limits, retry limits, cancellation, and safe failure responses.
-- [ ] Record trace events for run requested, caller authenticated, model selected, prompt prepared, tool required, tool result received, validation, resume, completion, and failure.
-- [ ] Add tests for no-tool runs, client-side pause/resume runs, invalid tool results, expired runs, unauthorized invocations, and failed model/tool calls.
+- [x] Implement `POST /api/v1/agents/{agent_slug}/runs` for authenticated application/SDK invocation.
+- [x] Implement run status retrieval for applications and SDKs.
+- [x] Implement `POST /api/v1/runs/{run_id}/tool-results` for client-side tool result submission.
+- [x] Authenticate runtime API calls with Laravel Passport (`laravel/passport`) tokens issued to registered applications/SDK clients, then authorize each run against application credentials, project membership, agent publication status, environment, and model/tool policies.
+- [x] Create Agent Run records with statuses: queued, running, requires_tool, waiting_for_client, completed, failed, expired, and cancelled.
+- [x] Create Tool Call records whenever the runtime requests a tool.
+- [x] Use Laravel AI SDK (`laravel/ai`) behind the LLM Router abstraction to call the first approved LLM provider.
+- [x] Pass agent prompt, selected model, runtime settings, caller context, and assigned tool definitions into the runtime.
+- [x] Detect model-requested tool calls and route them by execution mode.
+- [x] Execute MAAC-hosted tools inside the platform for simple built-in utilities.
+- [x] Pause runs for client-side tools and return a structured `requires_tool` response to the SDK.
+- [x] Validate submitted tool results against output schema before resuming the run.
+- [x] Resume the LLM call with validated tool results and compose a final response.
+- [x] Enforce timeouts, payload size limits, retry limits, cancellation, and safe failure responses.
+- [x] Record trace events for run requested, caller authenticated, model selected, prompt prepared, tool required, tool result received, validation, resume, completion, and failure.
+- [x] Add tests for no-tool runs, client-side pause/resume runs, invalid tool results, expired runs, unauthorized invocations, and failed model/tool calls.
 
 ### Deliverables
 
