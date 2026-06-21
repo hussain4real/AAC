@@ -1005,6 +1005,10 @@ export function Select({
                     <SelectValue />
                 </SelectTrigger>
                 <SelectContent
+                    // Radix portals the dropdown to <body>, outside the
+                    // `.maac-theme` scope — re-apply it (as Modal does) so the
+                    // Milaha tokens resolve and the panel isn't transparent.
+                    className="maac-theme"
                     style={{
                         background: 'var(--surface)',
                         border: '1px solid var(--border)',
