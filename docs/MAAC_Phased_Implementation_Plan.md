@@ -209,40 +209,212 @@ Make MAAC auditable, governable, and enterprise-safe for controlled production u
 
 ## Phase 6: Enterprise & Advanced Capabilities
 
-### Goal
+> **Status: Planned, split for testability** — Phase 6 should not ship as one large enterprise bucket. Each sub-phase below must leave behind a repeatable end-to-end proof, external application integration evidence, and automated coverage that can fail independently. A Phase 6 capability is not complete until it is exercised through MAAC plus at least one SDK-consuming application where that capability affects the integration contract.
 
-Extend MAAC beyond the MVP while preserving the same governance, data isolation, observability, and SDK-first integration model.
+### Phase 6A: End-to-End Validation Harness
 
-### Checklist
+#### Goal
+
+Create a repeatable, automated validation path that proves MAAC works from management-console setup through SDK-authenticated agent invocation, client-side tool execution, final run completion, and audit review.
+
+#### Checklist
+
+- [ ] Define the canonical MAAC E2E scenario matrix: register application, create project, create LLM provider, create agent, create client-side tool contract, generate credential, fetch SDK manifest, report tool implementation, invoke published agent, pause for tool, submit tool result, complete run, and verify trace/audit/cost data.
+- [ ] Add deterministic seed fixtures for the E2E matrix so local and CI runs use stable teams, applications, credentials, agents, tools, and model responses.
+- [ ] Add browser coverage for the authenticated Inertia console setup path: application registration, credential generation/rotation, tool contract creation, agent publication, governance approval, and run/audit inspection.
+- [ ] Add API contract coverage for the runtime and SDK surfaces: `/oauth/token`, `GET /api/v1/manifest`, `POST /api/v1/tool-implementations`, `POST /api/v1/agents/{agent_slug}/runs`, run status retrieval, and `POST /api/v1/runs/{run_id}/tool-results`.
+- [ ] Add a fake or deterministic LLM provider mode for E2E tests so the workflow can run without external model spend or flaky network dependency.
+- [ ] Add controlled failure-path E2E coverage for revoked credentials, wrong environment, unpublished agent, missing tool handler, incompatible schema, oversized tool result, and expired run.
+- [ ] Document the local and CI commands required to run the full MAAC E2E gate.
+
+#### Deliverables
+
+- A runnable MAAC E2E validation suite.
+- Deterministic E2E seed data and fake-provider configuration.
+- A documented smoke command for developers and CI.
+- Contract-level assertions for the SDK/runtime API response shapes.
+
+#### Acceptance Criteria
+
+- A developer can run one documented command and prove the complete MAAC happy path from console setup to completed agent run.
+- The E2E suite verifies that the SDK manifest changes from "requires implementation" to "implemented" after the external app reports a compatible handler.
+- The suite proves runtime pause/resume with a client-side tool and confirms trace events, audit events, token/cost metadata, and final response payload.
+- `composer ci:check`, `php artisan test --coverage --min=100 --compact`, `npm run build`, and the new E2E smoke gate pass before Phase 6A is marked complete.
+
+### Phase 6B: External SDK Reference Applications
+
+#### Goal
+
+Prove MAAC can be integrated by real applications outside the MAAC codebase, starting with a Laravel reference consumer and one second priority stack.
+
+#### Checklist
+
+- [ ] Create a Laravel reference consumer application that obtains a Passport `client_credentials` token, fetches the MAAC manifest, registers local tool handlers, reports implementation status, invokes an agent, handles `requires_tool`, submits tool results, and reads final run status.
+- [ ] Create a second reference consumer in another priority stack, such as TypeScript/Node or a lightweight PHP CLI app, using the same manifest and runtime contracts.
+- [ ] Package reusable SDK client code rather than copying request logic into each reference app.
+- [ ] Add consumer-app integration tests that run against a seeded MAAC test instance and assert token exchange, manifest sync, implementation reporting, run invocation, pause/resume, and final response handling.
+- [ ] Add negative integration tests for revoked credentials, stale implementation versions, schema fingerprint mismatch, unauthorized agent access, and missing local handlers.
+- [ ] Document required environment variables, token exchange flow, handler registration pattern, and troubleshooting steps for external application teams.
+- [ ] Add a compatibility matrix that names which SDK languages and application stacks are supported, experimental, or planned.
+
+#### Deliverables
+
+- At least two SDK-consuming reference applications.
+- Reusable SDK client package or packages.
+- Cross-application integration tests wired into the MAAC validation workflow.
+- Developer documentation for onboarding another application to MAAC.
+
+#### Acceptance Criteria
+
+- The Laravel reference consumer can complete an agent run with a client-side tool using only public MAAC SDK/runtime APIs.
+- The second reference consumer proves the integration contract is not Laravel-only.
+- MAAC dashboard, SDK Implementation Center, run trace, and audit log reflect activity from the external consumer apps.
+- A fresh developer can follow the documentation and connect a new application without inspecting MAAC internals.
+
+### Phase 6C: SDK Distribution, Versioning & Compatibility
+
+#### Goal
+
+Turn the Phase 3 SDK surfaces into a versioned integration product that can be safely adopted, upgraded, and tested by application teams.
+
+#### Checklist
+
+- [ ] Define SDK package boundaries for generated stubs, runtime client, manifest sync, credential/token management, local handler registry, and test helpers.
+- [ ] Add semantic versioning for SDK packages and generated contract artifacts.
+- [ ] Add migration guides, deprecation windows, changelog entries, and compatibility dashboards for tool contract version changes.
+- [ ] Add SDK test helpers so external applications can validate local handlers against MAAC tool input/output schemas before reporting them as implemented.
+- [ ] Add a contract fixture suite that every supported SDK language must pass.
+- [ ] Add CI checks that prevent a MAAC API response-shape change from silently breaking supported SDK clients.
+- [ ] Add SDK examples for simple mode and advanced mode, including controlled missing-handler behavior.
+
+#### Deliverables
+
+- Versioned SDK packages and generated artifacts.
+- Compatibility dashboard and migration/deprecation workflow.
+- Shared SDK contract fixture suite.
+- Example integrations for supported SDK modes.
+
+#### Acceptance Criteria
+
+- SDK consumers can detect whether their package version and tool implementation versions are compatible with MAAC.
+- Contract changes are visible before deployment and include a documented migration path.
+- Supported SDK languages pass the same manifest, tool handler, run invocation, and failure-mode fixture suite.
+
+### Phase 6D: Async, Streaming, Polling & Webhook Runtime Modes
+
+#### Goal
+
+Support long-running and interactive agent experiences without weakening auditability, timeout controls, authorization, or SDK ergonomics.
+
+#### Checklist
+
+- [ ] Add asynchronous runtime mode for long-running agent runs.
+- [ ] Add polling SDK integration mode for applications that cannot hold open a request.
+- [ ] Add webhook delivery for run status changes, tool requests, completion, failure, and expiry.
+- [ ] Add streaming runtime events for chat-style or progress-oriented interfaces.
+- [ ] Persist delivery attempts, replay state, webhook signatures, and failure reasons.
+- [ ] Add SDK support for polling, webhooks, and streaming with resumable error handling.
+- [ ] Add E2E tests from external reference apps for async, polling, webhook, and streaming paths.
+
+#### Deliverables
+
+- Async run API and worker-backed lifecycle.
+- Polling, webhook, and streaming SDK modes.
+- Webhook signature validation and delivery audit trail.
+- External app tests for long-running and interactive workflows.
+
+#### Acceptance Criteria
+
+- A reference app can start a long-running run, receive progress through polling or webhooks, execute a client-side tool, and receive final completion.
+- Streaming and async paths produce the same core trace, audit, quota, cost, and retention data as synchronous runs.
+- Webhook failures are observable, retryable, and safely signed.
+
+### Phase 6E: Remote HTTP Tools & Laravel MCP Connectors
+
+#### Goal
+
+Expand beyond client-side and MAAC-hosted tools while preserving the same tool-contract-first model, schema validation, policy enforcement, and observability.
+
+#### Checklist
+
+- [ ] Implement remote HTTP tools with allowlisted endpoints, method constraints, auth configuration, retry policy, timeout policy, response validation, and redaction rules.
+- [ ] Add approval gates for production remote HTTP tools, including endpoint, auth, sensitivity, and egress review.
+- [ ] Use Laravel MCP (`laravel/mcp`) to implement connector server support where MCP tools, resources, or prompts fit the connector contract.
+- [ ] Add MCP connector registration, capability discovery, permission mapping, and trace/audit recording.
+- [ ] Add reference connector integration tests that execute an MCP-backed tool from an external application context.
+- [ ] Add controlled failures for unreachable endpoints, blocked domains, invalid connector output, unauthorized connector access, and connector timeout.
+- [ ] Update SDK manifests so external apps can distinguish client-side tools from MAAC-hosted, remote HTTP, and MCP-backed tools.
+
+#### Deliverables
+
+- Remote HTTP execution engine.
+- Laravel MCP connector support.
+- Governance workflow for remote and connector tools.
+- E2E tests proving remote and MCP-backed tools through the runtime.
+
+#### Acceptance Criteria
+
+- Remote HTTP and MCP tools follow the same schema, versioning, trace, audit, quota, sensitivity, and retention standards as existing tools.
+- External reference apps can invoke agents that use remote or MCP-backed tools without direct database access to the consuming application.
+- Unsupported execution modes are replaced by tested implementations or explicit, documented non-goals.
+
+### Phase 6F: Knowledge Retrieval/RAG & Evaluation Lab
+
+#### Goal
+
+Add governed knowledge retrieval and evaluation workflows so teams can test agent quality, safety, regressions, and source attribution before production rollout.
+
+#### Checklist
+
+- [ ] Implement knowledge retrieval/RAG tools with approved document sources, indexing pipeline, citation metadata, freshness metadata, and access controls.
+- [ ] Add ingestion approvals for sensitive document sources and environment-specific indexes.
+- [ ] Add evaluation lab capabilities for prompt, tool, model, regression, citation, and safety testing.
+- [ ] Add golden test datasets that exercise no-tool, client-tool, remote-tool, connector, and RAG workflows.
+- [ ] Add comparison reports for agent version, prompt version, model, tool contract version, cost, latency, correctness, and safety outcomes.
+- [ ] Add promotion gates that prevent publishing a risky agent version when required evaluations fail.
+- [ ] Add E2E tests that run an evaluation against seeded data and verify dashboard/audit visibility.
+
+#### Deliverables
+
+- Governed RAG tool capability.
+- Evaluation lab UI and backend workflow.
+- Golden datasets and evaluation reports.
+- Promotion gates tied to evaluation results.
+
+#### Acceptance Criteria
+
+- A project owner can index an approved source, assign a RAG tool to an agent, run an evaluation, inspect citations, and compare behavior across versions.
+- Evaluation outcomes can block or approve production promotion according to governance policy.
+- RAG and evaluation activity is auditable and visible in run traces, dashboards, and approval history.
+
+### Phase 6G: Enterprise Identity, Secrets & Advanced Governance
+
+#### Goal
+
+Harden MAAC for enterprise operation once the integration and runtime surfaces have repeatable E2E proof.
+
+#### Checklist
 
 - [ ] Integrate enterprise SSO/IAM for web users, mapped to MAAC roles and project/application membership.
-- [ ] Integrate a secrets vault for LLM provider keys, application credential material, remote tool secrets, and connector credentials.
-- [ ] Add asynchronous runtime mode for long-running agent runs.
-- [ ] Add streaming runtime events for chat-style or progress-oriented interfaces.
-- [ ] Add polling and webhook SDK integration modes.
-- [ ] Implement remote HTTP tools with allowlisted endpoints, method constraints, auth configuration, retries, and response validation.
-- [ ] Use Laravel MCP (`laravel/mcp`) to implement connector server support for application-owned advanced integrations where MCP tools, resources, or prompts fit the connector contract.
-- [ ] Implement knowledge retrieval/RAG tools with approved document sources, indexing pipeline, citation metadata, and access controls.
-- [ ] Add evaluation lab capabilities for prompt, tool, model, regression, and safety testing.
-- [ ] Add advanced model routing policies for sensitivity, cost, latency, fallback, and environment.
+- [ ] Integrate a secrets vault for LLM provider keys, application credential material, remote tool secrets, webhook secrets, and connector credentials.
+- [ ] Add advanced model routing policies for sensitivity, cost, latency, fallback, provider health, and environment.
 - [ ] Add human-in-the-loop approval steps for sensitive runtime actions.
-- [ ] Add SDK support for additional priority stacks beyond the first implementation language.
-- [ ] Add migration guides, deprecation windows, and compatibility dashboards for tool contract version changes.
+- [ ] Add enterprise audit export and retention controls for security review.
+- [ ] Add break-glass and incident-response controls for credential revocation, model disablement, connector shutdown, and webhook suspension.
+- [ ] Add E2E regression coverage proving SSO role mapping, vault-backed secret rotation, advanced routing, and human approvals.
 
-### Deliverables
+#### Deliverables
 
-- Enterprise identity and secrets integrations.
-- Additional runtime modes for async, streaming, polling, and webhooks.
-- Expanded tool ecosystem: remote HTTP, connector server, and knowledge retrieval.
-- Evaluation and advanced governance capabilities.
-- Multi-language SDK roadmap and compatibility tooling.
+- Enterprise identity and role mapping.
+- Vault-backed secret storage and rotation.
+- Advanced routing and human approval policies.
+- Enterprise audit export and incident-response controls.
 
-### Acceptance Criteria
+#### Acceptance Criteria
 
 - Enterprise authentication and secret storage replace local placeholders without changing MAAC's product model.
-- Long-running and streaming agent experiences work without weakening auditability or timeout controls.
-- Remote, connector, and knowledge tools follow the same schema validation, policy, versioning, and trace standards as client-side tools.
-- Evaluation workflows can compare agent behavior across prompts, models, tools, and versions before production rollout.
+- Role mapping, vault rotation, model routing, and sensitive runtime approvals are verified by automated E2E tests.
+- Security reviewers can trace user identity, application identity, secret usage, model routing decisions, and approval decisions across management and runtime events.
 
 ## Phase 7: Management Console Interactivity (UI ↔ API Wiring)
 
