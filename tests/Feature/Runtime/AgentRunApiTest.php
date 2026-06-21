@@ -5,16 +5,19 @@ use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\LlmStatus;
 use App\Enums\RunStatus;
+use App\Enums\Sensitivity;
 use App\Enums\ToolCallStatus;
 use App\Enums\TraceEventType;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\Credential;
+use App\Models\GovernanceSetting;
 use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
+use App\Support\Governance\PayloadMasker;
 use App\Support\Runtime\Contracts\HostedTool;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
@@ -532,4 +535,52 @@ test('an agent belonging to another application cannot be invoked', function () 
 
 test('the runtime validates the invocation payload', function () {
     invokeAgent(['input' => ''])->assertStatus(422)->assertJsonValidationErrors('input');
+});
+
+test('confidential run input and tool results are masked at rest', function () {
+    // The run inherits the most sensitive assigned tool's classification.
+    assignTool(['slug' => 'getRecords', 'execution_mode' => ExecMode::Client, 'sensitivity' => Sensitivity::Confidential]);
+
+    fakeRouter()
+        ->toolCallThen('getRecords', ['query' => 'today'])
+        ->textThen('done');
+
+    $start = invokeAgent(['input' => 'sensitive prompt'])->assertCreated();
+    $runId = $start->json('run_id');
+
+    // The live pause response still exposes the real arguments for execution.
+    expect($start->json('tool_call.arguments.query'))->toBe('today');
+
+    $run = AgentRun::firstWhere('slug', $runId);
+
+    expect($run->sensitivity)->toBe(Sensitivity::Confidential)
+        ->and($run->masked)->toBeTrue()
+        ->and($run->input)->toBe(PayloadMasker::REDACTED);
+
+    test()->postJson("/api/v1/runs/{$runId}/tool-results", [
+        'tool_call_id' => $start->json('tool_call.id'),
+        'result' => ['results' => ['x'], 'total' => 1],
+    ])->assertOk()->assertJsonPath('response', 'done');
+
+    $call = AgentRun::firstWhere('slug', $runId)->toolCalls()->first();
+
+    expect($call->result['results'])->toBe([PayloadMasker::REDACTED])
+        ->and($call->result['total'])->toBe(PayloadMasker::REDACTED);
+});
+
+test('a run is rejected when the daily run quota is exceeded', function () {
+    GovernanceSetting::factory()->for($this->team)->create(['default_daily_run_quota' => 1]);
+
+    AgentRun::factory()->create([
+        'agent_id' => $this->agent->id,
+        'project_id' => $this->project->id,
+        'application_id' => $this->application->id,
+        'llm_provider_id' => $this->provider->id,
+        'environment' => Environment::Production,
+        'started_at' => now(),
+    ]);
+
+    invokeAgent()
+        ->assertStatus(429)
+        ->assertJsonPath('error', 'quota_exceeded');
 });

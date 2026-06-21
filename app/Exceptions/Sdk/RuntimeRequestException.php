@@ -67,6 +67,14 @@ class RuntimeRequestException extends RuntimeException
     }
 
     /**
+     * A configured rate limit / quota for the run has been reached.
+     */
+    public static function quotaExceeded(string $detail): self
+    {
+        return new self('quota_exceeded', "The {$detail} has been reached for this period.", 429);
+    }
+
+    /**
      * The submitted tool result failed output-schema validation.
      *
      * @param  array<int, string>  $errors

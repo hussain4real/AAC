@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\Environment;
 use App\Enums\RunStatus;
+use App\Enums\Sensitivity;
 use App\Enums\ToolCallStatus;
 use Database\Factories\AgentRunFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -24,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string $slug
  * @property string|null $caller
  * @property Environment|null $environment
+ * @property Sensitivity $sensitivity
  * @property RunStatus $status
  * @property int $tokens_in
  * @property int $tokens_out
@@ -34,6 +36,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $output
  * @property array<string, mixed>|null $state
  * @property string|null $error
+ * @property string|null $failure_reason
+ * @property bool $masked
  * @property Carbon|null $started_at
  * @property Carbon|null $completed_at
  * @property Carbon|null $expires_at
@@ -46,7 +50,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ToolCall> $toolCalls
  * @property-read Collection<int, TraceEvent> $traceEvents
  */
-#[Fillable(['agent_id', 'project_id', 'application_id', 'llm_provider_id', 'slug', 'caller', 'environment', 'status', 'tokens_in', 'tokens_out', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'started_at', 'completed_at', 'expires_at'])]
+#[Fillable(['agent_id', 'project_id', 'application_id', 'llm_provider_id', 'slug', 'caller', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
 class AgentRun extends Model
 {
     /** @use HasFactory<AgentRunFactory> */
@@ -157,7 +161,9 @@ class AgentRun extends Model
     {
         return [
             'environment' => Environment::class,
+            'sensitivity' => Sensitivity::class,
             'status' => RunStatus::class,
+            'masked' => 'boolean',
             'tokens_in' => 'integer',
             'tokens_out' => 'integer',
             'cost' => 'float',

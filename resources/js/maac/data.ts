@@ -1154,6 +1154,16 @@ const roles: Role[] = [
     },
 ];
 
+export type ApprovalSubject = {
+    kind: string;
+    fields: { k: string; v: string }[];
+    description?: string | null;
+    systemPrompt?: string | null;
+    tools?: string[];
+    inputSchema?: Record<string, string>;
+    outputSchema?: Record<string, string>;
+};
+
 export type ApprovalItem = {
     id: string;
     title: string;
@@ -1163,6 +1173,9 @@ export type ApprovalItem = {
     env?: string;
     waiting: string;
     type: string;
+    summary?: string;
+    subject?: ApprovalSubject | null;
+    blockers?: string[];
 };
 const approvals: {
     tools: ApprovalItem[];

@@ -3,18 +3,26 @@
 namespace Database\Seeders;
 
 use App\Enums\AgentStatus;
+use App\Enums\ApprovalStatus;
+use App\Enums\ApprovalType;
 use App\Enums\CredentialStatus;
+use App\Enums\Environment;
 use App\Enums\ImplStatus;
 use App\Enums\MaacRole;
+use App\Enums\QuotaScope;
+use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Enums\TraceEventType;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
+use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
 use App\Models\Credential;
+use App\Models\GovernanceSetting;
 use App\Models\LlmProvider;
 use App\Models\Project;
+use App\Models\QuotaLimit;
 use App\Models\Team;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
@@ -22,6 +30,7 @@ use App\Models\User;
 use App\Support\Sdk\SdkClientManager;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 
@@ -54,6 +63,7 @@ class MaacDemoSeeder extends Seeder
         $this->seedRuns($agents, $apps, $projects, $llms, $tools);
         $this->seedProjectMembers($projects, $user);
         $this->seedAuditEvents($team, $apps, $agents, $user);
+        $this->seedGovernance($team, $apps, $agents, $tools, $llms);
     }
 
     /**
@@ -308,6 +318,7 @@ class MaacDemoSeeder extends Seeder
                 'name' => $name,
                 'version' => $version,
                 'status' => $status,
+                'sensitivity' => $this->agentSensitivity($toolSlugs, $tools)->value,
                 'system_prompt' => $prompt,
                 'temperature' => $temp,
                 'max_tokens' => $maxTokens,
@@ -369,23 +380,29 @@ class MaacDemoSeeder extends Seeder
             ['run_44b7ec', 'ag_ops_summary', 'MOP', 'prj_mop_ops', 'k.almansoori', 'cancelled', 'gpt-4o', [], 480, 0, 0.0012, '1.1s', '08 Jun 07:55:09', '08 Jun 07:55:10', 'Summarize operations — cancelled by caller.', null],
         ];
 
-        foreach ($rows as [$slug, $agentSlug, $appSlug, $projectSlug, $caller, $status, $llmSlug, $toolSlugs, $tokensIn, $tokensOut, $cost, $latency, $started, $completed, $input, $error]) {
+        foreach ($rows as $index => [$slug, $agentSlug, $appSlug, $projectSlug, $caller, $status, $llmSlug, $toolSlugs, $tokensIn, $tokensOut, $cost, $latency, $started, $completed, $input, $error]) {
+            // Anchor runs to the last several hours so the dashboard and
+            // observability rollups show live activity in the demo.
+            $startedAt = Carbon::now()->subMinutes($index * 9 + 2);
+            $latencyMs = $this->latencyToMs($latency);
+
             $run = AgentRun::updateOrCreate(['slug' => $slug], [
                 'agent_id' => $agents[$agentSlug]->id,
                 'application_id' => $apps[$appSlug]->id,
                 'project_id' => $projects[$projectSlug]->id,
                 'llm_provider_id' => $llms[$llmSlug]->id,
                 'caller' => $caller,
+                'environment' => $apps[$appSlug]->environment->value,
                 'status' => $status,
                 'tokens_in' => $tokensIn,
                 'tokens_out' => $tokensOut,
                 'cost' => $cost,
-                'latency_ms' => $this->latencyToMs($latency),
+                'latency_ms' => $latencyMs,
                 'tools' => $toolSlugs,
                 'input' => $input,
                 'error' => $error,
-                'started_at' => $this->runTimeToCarbon($started),
-                'completed_at' => $this->runTimeToCarbon($completed),
+                'started_at' => $startedAt,
+                'completed_at' => $completed === '—' ? null : $startedAt->copy()->addMilliseconds($latencyMs ?? 4000),
             ]);
 
             $this->seedRunDetail($run, $toolSlugs, $tools, $status);
@@ -528,16 +545,109 @@ class MaacDemoSeeder extends Seeder
     }
 
     /**
-     * Parse a fixture run timestamp ("08 Jun 09:41:22") to a 2026 Carbon
-     * instance. Returns null for the placeholder "—".
+     * Resolve an agent's data sensitivity as the most sensitive level among its
+     * assigned tools (defaulting to Internal).
+     *
+     * @param  array<int, string>  $toolSlugs
+     * @param  array<string, ToolContract>  $tools
      */
-    private function runTimeToCarbon(?string $value): ?CarbonInterface
+    private function agentSensitivity(array $toolSlugs, array $tools): Sensitivity
     {
-        if ($value === null || $value === '—') {
-            return null;
+        $sensitivity = Sensitivity::Internal;
+
+        foreach ($toolSlugs as $slug) {
+            if ($tools[$slug]->sensitivity->level() > $sensitivity->level()) {
+                $sensitivity = $tools[$slug]->sensitivity;
+            }
         }
 
-        return Carbon::createFromFormat('d M H:i:s', $value)->setYear(2026);
+        return $sensitivity;
+    }
+
+    /**
+     * Seed the Phase 5 governance dataset: team settings, a few quotas, and the
+     * pending approval queue mirroring the Phase 1 fixture approvals.
+     *
+     * @param  array<string, Application>  $apps
+     * @param  array<string, Agent>  $agents
+     * @param  array<string, ToolContract>  $tools
+     * @param  array<string, LlmProvider>  $llms
+     */
+    private function seedGovernance(Team $team, array $apps, array $agents, array $tools, array $llms): void
+    {
+        GovernanceSetting::updateOrCreate(
+            ['team_id' => $team->id],
+            ['default_daily_run_quota' => 5000],
+        );
+
+        $quotas = [
+            [QuotaScope::Platform, null, 'production', 4000, null],
+            [QuotaScope::Application, $apps['MOP']->id, null, 1500, null],
+            [QuotaScope::Model, $llms['gpt-4o']->id, null, null, 8_000_000],
+        ];
+
+        foreach ($quotas as [$scope, $subjectId, $environment, $maxRuns, $maxTokens]) {
+            QuotaLimit::updateOrCreate(
+                ['team_id' => $team->id, 'scope' => $scope->value, 'subject_id' => $subjectId, 'environment' => $environment],
+                ['max_runs_per_day' => $maxRuns, 'max_tokens_per_day' => $maxTokens, 'enabled' => true],
+            );
+        }
+
+        $approvals = [
+            [ApprovalType::ToolContract, $tools['getProcurementRequests'], 'h.karam', 'Approve client-side tool contract getProcurementRequests.'],
+            [ApprovalType::ToolContract, $tools['getMaintenanceSchedules'], 'b.aziz', 'Approve client-side tool contract getMaintenanceSchedules.'],
+            [ApprovalType::AgentPublication, $agents['ag_procure_insight'], 'h.karam', 'Publish Procurement Insight Agent to Production.'],
+            [ApprovalType::AgentPublication, $agents['ag_doc_review'], 'n.adel', 'Publish Document Review Agent to Production.'],
+            [ApprovalType::ModelAccess, $llms['gemini-15-pro'], 'platform.ops', 'Promote Gemini 1.5 Pro to Production.'],
+        ];
+
+        foreach ($approvals as [$type, $subject, $requester, $summary]) {
+            $this->seedApproval($team, $type, $subject, $requester, $summary);
+        }
+
+        $financeCredential = $apps['FWS']->credentials()->first();
+
+        if ($financeCredential !== null) {
+            $this->seedApproval($team, ApprovalType::CredentialChange, $financeCredential, 't.nabil', 'Approve raw tool-result logging for getFinancialTransactions.');
+        }
+    }
+
+    /**
+     * Seed (idempotently) a single pending approval request for a subject.
+     */
+    private function seedApproval(Team $team, ApprovalType $type, Model $subject, string $requester, string $summary): void
+    {
+        $title = match (true) {
+            $subject instanceof LlmProvider => $subject->name.' → Production',
+            $subject instanceof Credential => $subject->application->name.' — '.$subject->label,
+            $subject instanceof ToolContract, $subject instanceof Agent => $subject->name,
+            default => 'Approval',
+        };
+
+        $applicationId = match (true) {
+            $subject instanceof ToolContract => $subject->application_id,
+            $subject instanceof Agent => $subject->project->application_id,
+            $subject instanceof Credential => $subject->application_id,
+            default => null,
+        };
+
+        $sensitivity = match (true) {
+            $subject instanceof ToolContract, $subject instanceof LlmProvider, $subject instanceof Agent => $subject->sensitivity->value,
+            default => null,
+        };
+
+        ApprovalRequest::updateOrCreate(
+            ['team_id' => $team->id, 'type' => $type->value, 'subject_type' => $subject->getMorphClass(), 'subject_id' => (string) $subject->getKey()],
+            [
+                'status' => ApprovalStatus::Pending->value,
+                'application_id' => $applicationId,
+                'title' => $title,
+                'summary' => $summary,
+                'sensitivity' => $sensitivity,
+                'environment' => Environment::Production->value,
+                'requested_label' => $requester,
+            ],
+        );
     }
 
     /**

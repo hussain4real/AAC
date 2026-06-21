@@ -28,6 +28,8 @@ class AgentRunResource extends JsonResource
             'projectId' => $this->whenLoaded('project', fn () => $this->project->slug),
             'caller' => $this->caller,
             'status' => $this->status->value,
+            'sensitivity' => $this->sensitivity->label(),
+            'masked' => $this->masked,
             'llm' => $this->whenLoaded('llmProvider', fn () => $this->llmProvider?->slug),
             'tools' => $this->tools ?? [],
             'tokensIn' => $this->tokens_in,
@@ -38,6 +40,7 @@ class AgentRunResource extends JsonResource
             'completed' => $this->completed_at?->format('d M H:i:s') ?? '—',
             'input' => $this->input,
             'error' => $this->when($this->error !== null, $this->error),
+            'failureReason' => $this->when($this->failure_reason !== null, $this->failure_reason),
         ];
     }
 }

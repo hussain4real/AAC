@@ -9,3 +9,7 @@ Schedule::call(function () {
         ->where('expires_at', '<', now())
         ->delete();
 })->daily()->description('Delete expired team invitations');
+
+Schedule::command('maac:prune-run-data')
+    ->daily()
+    ->description('Prune run payloads and audit events past governance retention windows');

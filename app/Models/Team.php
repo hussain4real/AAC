@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
@@ -29,6 +30,9 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, LlmProvider> $llmProviders
  * @property-read Collection<int, ToolContract> $toolContracts
  * @property-read Collection<int, AuditEvent> $auditEvents
+ * @property-read Collection<int, ApprovalRequest> $approvalRequests
+ * @property-read Collection<int, QuotaLimit> $quotaLimits
+ * @property-read GovernanceSetting|null $governanceSetting
  */
 #[Fillable(['name', 'slug', 'is_personal'])]
 class Team extends Model
@@ -137,6 +141,36 @@ class Team extends Model
     public function auditEvents(): HasMany
     {
         return $this->hasMany(AuditEvent::class);
+    }
+
+    /**
+     * Get the governance approval requests for this team.
+     *
+     * @return HasMany<ApprovalRequest, $this>
+     */
+    public function approvalRequests(): HasMany
+    {
+        return $this->hasMany(ApprovalRequest::class);
+    }
+
+    /**
+     * Get the rate-limit / quota definitions for this team.
+     *
+     * @return HasMany<QuotaLimit, $this>
+     */
+    public function quotaLimits(): HasMany
+    {
+        return $this->hasMany(QuotaLimit::class);
+    }
+
+    /**
+     * Get the governance settings row for this team.
+     *
+     * @return HasOne<GovernanceSetting, $this>
+     */
+    public function governanceSetting(): HasOne
+    {
+        return $this->hasOne(GovernanceSetting::class);
     }
 
     /**

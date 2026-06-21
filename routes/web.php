@@ -3,10 +3,13 @@
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Maac\AgentController;
 use App\Http\Controllers\Maac\ApplicationController;
+use App\Http\Controllers\Maac\ApprovalRequestController;
 use App\Http\Controllers\Maac\ConsoleController;
 use App\Http\Controllers\Maac\CredentialController;
+use App\Http\Controllers\Maac\GovernanceSettingController;
 use App\Http\Controllers\Maac\LlmProviderController;
 use App\Http\Controllers\Maac\ProjectController;
+use App\Http\Controllers\Maac\QuotaLimitController;
 use App\Http\Controllers\Maac\ToolContractController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
@@ -50,6 +53,15 @@ Route::prefix('{current_team}')
         Route::resource('llm-providers', LlmProviderController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['llm-providers' => 'llmProvider']);
+
+        // MAAC console (Phase 5 — governance & security hardening)
+        Route::post('approvals', [ApprovalRequestController::class, 'store'])->name('approvals.store');
+        Route::post('approvals/{approvalRequest}/approve', [ApprovalRequestController::class, 'approve'])->name('approvals.approve');
+        Route::post('approvals/{approvalRequest}/reject', [ApprovalRequestController::class, 'reject'])->name('approvals.reject');
+        Route::put('governance-settings', [GovernanceSettingController::class, 'update'])->name('governance-settings.update');
+        Route::resource('quotas', QuotaLimitController::class)
+            ->only(['store', 'update', 'destroy'])
+            ->parameters(['quotas' => 'quotaLimit']);
     });
 
 Route::middleware(['auth'])->group(function () {

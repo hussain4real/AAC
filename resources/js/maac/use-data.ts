@@ -1,13 +1,22 @@
 /* ============================================================
-   MAAC — Runtime data accessor (Phase 2)
+   MAAC — Runtime data accessor (Phase 2 + Phase 5)
    Drop-in replacement for the Phase 1 `MAAC` fixture object. Reads the
    team's records from the shared `maac` Inertia prop (served by
    App\Support\MaacConsoleData) and exposes the same helper API the console
-   screens already use. Governance/dashboard display rollups still come from
-   the fixture until they are backed by real aggregates (Phase 5).
+   screens already use. Phase 5 adds real governance/observability rollups
+   (dashboard metrics, approvals, audit log, roles, policies, settings, quotas),
+   falling back to the fixture only when the prop is unavailable.
    ============================================================ */
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
+import type {
+    MaacApprovals,
+    MaacAuditEvent,
+    MaacDashboard,
+    MaacGovernanceSettings,
+    MaacOperational,
+    MaacQuota,
+} from '@/types/global';
 import { MAAC as FIXTURE } from './data';
 import type { Agent, Application, Llm, Project, Run, Tool } from './data';
 
@@ -18,6 +27,31 @@ export type MaacDataset = {
     tools: Tool[];
     runs: Run[];
     llms: Llm[];
+};
+
+/** Default operational metrics when no team dataset is present. */
+const EMPTY_OPERATIONAL: MaacOperational = {
+    totalRuns: 0,
+    failedRuns: 0,
+    expiredRuns: 0,
+    waitingRuns: 0,
+    avgLatencyMs: 0,
+    errorRate: 0,
+    toolFailureRate: 0,
+    costAnomaly: false,
+};
+
+/** Default governance settings when no team dataset is present. */
+const DEFAULT_SETTINGS: MaacGovernanceSettings = {
+    retainPromptsDays: 90,
+    retainResponsesDays: 90,
+    retainToolArgumentsDays: 30,
+    retainToolResultsDays: 30,
+    auditRetentionDays: 365,
+    maskSensitiveInputs: true,
+    maskSensitiveOutputs: true,
+    blockRestrictedLogging: true,
+    defaultDailyRunQuota: null,
 };
 
 /** Resolve the team dataset from the shared prop, falling back to the fixture. */
@@ -39,10 +73,14 @@ export function useMaacDataset(): MaacDataset {
 
 export type MaacData = MaacDataset & {
     roles: typeof FIXTURE.roles;
-    approvals: typeof FIXTURE.approvals;
+    approvals: MaacApprovals;
     policies: typeof FIXTURE.policies;
     sensitivityLevels: typeof FIXTURE.sensitivityLevels;
-    dashboard: typeof FIXTURE.dashboard;
+    dashboard: MaacDashboard;
+    operational: MaacOperational;
+    auditEvents: MaacAuditEvent[];
+    governanceSettings: MaacGovernanceSettings;
+    quotas: MaacQuota[];
     execModeLabel: typeof FIXTURE.execModeLabel;
     implLabel: typeof FIXTURE.implLabel;
     byId: <T extends { id: string }>(list: T[], id: string) => T | undefined;
@@ -61,15 +99,20 @@ export type MaacData = MaacDataset & {
  */
 export function useMaacData(): MaacData {
     const dataset = useMaacDataset();
+    const { maac } = usePage().props;
 
     return useMemo(
         () => ({
             ...dataset,
-            roles: FIXTURE.roles,
-            approvals: FIXTURE.approvals,
-            policies: FIXTURE.policies,
+            roles: maac?.roles ?? FIXTURE.roles,
+            approvals: maac?.approvals ?? FIXTURE.approvals,
+            policies: maac?.policies ?? FIXTURE.policies,
             sensitivityLevels: FIXTURE.sensitivityLevels,
-            dashboard: FIXTURE.dashboard,
+            dashboard: maac?.dashboard ?? FIXTURE.dashboard,
+            operational: maac?.operational ?? EMPTY_OPERATIONAL,
+            auditEvents: maac?.auditEvents ?? [],
+            governanceSettings: maac?.governanceSettings ?? DEFAULT_SETTINGS,
+            quotas: maac?.quotas ?? [],
             execModeLabel: FIXTURE.execModeLabel,
             implLabel: FIXTURE.implLabel,
             byId: <T extends { id: string }>(list: T[], id: string) =>
@@ -87,6 +130,6 @@ export function useMaacData(): MaacData {
             projectsByApp: (id: string) =>
                 dataset.projects.filter((project) => project.appId === id),
         }),
-        [dataset],
+        [dataset, maac],
     );
 }

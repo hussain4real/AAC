@@ -1,6 +1,12 @@
 <?php
 
+use App\Enums\MaacRole;
 use App\Enums\TeamRole;
+use App\Models\Agent;
+use App\Models\AgentRun;
+use App\Models\Application;
+use App\Models\LlmProvider;
+use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -75,4 +81,45 @@ function teamMember(Team $team): User
     $member->switchTeam($team);
 
     return $member;
+}
+
+/**
+ * Add a plain team member and grant them a MAAC role on the given project.
+ */
+function projectRoleUser(Team $team, Project $project, MaacRole $role): User
+{
+    $user = teamMember($team);
+    $project->members()->attach($user, ['maac_role' => $role->value]);
+
+    return $user;
+}
+
+/**
+ * Build a published agent (with its application, project, and model) owned by
+ * the given team.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function maacAgent(Team $team, array $attributes = []): Agent
+{
+    $application = Application::factory()->for($team)->create();
+    $project = Project::factory()->for($application)->create();
+    $model = LlmProvider::factory()->for($team)->create();
+
+    return Agent::factory()->for($project)->for($model)->create($attributes);
+}
+
+/**
+ * Build an agent run wired to the agent's application/project/model.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function maacRun(Agent $agent, array $attributes = []): AgentRun
+{
+    return AgentRun::factory()->create(array_merge([
+        'agent_id' => $agent->id,
+        'project_id' => $agent->project_id,
+        'application_id' => $agent->project->application_id,
+        'llm_provider_id' => $agent->llm_provider_id,
+    ], $attributes));
 }

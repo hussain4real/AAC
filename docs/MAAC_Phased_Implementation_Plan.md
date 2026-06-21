@@ -169,24 +169,28 @@ Deliver the first real agent run lifecycle, including secure invocation, approve
 
 ## Phase 5: Observability, Governance & Security Hardening
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-5-governance`. The dashboard and governance screens now render **real aggregates** (`RunMetrics`/`OperationalMonitor` → run status, hourly trend, top agents, token/cost totals, error/tool-failure rates, cost anomalies, and a severity-sorted alert feed) via the shared `maac` prop. A first-class **approval workflow** (`ApprovalRequest` + `ApprovalManager` + approve/reject actions) gates sensitive tool contracts, agent publication, model promotion, and production credential changes; approving applies the change (publish/activate/promote). **Masking** (`PayloadMasker`/`RunRedactor`) redacts Confidential run inputs and tool results at rest while keeping the live SDK/LLM paths on raw values; **retention** is configurable per environment and pruned by the scheduled `maac:prune-run-data` command. **Quotas** (`QuotaLimit`/`QuotaGuard`) enforce per-day run/token caps by platform/application/project/agent/model and environment at invocation (controlled `quota_exceeded` 429). Data **sensitivity** now classifies agents and runs (tools/models already did). A new **Audit Log** tab surfaces real `audit_events`; the full per-role **authorization matrix** (6 roles) and admin/runtime **audit tests** are covered. The approval queue UI is wired to the live approve/reject endpoints with a **360° Review modal** (per-type subject detail — tool schemas, agent prompt/model/assigned tools, model costs/availability, credential status/history). Approval decisions are **dependency-gated** by `ApprovalGate`: an agent publication cannot be approved while a required tool is still awaiting approval, is unimplemented in the target environment, or its model is not approved there — blockers are surfaced in the Review modal and the Approve control is disabled until they clear. Verified: 338 Pest tests at **100 % line coverage**; PHPStan level 7, Pint, ESLint, Prettier, `tsc`, and `vite build` all clean, with a live browser smoke of the dashboard and governance screens (no console errors). Remote HTTP/connector/knowledge tool execution and enterprise SSO/secrets-vault remain Phase 6.
+
 ### Goal
 
 Make MAAC auditable, governable, and enterprise-safe for controlled production usage.
 
 ### Checklist
 
-- [ ] Build run and audit dashboards from Agent Run, Tool Call, Trace Event, usage, cost, and status data.
-- [ ] Track token input, token output, estimated cost, latency, model, provider, tool usage, failure reason, and caller context.
-- [ ] Implement configurable prompt, response, tool argument, and tool result retention policies.
-- [ ] Implement masking/redaction behavior for sensitive tool inputs and outputs.
-- [ ] Add data sensitivity classifications for tools, agents, runs, models, and logs.
-- [ ] Add approval queues for sensitive tool contracts, agent publication, model access, and production credential changes.
-- [ ] Add credential rotation, revocation, audit history, and last-used metadata.
-- [ ] Add rate limits and quotas by application, project, agent, model, and environment.
-- [ ] Add environment separation controls for credentials, agents, tool implementations, model availability, logs, and retention settings.
-- [ ] Add operational monitoring hooks for error rate, waiting runs, expired runs, average latency, cost anomalies, and tool failure rate.
-- [ ] Add authorization tests for Platform Admin, Project Owner, Developer, Viewer, Auditor, and Security Reviewer roles.
-- [ ] Add audit tests for key administrative and runtime events.
+- [x] Build run and audit dashboards from Agent Run, Tool Call, Trace Event, usage, cost, and status data.
+- [x] Track token input, token output, estimated cost, latency, model, provider, tool usage, failure reason, and caller context.
+- [x] Implement configurable prompt, response, tool argument, and tool result retention policies.
+- [x] Implement masking/redaction behavior for sensitive tool inputs and outputs.
+- [x] Add data sensitivity classifications for tools, agents, runs, models, and logs.
+- [x] Add approval queues for sensitive tool contracts, agent publication, model access, and production credential changes.
+- [x] Add credential rotation, revocation, audit history, and last-used metadata.
+- [x] Add rate limits and quotas by application, project, agent, model, and environment.
+- [x] Add environment separation controls for credentials, agents, tool implementations, model availability, logs, and retention settings.
+- [x] Add operational monitoring hooks for error rate, waiting runs, expired runs, average latency, cost anomalies, and tool failure rate.
+- [x] Add authorization tests for Platform Admin, Project Owner, Developer, Viewer, Auditor, and Security Reviewer roles.
+- [x] Add audit tests for key administrative and runtime events.
+- [x] Wire the approval queue UI to the live approve/reject endpoints with a 360° Review modal (subject schemas, prompt, model, assigned tools, and history).
+- [x] Gate approval decisions on unmet prerequisites — an agent cannot be published while a required tool awaits approval, is unimplemented in the target environment, or its model is not approved there (`ApprovalGate`, surfaced as blockers in the UI and enforced in `ApproveApprovalRequest`).
 
 ### Deliverables
 

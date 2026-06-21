@@ -12,6 +12,8 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Project;
 use App\Models\Team;
+use App\Support\Observability\OperationalMonitor;
+use App\Support\Observability\RunMetrics;
 
 /**
  * Assembles the MAAC console dataset for a team as plain arrays matching the
@@ -24,14 +26,7 @@ class MaacConsoleData
     /**
      * Build the full console dataset for the given team.
      *
-     * @return array{
-     *     apps: array<int, array<string, mixed>>,
-     *     projects: array<int, array<string, mixed>>,
-     *     agents: array<int, array<string, mixed>>,
-     *     tools: array<int, array<string, mixed>>,
-     *     runs: array<int, array<string, mixed>>,
-     *     llms: array<int, array<string, mixed>>,
-     * }
+     * @return array<string, mixed>
      */
     public static function forTeam(Team $team): array
     {
@@ -67,6 +62,8 @@ class MaacConsoleData
             ->orderByDesc('usage_pct')
             ->get();
 
+        $operational = app(OperationalMonitor::class)->forTeam($team);
+
         return [
             'apps' => ApplicationResource::collection($applications)->resolve(),
             'projects' => ProjectResource::collection($projects)->resolve(),
@@ -74,6 +71,13 @@ class MaacConsoleData
             'tools' => ToolContractResource::collection($tools)->resolve(),
             'runs' => AgentRunResource::collection($runs)->resolve(),
             'llms' => LlmProviderResource::collection($llms)->resolve(),
+            // Phase 5 — real observability rollups and governance dataset.
+            'dashboard' => [
+                ...app(RunMetrics::class)->forTeam($team),
+                'alerts' => $operational['alerts'],
+            ],
+            'operational' => $operational['metrics'],
+            ...GovernanceConsoleData::forTeam($team),
         ];
     }
 }

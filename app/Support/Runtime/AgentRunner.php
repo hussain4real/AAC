@@ -6,6 +6,7 @@ use App\Enums\AgentStatus;
 use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\RunStatus;
+use App\Enums\Sensitivity;
 use App\Enums\ToolCallStatus;
 use App\Enums\TraceEventType;
 use App\Exceptions\Sdk\RuntimeRequestException;
@@ -15,6 +16,7 @@ use App\Models\Application;
 use App\Models\LlmProvider;
 use App\Models\ToolCall;
 use App\Models\ToolContract;
+use App\Support\Governance\RunRedactor;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
 use App\Support\Sdk\ToolSchema;
@@ -35,6 +37,7 @@ class AgentRunner
         private readonly LlmRouter $router,
         private readonly HostedToolRegistry $hostedTools,
         private readonly RunTracer $tracer,
+        private readonly RunRedactor $redactor,
     ) {}
 
     /**
@@ -52,6 +55,7 @@ class AgentRunner
             'slug' => 'run_'.Str::lower(Str::random(10)),
             'caller' => $caller,
             'environment' => $environment,
+            'sensitivity' => $this->resolveSensitivity($agent),
             'status' => RunStatus::Queued,
             'tokens_in' => 0,
             'tokens_out' => 0,
@@ -64,6 +68,13 @@ class AgentRunner
         ]);
 
         $run->setRelation('agent', $agent);
+
+        // Apply the masking policy to the stored prompt (the live conversation
+        // state keeps the raw value so the model still receives it).
+        $run->update([
+            'input' => $this->redactor->input($run, $input),
+            'masked' => $this->redactor->applies($run),
+        ]);
 
         $this->tracer->record($run, TraceEventType::RunRequested, 'Run requested.', ['caller' => $caller]);
         $this->tracer->record($run, TraceEventType::CallerAuthenticated, 'Caller authenticated.', [
@@ -81,6 +92,20 @@ class AgentRunner
         $run->update(['status' => RunStatus::Running]);
 
         return $this->advance($run);
+    }
+
+    /**
+     * Resolve the run's data sensitivity as the most sensitive level among the
+     * agent and its assigned tools (tools and models are already classified).
+     */
+    private function resolveSensitivity(Agent $agent): Sensitivity
+    {
+        return $agent->tools->reduce(
+            fn (Sensitivity $carry, ToolContract $tool): Sensitivity => $tool->sensitivity->level() > $carry->level()
+                ? $tool->sensitivity
+                : $carry,
+            $agent->sensitivity,
+        );
     }
 
     /**
@@ -111,7 +136,7 @@ class AgentRunner
 
         $this->validateClientResult($run, $tool, $call, $result);
 
-        $this->completeToolCall($call, $result);
+        $this->completeToolCall($run, $call, $result);
         $this->tracer->record($run, TraceEventType::ToolResultReceived, "Client tool result received: {$call->tool_name}.", ['tool_call_id' => $call->id]);
         $this->tracer->record($run, TraceEventType::Validated, 'Tool result validated.');
         $this->appendMessage($run, LlmMessage::tool($call->tool_name, (string) json_encode($result)));
@@ -234,7 +259,7 @@ class AgentRunner
         }
 
         return match ($tool->execution_mode) {
-            ExecMode::Hosted => $this->executeHosted($run, $tool, $call),
+            ExecMode::Hosted => $this->executeHosted($run, $tool, $call, $arguments),
             ExecMode::Client => $this->pauseForClient($run, $call),
             default => $this->failUnsupported($run, $tool, $call),
         };
@@ -242,8 +267,10 @@ class AgentRunner
 
     /**
      * Execute a MAAC-hosted tool inline and continue the loop (null) on success.
+     *
+     * @param  array<string, mixed>  $arguments
      */
-    private function executeHosted(AgentRun $run, ToolContract $tool, ToolCall $call): ?AgentRun
+    private function executeHosted(AgentRun $run, ToolContract $tool, ToolCall $call, array $arguments): ?AgentRun
     {
         if (! $this->hostedTools->has($tool->slug)) {
             $this->failToolCall($call);
@@ -252,7 +279,7 @@ class AgentRunner
         }
 
         try {
-            $result = $this->hostedTools->resolve($tool->slug)->handle($call->arguments ?? []);
+            $result = $this->hostedTools->resolve($tool->slug)->handle($arguments);
         } catch (Throwable $exception) {
             $this->failToolCall($call);
 
@@ -267,7 +294,7 @@ class AgentRunner
             return $this->fail($run, 'hosted_tool_invalid_output', 'The hosted tool returned output that does not satisfy its schema.', ['errors' => $errors]);
         }
 
-        $this->completeToolCall($call, $result);
+        $this->completeToolCall($run, $call, $result);
         $this->tracer->record($run, TraceEventType::ToolResultReceived, "Hosted tool result received: {$tool->slug}.", ['tool_call_id' => $call->id]);
         $this->tracer->record($run, TraceEventType::Validated, 'Tool result validated.');
         $this->appendMessage($run, LlmMessage::tool($tool->slug, (string) json_encode($result)));
@@ -360,15 +387,15 @@ class AgentRunner
     }
 
     /**
-     * Mark a tool call completed with its result.
+     * Mark a tool call completed, storing a masking-aware copy of its result.
      *
      * @param  array<string, mixed>  $result
      */
-    private function completeToolCall(ToolCall $call, array $result): void
+    private function completeToolCall(AgentRun $run, ToolCall $call, array $result): void
     {
         $call->update([
             'status' => ToolCallStatus::Completed,
-            'result' => $result,
+            'result' => $this->redactor->result($run, $result),
             'completed_at' => Date::now(),
         ]);
     }
@@ -411,6 +438,7 @@ class AgentRunner
         $run->update([
             'status' => RunStatus::Failed,
             'error' => $message,
+            'failure_reason' => $code,
             'completed_at' => Date::now(),
             'latency_ms' => $this->latency($run),
         ]);
@@ -427,6 +455,7 @@ class AgentRunner
         $run->update([
             'status' => RunStatus::Expired,
             'error' => 'The run expired before completion.',
+            'failure_reason' => 'run_expired',
             'completed_at' => Date::now(),
             'latency_ms' => $this->latency($run),
         ]);
@@ -443,6 +472,7 @@ class AgentRunner
         $run->update([
             'status' => RunStatus::Cancelled,
             'error' => 'The run was cancelled because the agent is no longer published.',
+            'failure_reason' => 'agent_unpublished',
             'completed_at' => Date::now(),
             'latency_ms' => $this->latency($run),
         ]);

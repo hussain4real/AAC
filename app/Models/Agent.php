@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Concerns\RecordsAuditEvents;
 use App\Enums\AgentStatus;
+use App\Enums\Sensitivity;
 use Database\Factories\AgentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -26,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string $version
  * @property AgentStatus $status
+ * @property Sensitivity $sensitivity
  * @property string $system_prompt
  * @property float $temperature
  * @property int $max_tokens
@@ -44,7 +46,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ToolContract> $tools
  * @property-read Collection<int, AgentRun> $runs
  */
-#[Fillable(['project_id', 'llm_provider_id', 'current_version_id', 'slug', 'agent_slug', 'name', 'version', 'status', 'system_prompt', 'temperature', 'max_tokens', 'description', 'success_rate', 'runs_7d', 'last_run_at', 'published_at'])]
+#[Fillable(['project_id', 'llm_provider_id', 'current_version_id', 'slug', 'agent_slug', 'name', 'version', 'status', 'sensitivity', 'system_prompt', 'temperature', 'max_tokens', 'description', 'success_rate', 'runs_7d', 'last_run_at', 'published_at'])]
 class Agent extends Model
 {
     /** @use HasFactory<AgentFactory> */
@@ -144,6 +146,7 @@ class Agent extends Model
     {
         return [
             'status' => AgentStatus::class,
+            'sensitivity' => Sensitivity::class,
             'temperature' => 'float',
             'max_tokens' => 'integer',
             'success_rate' => 'float',

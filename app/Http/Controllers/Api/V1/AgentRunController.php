@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\StartRunRequest;
+use App\Support\Governance\QuotaGuard;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\RunAuthorizer;
 use App\Support\Runtime\RunPayload;
@@ -22,10 +23,12 @@ class AgentRunController extends Controller
     /**
      * Start a run for the given published agent.
      */
-    public function store(StartRunRequest $request, RunAuthorizer $authorizer, AgentRunner $runner, string $agentSlug): JsonResponse
+    public function store(StartRunRequest $request, RunAuthorizer $authorizer, QuotaGuard $quota, AgentRunner $runner, string $agentSlug): JsonResponse
     {
         $context = SdkContext::fromRequest($request);
         $agent = $authorizer->resolveAgent($context->application, $agentSlug);
+
+        $quota->assert($context->application, $agent, $context->environment);
 
         $run = $runner->start($agent, $context->application, $context->environment, $request->runInput(), $request->caller());
 
