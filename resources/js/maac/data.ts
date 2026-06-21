@@ -181,6 +181,7 @@ export type Run = {
     started: string;
     completed: string;
     input: string;
+    output?: string | null;
     error?: string;
 };
 

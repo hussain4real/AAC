@@ -9,7 +9,9 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Runtime\Contracts\LlmRouter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\Runtime\FakeLlmRouter;
 use Tests\TestCase;
 
 /*
@@ -122,4 +124,16 @@ function maacRun(Agent $agent, array $attributes = []): AgentRun
         'application_id' => $agent->project->application_id,
         'llm_provider_id' => $agent->llm_provider_id,
     ], $attributes));
+}
+
+/**
+ * Bind a deterministic, scripted {@see FakeLlmRouter} for the current test so a
+ * run completes without any live provider call.
+ */
+function bindFakeRouter(): FakeLlmRouter
+{
+    $fake = new FakeLlmRouter;
+    app()->instance(LlmRouter::class, $fake);
+
+    return $fake;
 }

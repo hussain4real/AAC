@@ -39,6 +39,7 @@ class AgentRunResource extends JsonResource
             'started' => $this->started_at?->format('d M H:i:s') ?? '—',
             'completed' => $this->completed_at?->format('d M H:i:s') ?? '—',
             'input' => $this->input,
+            'output' => $this->output,
             'error' => $this->when($this->error !== null, $this->error),
             'failureReason' => $this->when($this->failure_reason !== null, $this->failure_reason),
         ];

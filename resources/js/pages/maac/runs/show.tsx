@@ -379,17 +379,7 @@ export default function Show({ id }: { id: string }) {
     const events = buildTrace(run, ag, MAAC);
 
     const finalOutput: string | null =
-        (
-            {
-                completed:
-                    '12 vessels active across Hamad and Doha ports. 2 voyages exceed the 6-hour delay threshold: MV Al-Zubarah (berth congestion, +7h10m) and MV Doha Pearl (customs hold, +6h40m). Berth utilization at Hamad is 84%. Recommended: reallocate Berth 7 to MV Al-Zubarah. A notification was sent to the duty manager.',
-                waiting_for_client: null,
-                running: null,
-                failed: null,
-                expired: null,
-                cancelled: null,
-            } as Record<string, string | null>
-        )[run.status] ?? null;
+        run.status === 'completed' ? (run.output ?? null) : null;
 
     return (
         <>

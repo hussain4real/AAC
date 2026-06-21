@@ -43,6 +43,7 @@ class AgentRunFactory extends Factory
             'latency_ms' => fake()->numberBetween(1000, 8000),
             'tools' => [],
             'input' => fake()->sentence(),
+            'output' => fake()->sentence(),
             'error' => null,
             'started_at' => fake()->dateTimeBetween('-1 day', 'now'),
             'completed_at' => fake()->dateTimeBetween('-1 day', 'now'),
@@ -57,6 +58,7 @@ class AgentRunFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'status' => RunStatus::Failed,
             'tokens_out' => 0,
+            'output' => null,
             'error' => fake()->sentence(),
             'completed_at' => null,
         ]);
@@ -70,6 +72,7 @@ class AgentRunFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'status' => RunStatus::WaitingForClient,
             'tokens_out' => 0,
+            'output' => null,
             'latency_ms' => null,
             'completed_at' => null,
         ]);

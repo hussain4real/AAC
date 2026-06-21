@@ -400,6 +400,7 @@ class MaacDemoSeeder extends Seeder
                 'latency_ms' => $latencyMs,
                 'tools' => $toolSlugs,
                 'input' => $input,
+                'output' => $status === 'completed' ? ($this->runOutputs()[$slug] ?? null) : null,
                 'error' => $error,
                 'started_at' => $startedAt,
                 'completed_at' => $completed === '—' ? null : $startedAt->copy()->addMilliseconds($latencyMs ?? 4000),
@@ -407,6 +408,25 @@ class MaacDemoSeeder extends Seeder
 
             $this->seedRunDetail($run, $toolSlugs, $tools, $status);
         }
+    }
+
+    /**
+     * Final responses for the seeded completed runs, keyed by run slug, so the
+     * run detail screen renders a real agent answer instead of a placeholder.
+     *
+     * @return array<string, string>
+     */
+    private function runOutputs(): array
+    {
+        return [
+            'run_8fa31c' => '12 vessels active across Hamad and Doha ports. 2 voyages exceed the 6-hour delay threshold: MV Al-Zubarah (berth congestion, +7h10m) and MV Doha Pearl (customs hold, +6h40m). Berth utilization at Hamad is 84%. Recommended: reallocate Berth 7 to MV Al-Zubarah and notify the duty manager.',
+            'run_7be902' => '3 approvals are pending. Recommended: approve PO-4412 (within budget, trusted vendor), hold PR-2290 for a second quote (18% over benchmark), and reject the duplicate request REQ-7781.',
+            'run_c92e18' => 'Top emerging complaint themes this week: delayed shipment notifications (up 22%), unclear customs documentation, and intermittent app login failures. Notifications and login issues account for 61% of new tickets.',
+            'run_e07b29' => 'Hamad Port berth utilization today is 84% (11 of 13 berths occupied). Berths 7 and 12 are free; Berth 3 frees at 16:40. No congestion is expected before the evening tide window.',
+            'run_f51c84' => 'Bill of lading review complete: 2 missing fields (consignee tax ID, declared value) and 1 policy gap (no hazardous-goods annex). All remaining fields comply with the shipping documentation policy.',
+            'run_2c6e91' => 'Engineering has 7 open requisitions worth QAR 1.42M: 3 awaiting approval, 2 pending supplier quotes, and 2 ready to order. The largest is REQ-8830 (spare turbine parts, QAR 640K).',
+            'run_5a0db3' => 'No unusual vendor payments detected in the last 7 days. 142 payments totaling QAR 3.8M fell within expected ranges; the workflow owner was notified that the review passed.',
+        ];
     }
 
     /**

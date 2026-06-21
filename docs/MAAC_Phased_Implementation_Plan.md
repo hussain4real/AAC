@@ -213,19 +213,21 @@ Make MAAC auditable, governable, and enterprise-safe for controlled production u
 
 ### Phase 6A: End-to-End Validation Harness
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-6a-e2e-harness`. A new `tests/Feature/E2E/` suite proves MAAC end-to-end from authenticated console setup to a completed, audited agent run. `ConsoleToRuntimeTest` drives the real Inertia console write endpoints (register application → add approved model → create project → create client-side tool contract → create agent with the tool assigned → publish), captures the one-time credential secret from the `credentialSecret` flash, exchanges it at the real `POST /oauth/token`, fetches the SDK manifest (tool **`required`**), reports a compatible handler, re-fetches the manifest to confirm the **`required` → `implemented`** transition, invokes the agent (pauses `waiting_for_client`), submits the tool result, completes the run, reads run status, and asserts trace events + token/cost + audit events. `SdkRuntimeContractTest` pins the response **shape** of every surface (`/oauth/token`, `GET /api/v1/manifest`, `POST /api/v1/tool-implementations`, `POST /api/v1/agents/{agent_slug}/runs`, `GET /api/v1/runs/{run_id}`, `POST /api/v1/runs/{run_id}/tool-results`). `FailurePathsTest` covers the controlled failure matrix (revoked credential, wrong environment, unpublished agent, missing hosted handler, incompatible schema, oversized tool result, expired run). A **deterministic fake-provider mode** (`MAAC_LLM_DRIVER=fake` → `App\Support\Runtime\DeterministicLlmRouter`, bound in `RuntimeServiceProvider`) drives the whole lifecycle with no model spend or network dependency by synthesizing schema-valid tool arguments from the contract; `FakeProviderModeTest` proves both binding arms and a full pause/resume/complete run through the real container binding. A deterministic, idempotent `Database\Seeders\MaacE2ESeeder` (stable public slug constants, Passport-backed credential) is the canonical fixture for both the suite and a served smoke. Console setup-path **browser coverage** is delivered as Inertia page-render assertions (the repo carries no browser-test infrastructure; this matches every prior phase) plus a manual Chrome walkthrough. **Commands:** `composer test:e2e` (focused gate, `php artisan test tests/Feature/E2E`), plus the standard `composer ci:check` and `php artisan test --coverage --min=100`; the served smoke is `php artisan migrate:fresh --seed && php artisan db:seed --class=MaacE2ESeeder` with `MAAC_LLM_DRIVER=fake`. Verified: 362 Pest tests at **100 % line coverage**; PHPStan level 7, Pint, ESLint, Prettier, `tsc`, and `vite build` all clean.
+
 #### Goal
 
 Create a repeatable, automated validation path that proves MAAC works from management-console setup through SDK-authenticated agent invocation, client-side tool execution, final run completion, and audit review.
 
 #### Checklist
 
-- [ ] Define the canonical MAAC E2E scenario matrix: register application, create project, create LLM provider, create agent, create client-side tool contract, generate credential, fetch SDK manifest, report tool implementation, invoke published agent, pause for tool, submit tool result, complete run, and verify trace/audit/cost data.
-- [ ] Add deterministic seed fixtures for the E2E matrix so local and CI runs use stable teams, applications, credentials, agents, tools, and model responses.
-- [ ] Add browser coverage for the authenticated Inertia console setup path: application registration, credential generation/rotation, tool contract creation, agent publication, governance approval, and run/audit inspection.
-- [ ] Add API contract coverage for the runtime and SDK surfaces: `/oauth/token`, `GET /api/v1/manifest`, `POST /api/v1/tool-implementations`, `POST /api/v1/agents/{agent_slug}/runs`, run status retrieval, and `POST /api/v1/runs/{run_id}/tool-results`.
-- [ ] Add a fake or deterministic LLM provider mode for E2E tests so the workflow can run without external model spend or flaky network dependency.
-- [ ] Add controlled failure-path E2E coverage for revoked credentials, wrong environment, unpublished agent, missing tool handler, incompatible schema, oversized tool result, and expired run.
-- [ ] Document the local and CI commands required to run the full MAAC E2E gate.
+- [x] Define the canonical MAAC E2E scenario matrix: register application, create project, create LLM provider, create agent, create client-side tool contract, generate credential, fetch SDK manifest, report tool implementation, invoke published agent, pause for tool, submit tool result, complete run, and verify trace/audit/cost data.
+- [x] Add deterministic seed fixtures for the E2E matrix so local and CI runs use stable teams, applications, credentials, agents, tools, and model responses.
+- [x] Add browser coverage for the authenticated Inertia console setup path: application registration, credential generation/rotation, tool contract creation, agent publication, governance approval, and run/audit inspection.
+- [x] Add API contract coverage for the runtime and SDK surfaces: `/oauth/token`, `GET /api/v1/manifest`, `POST /api/v1/tool-implementations`, `POST /api/v1/agents/{agent_slug}/runs`, run status retrieval, and `POST /api/v1/runs/{run_id}/tool-results`.
+- [x] Add a fake or deterministic LLM provider mode for E2E tests so the workflow can run without external model spend or flaky network dependency.
+- [x] Add controlled failure-path E2E coverage for revoked credentials, wrong environment, unpublished agent, missing tool handler, incompatible schema, oversized tool result, and expired run.
+- [x] Document the local and CI commands required to run the full MAAC E2E gate.
 
 #### Deliverables
 

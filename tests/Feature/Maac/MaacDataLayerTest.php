@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\CredentialStatus;
+use App\Enums\RunStatus;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
@@ -90,6 +91,25 @@ test('runs carry seeded tool calls and trace events', function () {
     expect($run->toolCalls()->count())->toBe(2)
         ->and($run->traceEvents()->count())->toBeGreaterThan(0)
         ->and($run->latency_ms)->toBe(4200);
+});
+
+test('seeded completed runs carry a real final response', function () {
+    $this->seed(MaacDemoSeeder::class);
+
+    expect(AgentRun::whereSlug('run_8fa31c')->value('output'))->toContain('Hamad')
+        ->and(AgentRun::whereSlug('run_a14d70')->value('output'))->toBeNull(); // waiting_for_client
+});
+
+test('the console prop exposes a run\'s real final output', function () {
+    [, $team] = ownerAndTeam();
+    $agent = maacAgent($team);
+    $completed = maacRun($agent, ['status' => RunStatus::Completed, 'output' => 'Berth utilization is 84%.']);
+    $waiting = maacRun($agent, ['status' => RunStatus::WaitingForClient, 'output' => null]);
+
+    $data = MaacConsoleData::forTeam($team);
+
+    expect(collect($data['runs'])->firstWhere('id', $completed->slug)['output'])->toBe('Berth utilization is 84%.')
+        ->and(collect($data['runs'])->firstWhere('id', $waiting->slug)['output'])->toBeNull();
 });
 
 test('the seeder is idempotent', function () {
