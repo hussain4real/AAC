@@ -14,9 +14,9 @@ beforeEach(function () {
         'environment' => Environment::Production,
     ]);
 
-    config()->set('maac.sdk.api_version', '1.0.0');
-    config()->set('maac.sdk.minimum_client_version', '1.0.0');
-    config()->set('maac.sdk.current_client_version', '1.4.0');
+    config()->set('maac.sdk.api_version', '0.0.1');
+    config()->set('maac.sdk.minimum_client_version', '0.0.1');
+    config()->set('maac.sdk.current_client_version', '0.2.0');
 
     Passport::actingAsClient($this->credential->oauthClient, [], 'api');
 });
@@ -24,9 +24,9 @@ beforeEach(function () {
 test('the sdk endpoint describes the versioned contract and supported packages', function () {
     $response = $this->getJson('/api/v1/sdk')->assertOk();
 
-    $response->assertJsonPath('api_version', '1.0.0')
-        ->assertJsonPath('minimum_client_version', '1.0.0')
-        ->assertJsonPath('current_client_version', '1.4.0');
+    $response->assertJsonPath('api_version', '0.0.1')
+        ->assertJsonPath('minimum_client_version', '0.0.1')
+        ->assertJsonPath('current_client_version', '0.2.0');
 
     expect($response->json('languages'))->not->toBeEmpty()
         ->and(collect($response->json('packages'))->pluck('language')->all())
@@ -35,17 +35,17 @@ test('the sdk endpoint describes the versioned contract and supported packages',
 });
 
 test('it reports a reported client version as compatible via the header', function () {
-    $this->withHeaders(['X-Maac-Sdk-Version' => '1.2.0', 'X-Maac-Sdk-Language' => 'php'])
+    $this->withHeaders(['X-Maac-Sdk-Version' => '0.1.0', 'X-Maac-Sdk-Language' => 'php'])
         ->getJson('/api/v1/sdk')
         ->assertOk()
         ->assertJsonPath('compatibility.status', 'compatible')
         ->assertJsonPath('compatibility.compatible', true)
-        ->assertJsonPath('compatibility.client_version', '1.2.0')
+        ->assertJsonPath('compatibility.client_version', '0.1.0')
         ->assertJsonPath('compatibility.language', 'php');
 });
 
 test('it flags an outdated client version as requiring an upgrade', function () {
-    $this->withHeaders(['X-Maac-Sdk-Version' => '0.9.0'])
+    $this->withHeaders(['X-Maac-Sdk-Version' => '0.0.0'])
         ->getJson('/api/v1/sdk')
         ->assertOk()
         ->assertJsonPath('compatibility.status', 'upgrade_required')
@@ -71,18 +71,18 @@ test('an unreported client version is unknown', function () {
 test('every v1 response carries the api version header', function () {
     $this->getJson('/api/v1/sdk')
         ->assertOk()
-        ->assertHeader('X-Maac-Api-Version', '1.0.0');
+        ->assertHeader('X-Maac-Api-Version', '0.0.1');
 
     $this->getJson('/api/v1/manifest')
         ->assertOk()
-        ->assertHeader('X-Maac-Api-Version', '1.0.0');
+        ->assertHeader('X-Maac-Api-Version', '0.0.1');
 });
 
 test('the manifest embeds the versioned sdk contract block', function () {
     $this->getJson('/api/v1/manifest')
         ->assertOk()
-        ->assertJsonPath('api_version', '1.0.0')
-        ->assertJsonPath('sdk.api_version', '1.0.0')
-        ->assertJsonPath('sdk.minimum_client_version', '1.0.0')
-        ->assertJsonPath('sdk.current_client_version', '1.4.0');
+        ->assertJsonPath('api_version', '0.0.1')
+        ->assertJsonPath('sdk.api_version', '0.0.1')
+        ->assertJsonPath('sdk.minimum_client_version', '0.0.1')
+        ->assertJsonPath('sdk.current_client_version', '0.2.0');
 });

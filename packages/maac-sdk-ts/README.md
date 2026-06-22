@@ -4,7 +4,7 @@ A dependency-free TypeScript client for the Milaha AI Agent Center (MAAC) SDK &
 runtime API: token exchange, manifest sync, implementation reporting, and
 pause/resume agent runs. Zero runtime dependencies — built on the global `fetch`.
 
-- **Status:** ✅ Supported · **Version:** 1.0.0 · **MAAC API contract:** v1.0.0
+- **Status:** ✅ Supported · **Version:** 0.0.1 · **MAAC API contract:** v0.0.1
 - **Requires:** Node ≥ 18 (or any runtime with global `fetch`)
 
 See the [SDK Integration Guide](../../docs/MAAC_SDK_Integration_Guide.md) for the

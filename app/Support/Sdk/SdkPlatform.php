@@ -29,7 +29,7 @@ class SdkPlatform
      */
     public function apiVersion(): string
     {
-        return $this->string('api_version', '1.0.0');
+        return $this->string('api_version', '0.0.1');
     }
 
     /**
@@ -37,7 +37,7 @@ class SdkPlatform
      */
     public function minimumClientVersion(): string
     {
-        return $this->string('minimum_client_version', '1.0.0');
+        return $this->string('minimum_client_version', '0.0.1');
     }
 
     /**
@@ -45,7 +45,7 @@ class SdkPlatform
      */
     public function currentClientVersion(): string
     {
-        return $this->string('current_client_version', '1.0.0');
+        return $this->string('current_client_version', '0.0.1');
     }
 
     /**

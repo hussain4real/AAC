@@ -62,15 +62,15 @@ test('reporting a handler captures the SDK client version', function () {
         'version' => '2.0.0',
         'schema_fingerprint' => $this->tool->schemaFingerprint(),
         'language' => 'php',
-        'sdk_version' => '1.0.0',
+        'sdk_version' => '0.0.1',
     ]])->assertOk()
         ->assertJsonPath('results.0.status', 'implemented')
-        ->assertJsonPath('results.0.sdk_version', '1.0.0');
+        ->assertJsonPath('results.0.sdk_version', '0.0.1');
 
     $this->assertDatabaseHas('tool_implementations', [
         'tool_contract_id' => $this->tool->id,
         'application_id' => $this->application->id,
-        'sdk_version' => '1.0.0',
+        'sdk_version' => '0.0.1',
     ]);
 });
 

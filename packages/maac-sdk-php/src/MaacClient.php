@@ -37,7 +37,7 @@ final class MaacClient
      * request (`X-Maac-Sdk-Version`) and in implementation reports so the server
      * can flag clients below its supported minimum.
      */
-    public const VERSION = '1.0.0';
+    public const VERSION = '0.0.1';
 
     /**
      * The SDK language identifier reported to MAAC.

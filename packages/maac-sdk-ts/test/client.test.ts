@@ -147,17 +147,17 @@ test('negotiates compatibility with the MAAC sdk endpoint', async () => {
     {
       status: 200,
       body: {
-        api_version: '1.0.0',
-        minimum_client_version: '1.0.0',
-        current_client_version: '1.4.0',
+        api_version: '0.0.1',
+        minimum_client_version: '0.0.1',
+        current_client_version: '0.2.0',
         deprecations: [{ id: 'legacy', removed_in: '2.0.0' }],
         compatibility: {
           status: 'compatible',
           compatible: true,
-          client_version: '1.0.0',
-          api_version: '1.0.0',
-          minimum_client_version: '1.0.0',
-          current_client_version: '1.4.0',
+          client_version: '0.0.1',
+          api_version: '0.0.1',
+          minimum_client_version: '0.0.1',
+          current_client_version: '0.2.0',
           upgrade_required: false,
         },
       },
@@ -168,8 +168,8 @@ test('negotiates compatibility with the MAAC sdk endpoint', async () => {
 
   assert.equal(compatibility.compatible, true);
   assert.equal(compatibility.status, 'compatible');
-  assert.equal(compatibility.apiVersion, '1.0.0');
-  assert.equal(compatibility.currentClientVersion, '1.4.0');
+  assert.equal(compatibility.apiVersion, '0.0.1');
+  assert.equal(compatibility.currentClientVersion, '0.2.0');
   assert.equal(compatibility.deprecations.length, 1);
   assert.equal(requests[1].url, 'https://maac.test/api/v1/sdk');
   assert.equal(requests[1].headers['X-Maac-Sdk-Version'], SDK_VERSION);

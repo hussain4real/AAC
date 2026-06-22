@@ -1,5 +1,5 @@
 {
-    "api_version": "1.0.0",
+    "api_version": "0.0.1",
     "schema_validation": [
         {
             "name": "all base types valid",
@@ -238,36 +238,36 @@
     "version_negotiation": [
         {
             "name": "within the window is compatible",
-            "reported": "1.2.0",
-            "minimum": "1.0.0",
-            "current": "1.4.0",
+            "reported": "0.1.0",
+            "minimum": "0.0.1",
+            "current": "0.2.0",
             "status": "compatible",
             "compatible": true,
             "upgrade_required": false
         },
         {
             "name": "at the exact minimum is compatible",
-            "reported": "1.0.0",
-            "minimum": "1.0.0",
-            "current": "1.4.0",
+            "reported": "0.0.1",
+            "minimum": "0.0.1",
+            "current": "0.2.0",
             "status": "compatible",
             "compatible": true,
             "upgrade_required": false
         },
         {
             "name": "below the minimum requires an upgrade",
-            "reported": "0.9.0",
-            "minimum": "1.0.0",
-            "current": "1.4.0",
+            "reported": "0.0.0",
+            "minimum": "0.0.1",
+            "current": "0.2.0",
             "status": "upgrade_required",
             "compatible": false,
             "upgrade_required": true
         },
         {
             "name": "ahead of current is compatible",
-            "reported": "2.0.0",
-            "minimum": "1.0.0",
-            "current": "1.4.0",
+            "reported": "1.0.0",
+            "minimum": "0.0.1",
+            "current": "0.2.0",
             "status": "ahead",
             "compatible": true,
             "upgrade_required": false
@@ -275,8 +275,8 @@
         {
             "name": "unreported is unknown",
             "reported": null,
-            "minimum": "1.0.0",
-            "current": "1.4.0",
+            "minimum": "0.0.1",
+            "current": "0.2.0",
             "status": "unknown",
             "compatible": true,
             "upgrade_required": false

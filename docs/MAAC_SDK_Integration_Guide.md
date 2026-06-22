@@ -190,13 +190,13 @@ MAAC's SDK surface is versioned. The full policy is in the
 
 ## Compatibility matrix
 
-Current **API contract version: v1.0.0**. SDK package versions track the contract
+Current **API contract version: v0.0.1**. SDK package versions track the contract
 MAJOR (contract v1.x ⇒ SDK v1.x).
 
 | SDK / stack                         | Version | Status        | Notes |
 |-------------------------------------|---------|---------------|-------|
-| PHP SDK (`milaha/maac-sdk`)         | 1.0.0   | ✅ Supported  | PHP ≥ 8.2, ext-curl. Default cURL transport. |
-| TypeScript SDK (`@maac/sdk`)        | 1.0.0   | ✅ Supported  | Node ≥ 18 (global `fetch`); zero dependencies. |
+| PHP SDK (`milaha/maac-sdk`)         | 0.0.1   | ✅ Supported  | PHP ≥ 8.2, ext-curl. Default cURL transport. |
+| TypeScript SDK (`@maac/sdk`)        | 0.0.1   | ✅ Supported  | Node ≥ 18 (global `fetch`); zero dependencies. |
 | Laravel reference consumer          | —       | ✅ Supported  | Service provider + Artisan command. |
 | Plain-PHP CLI reference consumer    | —       | ✅ Supported  | No framework. Proves the PHP SDK is framework-agnostic. |
 | Node / TypeScript reference consumer| —       | ✅ Supported  | Proves the contract is not Laravel/PHP-only. |
