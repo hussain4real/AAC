@@ -1,0 +1,25 @@
+{
+    "name": "@maac/sdk",
+    "version": "0.1.0",
+    "description": "Dependency-free TypeScript client for the Milaha AI Agent Center (MAAC) SDK & runtime API: token exchange, manifest sync, implementation reporting, and pause/resume agent runs.",
+    "license": "MIT",
+    "type": "module",
+    "exports": {
+        ".": "./src/index.ts"
+    },
+    "types": "./src/index.ts",
+    "engines": {
+        "node": ">=18"
+    },
+    "scripts": {
+        "typecheck": "tsc -p tsconfig.json",
+        "test": "node --test"
+    },
+    "keywords": [
+        "maac",
+        "milaha",
+        "ai",
+        "agent",
+        "sdk"
+    ]
+}

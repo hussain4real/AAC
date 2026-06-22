@@ -1,0 +1,50 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use Maac\Reference\Cli\CliConsumer;
+use Maac\Sdk\Exceptions\MaacException;
+
+/**
+ * Plain-PHP CLI entry point. Usage:
+ *
+ *   MAAC_BASE_URL=https://maac.test \
+ *   MAAC_CLIENT_ID=... MAAC_CLIENT_SECRET=... \
+ *   MAAC_AGENT_SLUG=e2e-ops-agent \
+ *   reference-apps/php-cli-consumer/bin/maac-run "Summarize port operations"
+ */
+$autoloaders = [
+    __DIR__.'/../vendor/autoload.php',      // standalone install
+    __DIR__.'/../../../vendor/autoload.php', // inside the MAAC monorepo
+];
+
+foreach ($autoloaders as $autoloader) {
+    if (file_exists($autoloader)) {
+        require $autoloader;
+
+        break;
+    }
+}
+
+$prompt = $argv[1] ?? 'Summarize current port operations.';
+
+try {
+    $consumer = CliConsumer::fromEnvironment();
+    $consumer->syncImplementations();
+    $run = $consumer->run($prompt);
+} catch (MaacException $exception) {
+    fwrite(STDERR, 'MAAC integration failed: '.$exception->getMessage().PHP_EOL);
+    exit(1);
+}
+
+fwrite(STDOUT, json_encode([
+    'run_id' => $run->runId,
+    'status' => $run->status,
+    'response' => $run->response,
+    'error' => $run->error,
+    'usage' => ['tokens_in' => $run->tokensIn, 'tokens_out' => $run->tokensOut],
+    'cost' => $run->cost,
+], JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR).PHP_EOL);
+
+exit($run->isCompleted() ? 0 : 1);

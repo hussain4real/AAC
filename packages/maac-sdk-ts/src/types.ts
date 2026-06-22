@@ -1,0 +1,120 @@
+/**
+ * Typed models of MAAC's SDK/runtime response envelopes, plus the small status
+ * helpers consumers branch on. Field names are normalised to camelCase from the
+ * snake_case wire format by the client.
+ */
+
+export type ImplementationStatus =
+  | 'required'
+  | 'implemented'
+  | 'outdated'
+  | 'incompatible'
+  | 'disabled'
+  | 'not_required';
+
+export type RunStatus =
+  | 'queued'
+  | 'running'
+  | 'requires_tool'
+  | 'waiting_for_client'
+  | 'completed'
+  | 'failed'
+  | 'expired'
+  | 'cancelled';
+
+export interface ToolCall {
+  id: string;
+  tool: string;
+  arguments: Record<string, unknown>;
+  outputSchema: Record<string, unknown> | null;
+}
+
+export interface Run {
+  runId: string;
+  agentSlug: string;
+  status: RunStatus | string;
+  tokensIn: number;
+  tokensOut: number;
+  cost: number;
+  response: string | null;
+  toolCall: ToolCall | null;
+  error: string | null;
+}
+
+export interface ManifestAgent {
+  slug: string;
+  name: string;
+  version: string;
+  status: string;
+  tools: string[];
+}
+
+export interface ManifestToolImplementation {
+  status: string;
+  handlerName: string | null;
+  implementedVersion: string | null;
+  lastValidatedAt: string | null;
+}
+
+export interface ManifestTool {
+  name: string;
+  version: string;
+  schemaFingerprint: string;
+  inputSchema: Record<string, unknown>;
+  outputSchema: Record<string, unknown>;
+  implementation: ManifestToolImplementation;
+}
+
+export interface Manifest {
+  environment: string;
+  agents: ManifestAgent[];
+  tools: ManifestTool[];
+}
+
+export interface ImplementationReport {
+  tool: string;
+  handlerName: string;
+  version: string;
+  schemaFingerprint?: string | null;
+  language?: string;
+}
+
+export interface ImplementationResult {
+  tool: string;
+  accepted: boolean;
+  status?: string;
+  error?: string;
+  [key: string]: unknown;
+}
+
+const TERMINAL_STATUSES: ReadonlyArray<string> = ['completed', 'failed', 'expired', 'cancelled'];
+
+/** Whether the run is paused awaiting a client-side tool result. */
+export function isWaiting(run: Run): boolean {
+  return run.status === 'waiting_for_client';
+}
+
+/** Whether the run finished successfully. */
+export function isCompleted(run: Run): boolean {
+  return run.status === 'completed';
+}
+
+/** Whether the run reached a terminal status and will not change again. */
+export function isTerminal(run: Run): boolean {
+  return TERMINAL_STATUSES.includes(run.status);
+}
+
+/** Find a manifest tool by slug. */
+export function findTool(manifest: Manifest, name: string): ManifestTool | null {
+  return manifest.tools.find((tool) => tool.name === name) ?? null;
+}
+
+/** Find a manifest agent by slug. */
+export function findAgent(manifest: Manifest, slug: string): ManifestAgent | null {
+  return manifest.agents.find((agent) => agent.slug === slug) ?? null;
+}
+
+/** Whether MAAC considers the tool implemented and compatible. */
+export function isImplemented(tool: ManifestTool): boolean {
+  return tool.implementation.status === 'implemented';
+}

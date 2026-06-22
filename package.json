@@ -10,7 +10,9 @@
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
-        "types:check": "tsc --noEmit"
+        "types:check": "tsc --noEmit",
+        "types:check:sdk": "tsc -p packages/maac-sdk-ts/tsconfig.json && tsc -p reference-apps/node-consumer/tsconfig.json",
+        "test:sdk": "node --test packages/maac-sdk-ts/test/*.test.ts reference-apps/node-consumer/test/*.test.ts"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",

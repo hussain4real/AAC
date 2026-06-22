@@ -1,0 +1,15 @@
+{
+    "name": "maac-node-consumer",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Reference Node/TypeScript application that integrates with the Milaha AI Agent Center (MAAC) through the @maac/sdk client.",
+    "type": "module",
+    "engines": {
+        "node": ">=22.18"
+    },
+    "scripts": {
+        "typecheck": "tsc -p tsconfig.json",
+        "test": "node --test",
+        "start": "node bin/run.ts"
+    }
+}
