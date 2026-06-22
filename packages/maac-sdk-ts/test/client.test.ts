@@ -4,6 +4,7 @@ import { MaacClient } from '../src/client.ts';
 import { MaacApiError, MissingToolHandlerError } from '../src/errors.ts';
 import { ToolHandlerRegistry } from '../src/registry.ts';
 import type { HttpRequest, HttpResponse, Transport } from '../src/transport.ts';
+import { SDK_VERSION } from '../src/version.ts';
 
 interface ScriptedResponse {
   status: number;
@@ -106,7 +107,45 @@ test('reports registered handlers against the manifest', async () => {
     version: '2.1.0',
     schema_fingerprint: 'fp-9',
     language: 'typescript',
+    sdk_version: SDK_VERSION,
   });
+  // Every authenticated request carries the SDK version header for negotiation.
+  assert.equal(requests[1].headers['X-Maac-Sdk-Version'], SDK_VERSION);
+  assert.equal(requests[1].headers['X-Maac-Sdk-Language'], 'typescript');
+});
+
+test('negotiates compatibility with the MAAC sdk endpoint', async () => {
+  const { transport, requests } = fakeTransport([
+    TOKEN,
+    {
+      status: 200,
+      body: {
+        api_version: '1.0.0',
+        minimum_client_version: '1.0.0',
+        current_client_version: '1.4.0',
+        deprecations: [{ id: 'legacy', removed_in: '2.0.0' }],
+        compatibility: {
+          status: 'compatible',
+          compatible: true,
+          client_version: '1.0.0',
+          api_version: '1.0.0',
+          minimum_client_version: '1.0.0',
+          current_client_version: '1.4.0',
+          upgrade_required: false,
+        },
+      },
+    },
+  ]);
+
+  const compatibility = await client(transport).compatibility();
+
+  assert.equal(compatibility.compatible, true);
+  assert.equal(compatibility.status, 'compatible');
+  assert.equal(compatibility.apiVersion, '1.0.0');
+  assert.equal(compatibility.currentClientVersion, '1.4.0');
+  assert.equal(compatibility.deprecations.length, 1);
+  assert.equal(requests[1].url, 'https://maac.test/api/v1/sdk');
+  assert.equal(requests[1].headers['X-Maac-Sdk-Version'], SDK_VERSION);
 });
 
 test('drives a paused run to completion through the registry', async () => {

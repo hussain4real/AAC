@@ -14,6 +14,7 @@ use App\Models\Project;
 use App\Models\Team;
 use App\Support\Observability\OperationalMonitor;
 use App\Support\Observability\RunMetrics;
+use App\Support\Sdk\SdkCompatibilityReport;
 
 /**
  * Assembles the MAAC console dataset for a team as plain arrays matching the
@@ -77,6 +78,8 @@ class MaacConsoleData
                 'alerts' => $operational['alerts'],
             ],
             'operational' => $operational['metrics'],
+            // Phase 6C — SDK versioning/compatibility dashboard dataset.
+            'sdkCompatibility' => app(SdkCompatibilityReport::class)->forTeam($team),
             ...GovernanceConsoleData::forTeam($team),
         ];
     }

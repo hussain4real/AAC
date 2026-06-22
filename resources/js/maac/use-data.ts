@@ -16,6 +16,7 @@ import type {
     MaacGovernanceSettings,
     MaacOperational,
     MaacQuota,
+    MaacSdkCompatibility,
 } from '@/types/global';
 import { MAAC as FIXTURE } from './data';
 import type { Agent, Application, Llm, Project, Run, Tool } from './data';
@@ -39,6 +40,20 @@ const EMPTY_OPERATIONAL: MaacOperational = {
     errorRate: 0,
     toolFailureRate: 0,
     costAnomaly: false,
+};
+
+/** Default SDK compatibility dataset when no team dataset is present. */
+const EMPTY_SDK_COMPATIBILITY: MaacSdkCompatibility = {
+    platform: {
+        api_version: '1.0.0',
+        minimum_client_version: '1.0.0',
+        current_client_version: '1.0.0',
+        languages: [],
+        packages: [],
+        deprecations: [],
+    },
+    applications: [],
+    drift: [],
 };
 
 /** Default governance settings when no team dataset is present. */
@@ -81,6 +96,7 @@ export type MaacData = MaacDataset & {
     auditEvents: MaacAuditEvent[];
     governanceSettings: MaacGovernanceSettings;
     quotas: MaacQuota[];
+    sdkCompatibility: MaacSdkCompatibility;
     execModeLabel: typeof FIXTURE.execModeLabel;
     implLabel: typeof FIXTURE.implLabel;
     byId: <T extends { id: string }>(list: T[], id: string) => T | undefined;
@@ -113,6 +129,7 @@ export function useMaacData(): MaacData {
             auditEvents: maac?.auditEvents ?? [],
             governanceSettings: maac?.governanceSettings ?? DEFAULT_SETTINGS,
             quotas: maac?.quotas ?? [],
+            sdkCompatibility: maac?.sdkCompatibility ?? EMPTY_SDK_COMPATIBILITY,
             execModeLabel: FIXTURE.execModeLabel,
             implLabel: FIXTURE.implLabel,
             byId: <T extends { id: string }>(list: T[], id: string) =>

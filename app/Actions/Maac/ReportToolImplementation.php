@@ -59,6 +59,7 @@ class ReportToolImplementation
 
         $version = (string) $report['version'];
         $fingerprint = isset($report['schema_fingerprint']) ? (string) $report['schema_fingerprint'] : null;
+        $sdkVersion = isset($report['sdk_version']) ? (string) $report['sdk_version'] : null;
         $status = ToolCompatibility::evaluate($contract, $version, $fingerprint);
 
         $implementation = $contract->implementations()->updateOrCreate(
@@ -68,6 +69,7 @@ class ReportToolImplementation
                 'handler_name' => (string) $report['handler_name'],
                 'implemented_version' => $version,
                 'language' => $report['language'] ?? null,
+                'sdk_version' => $sdkVersion,
                 'last_validated_at' => now(),
             ],
         );
@@ -77,6 +79,7 @@ class ReportToolImplementation
             'accepted' => true,
             'status' => $status->value,
             'implemented_version' => $version,
+            'sdk_version' => $sdkVersion,
             'last_validated_at' => $implementation->last_validated_at?->toIso8601String(),
         ];
     }

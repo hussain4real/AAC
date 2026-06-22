@@ -25,7 +25,10 @@ use Illuminate\Database\Eloquent\Collection;
  */
 class ToolRegistry
 {
-    public function __construct(private readonly SdkStubGenerator $stubs) {}
+    public function __construct(
+        private readonly SdkStubGenerator $stubs,
+        private readonly SdkPlatform $platform,
+    ) {}
 
     /**
      * The client-side tool contracts the given application must implement.
@@ -76,6 +79,10 @@ class ToolRegistry
                 'environment' => $environment->value,
             ],
             'generated_at' => now()->toIso8601String(),
+            // The versioned SDK contract this manifest was produced against, so a
+            // client can detect a server-side contract change from one fetch.
+            'api_version' => $this->platform->apiVersion(),
+            'sdk' => $this->platform->descriptor(),
             'sdk_languages' => SdkLanguage::options(),
             'agents' => $this->availableAgents($application)
                 ->map(fn (Agent $agent): array => [

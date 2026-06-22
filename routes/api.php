@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Api\V1\AgentRunController;
 use App\Http\Controllers\Api\V1\ManifestController;
+use App\Http\Controllers\Api\V1\SdkVersionController;
 use App\Http\Controllers\Api\V1\ToolImplementationController;
 use App\Http\Controllers\Api\V1\ToolResultController;
+use App\Http\Middleware\AddApiVersionHeader;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Passport\Http\Middleware\EnsureClientIsResourceOwner;
@@ -23,9 +25,13 @@ Route::get('/user', function (Request $request) {
 |
 */
 Route::prefix('v1')
-    ->middleware([EnsureClientIsResourceOwner::class, 'sdk.auth'])
+    ->middleware([AddApiVersionHeader::class, EnsureClientIsResourceOwner::class, 'sdk.auth'])
     ->name('api.v1.')
     ->group(function () {
+        // SDK version negotiation — API contract version, supported client
+        // window, packages, deprecations, and the caller's compatibility.
+        Route::get('sdk', [SdkVersionController::class, 'show'])->name('sdk');
+
         // SDK manifest sync — fetch available agents + required client tools.
         Route::get('manifest', [ManifestController::class, 'show'])->name('manifest');
 

@@ -277,19 +277,21 @@ Prove MAAC can be integrated by real applications outside the MAAC codebase, sta
 
 ### Phase 6C: SDK Distribution, Versioning & Compatibility
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-6c-sdk-versioning`. The Phase 3 SDK surfaces are now a **versioned integration product**. A new `config('maac.sdk')` block + `App\Support\Sdk\SdkPlatform` define the API **contract version**, the supported **client-package window**, the published-package registry, and deprecations; a new authenticated **`GET /api/v1/sdk`** (`SdkVersionController`) negotiates the caller's reported SDK version (`X-Maac-Sdk-Version`/`-Language` header or `client_version` query) into a `compatible` / `upgrade_required` / `ahead` / `unknown` verdict, every v1 response carries an **`X-Maac-Api-Version`** header (`AddApiVersionHeader`), and the manifest embeds the same `sdk` block. Both SDKs were **versioned to 1.0.0** (`MaacClient::VERSION` / `SDK_VERSION`), now send their version on every request + in reports (new `tool_implementations.sdk_version` column, captured by `ReportToolImplementation`), and gained `compatibility()`. **SDK test helpers** (`Maac\Sdk\Testing\SchemaValidator`/`ToolTester`/`Compatibility`; TS `validateSchema`/`ToolTester`/`evaluateCompatibility`) let an app validate handlers against the contract schema before reporting. A **shared contract fixture suite** (`packages/sdk-fixtures/contract.json`) is generated from MAAC's own logic by `App\Support\Sdk\ContractFixtures` via `php artisan maac:sdk-fixtures` (`--check` is the CI tripwire, wired into `composer ci:check`) and is run by MAAC, the PHP SDK, and the TS SDK — so a response-shape/rule change can't silently break a client. A **compatibility dashboard** (`SdkCompatibilityReport` → `maac.sdkCompatibility` → SDK Implementation Center) shows platform versions, per-application reported-client compatibility, and the **contract drift feed**. Versioned **changelogs**, a **Migration Guide** (`docs/MAAC_SDK_Migration_Guide.md`), per-package READMEs, and simple/advanced **examples** (incl. controlled missing-handler) round it out. Verified: **466 Pest tests at 100 % line coverage**; PHPStan L7, Pint, ESLint, Prettier, `tsc` (frontend + SDK + examples), 19 Node tests, and `npm run build` all clean — plus a live Chrome walkthrough of the compatibility dashboard (real reported clients: a compatible PHP v1.0.0, an upgrade-required TS v0.9.0, and a drifted tool) and a served-API smoke of `GET /api/v1/sdk` (negotiation + `X-Maac-Api-Version` header) with no console errors.
+
 #### Goal
 
 Turn the Phase 3 SDK surfaces into a versioned integration product that can be safely adopted, upgraded, and tested by application teams.
 
 #### Checklist
 
-- [ ] Define SDK package boundaries for generated stubs, runtime client, manifest sync, credential/token management, local handler registry, and test helpers.
-- [ ] Add semantic versioning for SDK packages and generated contract artifacts.
-- [ ] Add migration guides, deprecation windows, changelog entries, and compatibility dashboards for tool contract version changes.
-- [ ] Add SDK test helpers so external applications can validate local handlers against MAAC tool input/output schemas before reporting them as implemented.
-- [ ] Add a contract fixture suite that every supported SDK language must pass.
-- [ ] Add CI checks that prevent a MAAC API response-shape change from silently breaking supported SDK clients.
-- [ ] Add SDK examples for simple mode and advanced mode, including controlled missing-handler behavior.
+- [x] Define SDK package boundaries for generated stubs, runtime client, manifest sync, credential/token management, local handler registry, and test helpers.
+- [x] Add semantic versioning for SDK packages and generated contract artifacts.
+- [x] Add migration guides, deprecation windows, changelog entries, and compatibility dashboards for tool contract version changes.
+- [x] Add SDK test helpers so external applications can validate local handlers against MAAC tool input/output schemas before reporting them as implemented.
+- [x] Add a contract fixture suite that every supported SDK language must pass.
+- [x] Add CI checks that prevent a MAAC API response-shape change from silently breaking supported SDK clients.
+- [x] Add SDK examples for simple mode and advanced mode, including controlled missing-handler behavior.
 
 #### Deliverables
 

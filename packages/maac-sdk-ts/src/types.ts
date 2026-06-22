@@ -77,6 +77,23 @@ export interface ImplementationReport {
   version: string;
   schemaFingerprint?: string | null;
   language?: string;
+  sdkVersion?: string;
+}
+
+/**
+ * MAAC's verdict on whether the installed SDK client is compatible with a MAAC
+ * instance, returned by `MaacClient.compatibility()`. `status` is one of
+ * `compatible`, `upgrade_required`, `ahead`, or `unknown`.
+ */
+export interface SdkCompatibility {
+  compatible: boolean;
+  status: string;
+  clientVersion: string | null;
+  apiVersion: string;
+  minimumClientVersion: string;
+  currentClientVersion: string;
+  upgradeRequired: boolean;
+  deprecations: Array<Record<string, unknown>>;
 }
 
 export interface ImplementationResult {
@@ -117,4 +134,9 @@ export function findAgent(manifest: Manifest, slug: string): ManifestAgent | nul
 /** Whether MAAC considers the tool implemented and compatible. */
 export function isImplemented(tool: ManifestTool): boolean {
   return tool.implementation.status === 'implemented';
+}
+
+/** Whether the installed SDK client can safely talk to this MAAC instance. */
+export function isSdkCompatible(compatibility: SdkCompatibility): boolean {
+  return compatibility.compatible;
 }

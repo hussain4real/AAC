@@ -34,6 +34,7 @@ class ReportImplementationRequest extends FormRequest
             'implementations.*.version' => ['required', 'string', 'max:32'],
             'implementations.*.schema_fingerprint' => ['nullable', 'string', 'max:128'],
             'implementations.*.language' => ['nullable', Rule::enum(SdkLanguage::class)],
+            'implementations.*.sdk_version' => ['nullable', 'string', 'max:32'],
         ];
     }
 }

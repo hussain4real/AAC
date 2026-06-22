@@ -10,6 +10,7 @@ parameters:
         - database/
         - routes/
         - packages/maac-sdk-php/src
+        - packages/maac-sdk-php/examples
         - reference-apps/laravel-consumer/src
         - reference-apps/php-cli-consumer/src
 

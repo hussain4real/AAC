@@ -55,6 +55,25 @@ test('reporting a current handler marks it implemented and persists the record',
     ]);
 });
 
+test('reporting a handler captures the SDK client version', function () {
+    reportImpl([[
+        'tool' => 'getOperationalRecords',
+        'handler_name' => 'OpsRecordsHandler',
+        'version' => '2.0.0',
+        'schema_fingerprint' => $this->tool->schemaFingerprint(),
+        'language' => 'php',
+        'sdk_version' => '1.0.0',
+    ]])->assertOk()
+        ->assertJsonPath('results.0.status', 'implemented')
+        ->assertJsonPath('results.0.sdk_version', '1.0.0');
+
+    $this->assertDatabaseHas('tool_implementations', [
+        'tool_contract_id' => $this->tool->id,
+        'application_id' => $this->application->id,
+        'sdk_version' => '1.0.0',
+    ]);
+});
+
 test('reporting an older version marks it outdated', function () {
     reportImpl([[
         'tool' => 'getOperationalRecords',

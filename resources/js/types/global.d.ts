@@ -103,6 +103,79 @@ export interface MaacApprovals {
     data: ApprovalItem[];
 }
 
+/** A published SDK client package (Phase 6C). */
+export interface MaacSdkPackage {
+    language: string;
+    name: string;
+    version: string | null;
+    registry?: string;
+    status?: string;
+}
+
+/** A contract/SDK deprecation and its removal window (Phase 6C). */
+export interface MaacSdkDeprecation {
+    id?: string;
+    summary?: string;
+    deprecated_in?: string;
+    removed_in?: string;
+    guide?: string;
+}
+
+/** The versioned SDK platform identity (Phase 6C). */
+export interface MaacSdkPlatform {
+    api_version: string;
+    minimum_client_version: string;
+    current_client_version: string;
+    languages: { value: string; label: string }[];
+    packages: MaacSdkPackage[];
+    deprecations: MaacSdkDeprecation[];
+}
+
+/** A reported SDK client version + its compatibility verdict (Phase 6C). */
+export interface MaacSdkClient {
+    language: string | null;
+    version: string | null;
+    status: string;
+    compatible: boolean;
+}
+
+/** One application's SDK integration health (Phase 6C). */
+export interface MaacSdkAppHealth {
+    id: string;
+    name: string;
+    environment: string;
+    lastSyncedAt: string | null;
+    clients: MaacSdkClient[];
+    compatible: boolean;
+    tools: {
+        total: number;
+        implemented: number;
+        outdated: number;
+        incompatible: number;
+        required: number;
+    };
+}
+
+/** A client-side tool whose implementation has drifted from its contract (Phase 6C). */
+export interface MaacSdkDrift {
+    application: string;
+    applicationId: string;
+    tool: string;
+    status: string;
+    environment: string;
+    contractVersion: string;
+    implementedVersion: string | null;
+    sdkVersion: string | null;
+    handler: string | null;
+}
+
+/** The SDK versioning & compatibility dashboard dataset (Phase 6C). */
+export interface MaacSdkCompatibility {
+    platform: MaacSdkPlatform;
+    applications: MaacSdkAppHealth[];
+    drift: MaacSdkDrift[];
+}
+
 export interface MaacProp {
     apps: Application[];
     projects: Project[];
@@ -118,6 +191,7 @@ export interface MaacProp {
     policies: Policy[];
     governanceSettings: MaacGovernanceSettings;
     quotas: MaacQuota[];
+    sdkCompatibility: MaacSdkCompatibility;
 }
 
 declare module '@inertiajs/core' {

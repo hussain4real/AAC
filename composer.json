@@ -77,6 +77,7 @@
             "npm run types:check",
             "npm run types:check:sdk",
             "npm run test:sdk",
+            "@php artisan maac:sdk-fixtures --check",
             "@analyse",
             "@test"
         ],

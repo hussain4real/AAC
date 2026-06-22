@@ -15,6 +15,7 @@ use Maac\Sdk\Http\HttpResponse;
 use Maac\Sdk\Resources\Manifest;
 use Maac\Sdk\Resources\ManifestTool;
 use Maac\Sdk\Resources\Run;
+use Maac\Sdk\Resources\SdkCompatibility;
 use Maac\Sdk\Tools\ToolContext;
 use Maac\Sdk\Tools\ToolHandler;
 use Maac\Sdk\Tools\ToolHandlerRegistry;
@@ -31,6 +32,18 @@ use Maac\Sdk\Tools\ToolHandlerRegistry;
  */
 final class MaacClient
 {
+    /**
+     * The semantic version of this SDK client package. Reported to MAAC on every
+     * request (`X-Maac-Sdk-Version`) and in implementation reports so the server
+     * can flag clients below its supported minimum.
+     */
+    public const VERSION = '1.0.0';
+
+    /**
+     * The SDK language identifier reported to MAAC.
+     */
+    public const LANGUAGE = 'php';
+
     private readonly Transport $transport;
 
     private readonly TokenProvider $tokens;
@@ -55,6 +68,23 @@ final class MaacClient
     }
 
     /**
+     * Ask MAAC whether this installed SDK client is compatible with the server's
+     * current API contract. Reports {@see self::VERSION} by default; pass an
+     * explicit version to probe a different one. Lets a consumer detect and act
+     * on an incompatible/outdated client before invoking anything.
+     */
+    public function compatibility(?string $clientVersion = null): SdkCompatibility
+    {
+        $response = $this->request(new HttpRequest('GET', $this->config->url('/api/v1/sdk'), [
+            'Accept' => 'application/json',
+            'X-Maac-Sdk-Version' => $clientVersion ?? self::VERSION,
+            'X-Maac-Sdk-Language' => self::LANGUAGE,
+        ]));
+
+        return SdkCompatibility::fromArray($this->decode($response));
+    }
+
+    /**
      * Fetch the SDK manifest: the agents this application may invoke and the
      * client-side tools it must implement, for the credential's environment.
      */
@@ -75,7 +105,10 @@ final class MaacClient
     public function reportImplementations(array $implementations): array
     {
         $response = $this->request(HttpRequest::json('POST', $this->config->url('/api/v1/tool-implementations'), [
-            'implementations' => array_values($implementations),
+            'implementations' => array_values(array_map(
+                fn (array $report): array => ['sdk_version' => self::VERSION, ...$report],
+                $implementations,
+            )),
         ]));
 
         return $this->resultList($this->decode($response)['results'] ?? null);
@@ -212,15 +245,28 @@ final class MaacClient
      */
     private function request(HttpRequest $request): HttpResponse
     {
-        $authorized = $request->withHeader('Authorization', 'Bearer '.$this->tokens->token());
-        $response = $this->transport->send($authorized);
+        $response = $this->transport->send($this->authorize($request, $this->tokens->token()));
 
         if ($response->status === 401) {
-            $retry = $request->withHeader('Authorization', 'Bearer '.$this->tokens->refresh());
-            $response = $this->transport->send($retry);
+            $response = $this->transport->send($this->authorize($request, $this->tokens->refresh()));
         }
 
         return $response;
+    }
+
+    /**
+     * Stamp a request with the bearer token and the SDK version/language headers.
+     * The request's own headers take precedence, so {@see self::compatibility()}
+     * can probe an explicit version.
+     */
+    private function authorize(HttpRequest $request, string $token): HttpRequest
+    {
+        return new HttpRequest($request->method, $request->url, [
+            'X-Maac-Sdk-Version' => self::VERSION,
+            'X-Maac-Sdk-Language' => self::LANGUAGE,
+            ...$request->headers,
+            'Authorization' => 'Bearer '.$token,
+        ], $request->body);
     }
 
     /**

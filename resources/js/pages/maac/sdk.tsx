@@ -22,6 +22,7 @@ import {
     Td,
     Tr,
 } from '@/components/maac/ui';
+import type { Tone } from '@/components/maac/ui';
 import type {
     Application,
     Environment,
@@ -128,7 +129,7 @@ function ToolImplPanel({ tool, app, onClose }: ToolImplPanelProps) {
             done: !!app.lastSyncedAt,
         },
         {
-            label: `Register handler for ${tool.name}`,
+            label: `Register a handler for ${tool.name}`,
             done: isImplemented,
         },
         {
@@ -136,11 +137,15 @@ function ToolImplPanel({ tool, app, onClose }: ToolImplPanelProps) {
             done: isImplemented,
         },
         {
-            label: 'Return a result matching the output schema',
+            label: 'Validate the result against the output schema with the SDK ToolTester before reporting',
             done: isImplemented,
         },
         {
-            label: 'Run SDK validation & sync status to MAAC',
+            label: 'MAAC re-validates every result against the output schema and rejects a mismatch (invalid_tool_result)',
+            done: isImplemented,
+        },
+        {
+            label: 'Report the implementation & sync status to MAAC',
             done: isImplemented,
         },
     ];
@@ -391,6 +396,351 @@ function ToolImplPanel({ tool, app, onClose }: ToolImplPanelProps) {
     );
 }
 
+/* ── SDK versioning & compatibility (Phase 6C) ── */
+
+/** Map a compatibility/implementation status to a badge tone. */
+function compatTone(status: string): Tone {
+    switch (status) {
+        case 'compatible':
+        case 'ahead':
+        case 'implemented':
+            return 'teal';
+        case 'outdated':
+            return 'amber';
+        case 'upgrade_required':
+        case 'incompatible':
+            return 'red';
+        default:
+            return 'neutral';
+    }
+}
+
+/**
+ * The versioned SDK contract surface: MAAC's API contract version, the supported
+ * client-package window, published packages, active deprecations, each
+ * application's reported SDK client compatibility, and the contract drift feed
+ * (client-side tools whose implementation has fallen behind their contract).
+ */
+function SdkVersioningPanel() {
+    const MAAC = useMaacData();
+    const { platform, applications, drift } = MAAC.sdkCompatibility;
+
+    return (
+        <div style={{ marginBottom: 16 }}>
+            <Card pad={false} style={{ overflow: 'hidden', marginBottom: 14 }}>
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 14,
+                        padding: '15px 18px',
+                        background:
+                            'linear-gradient(100deg, var(--primary-soft), transparent)',
+                    }}
+                >
+                    <span
+                        style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 9,
+                            background: 'var(--primary)',
+                            color: '#fff',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                        }}
+                    >
+                        <Icon name="layers" size={20} />
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700 }}>
+                            SDK Versioning &amp; Compatibility
+                        </div>
+                        <div style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
+                            The versioned integration contract — detect SDK and
+                            tool-implementation compatibility before deployment.
+                        </div>
+                    </div>
+                    <Badge tone="purple" icon="link">
+                        API v{platform.api_version}
+                    </Badge>
+                </div>
+
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(4,1fr)',
+                        borderTop: '1px solid var(--border)',
+                    }}
+                >
+                    <SDKStat
+                        icon="link"
+                        label="API contract version"
+                        value={`v${platform.api_version}`}
+                        ok
+                    />
+                    <SDKStat
+                        icon="check2"
+                        label="Supported client window"
+                        value={`${platform.minimum_client_version} – ${platform.current_client_version}`}
+                        border
+                        ok
+                    />
+                    <SDKStat
+                        icon="book"
+                        label="SDK packages"
+                        value={platform.packages.length}
+                        border
+                        ok
+                    />
+                    <SDKStat
+                        icon={platform.deprecations.length ? 'alert' : 'check2'}
+                        label="Active deprecations"
+                        value={platform.deprecations.length}
+                        border
+                        ok={platform.deprecations.length === 0}
+                    />
+                </div>
+
+                <div
+                    style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        padding: '12px 18px',
+                        borderTop: '1px solid var(--border)',
+                    }}
+                >
+                    {platform.packages.map((pkg) => (
+                        <Badge
+                            key={pkg.language}
+                            tone={
+                                pkg.status === 'supported' ? 'teal' : 'neutral'
+                            }
+                        >
+                            {pkg.name}
+                            {pkg.version ? `@${pkg.version}` : ' (planned)'}
+                        </Badge>
+                    ))}
+                </div>
+
+                {platform.deprecations.length > 0 && (
+                    <div
+                        style={{
+                            padding: '12px 18px',
+                            borderTop: '1px solid var(--border)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                        }}
+                    >
+                        {platform.deprecations.map((dep, i) => (
+                            <div
+                                key={dep.id ?? i}
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 10,
+                                    fontSize: 12.5,
+                                }}
+                            >
+                                <Badge tone="amber" icon="alert">
+                                    removed in {dep.removed_in ?? '—'}
+                                </Badge>
+                                <span style={{ color: 'var(--text-2)' }}>
+                                    {dep.summary ?? dep.id}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </Card>
+
+            <Card pad={false} style={{ marginBottom: 14 }}>
+                <div style={{ padding: '14px 16px 4px' }}>
+                    <SectionHeader
+                        title="Application SDK compatibility"
+                        sub="Reported SDK client version and tool-implementation health per application"
+                        icon="apps"
+                        style={{ marginBottom: 0 }}
+                    />
+                </div>
+                <Table
+                    columns={[
+                        { label: 'Application' },
+                        { label: 'Environment' },
+                        { label: 'Reported SDK client' },
+                        { label: 'Compatibility' },
+                        { label: 'Tools implemented', align: 'right' },
+                        { label: 'Drifted', align: 'right' },
+                    ]}
+                >
+                    {applications.map((app) => {
+                        const drifted =
+                            app.tools.outdated + app.tools.incompatible;
+
+                        return (
+                            <Tr key={app.id}>
+                                <Td strong>{app.name}</Td>
+                                <Td>
+                                    <Badge tone="neutral">
+                                        {app.environment}
+                                    </Badge>
+                                </Td>
+                                <Td>
+                                    {app.clients.length ? (
+                                        <span
+                                            style={{
+                                                display: 'flex',
+                                                gap: 6,
+                                                flexWrap: 'wrap',
+                                            }}
+                                        >
+                                            {app.clients.map((c, i) => (
+                                                <span
+                                                    key={i}
+                                                    className="mono"
+                                                    style={{ fontSize: 12 }}
+                                                >
+                                                    {c.language ?? 'SDK'} v
+                                                    {c.version}
+                                                </span>
+                                            ))}
+                                        </span>
+                                    ) : (
+                                        <span
+                                            style={{ color: 'var(--text-3)' }}
+                                        >
+                                            Not reported
+                                        </span>
+                                    )}
+                                </Td>
+                                <Td>
+                                    {app.clients.length ? (
+                                        <Badge
+                                            tone={
+                                                app.compatible ? 'teal' : 'red'
+                                            }
+                                            icon={
+                                                app.compatible
+                                                    ? 'check2'
+                                                    : 'alert'
+                                            }
+                                        >
+                                            {app.compatible
+                                                ? 'Compatible'
+                                                : 'Upgrade required'}
+                                        </Badge>
+                                    ) : (
+                                        <Badge tone="neutral">No client</Badge>
+                                    )}
+                                </Td>
+                                <Td
+                                    align="right"
+                                    style={{ color: 'var(--text-2)' }}
+                                >
+                                    <span className="tnum">
+                                        {app.tools.implemented}/
+                                        {app.tools.total}
+                                    </span>
+                                </Td>
+                                <Td align="right">
+                                    {drifted > 0 ? (
+                                        <Badge tone="amber">{drifted}</Badge>
+                                    ) : (
+                                        <span
+                                            style={{ color: 'var(--text-3)' }}
+                                        >
+                                            —
+                                        </span>
+                                    )}
+                                </Td>
+                            </Tr>
+                        );
+                    })}
+                </Table>
+            </Card>
+
+            <Card pad={false}>
+                <div style={{ padding: '14px 16px 4px' }}>
+                    <SectionHeader
+                        title="Contract changes requiring migration"
+                        sub="Client-side tools whose reported implementation has drifted from the current contract version"
+                        icon="alert"
+                        style={{ marginBottom: 0 }}
+                    />
+                </div>
+                {drift.length === 0 ? (
+                    <div
+                        style={{
+                            display: 'flex',
+                            gap: 12,
+                            alignItems: 'center',
+                            padding: '14px 18px',
+                        }}
+                    >
+                        <span
+                            style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 9,
+                                background: 'var(--teal-100)',
+                                color: 'var(--teal-600)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                            }}
+                        >
+                            <Icon name="check2" size={18} />
+                        </span>
+                        <div style={{ fontSize: 12.5, color: 'var(--text-2)' }}>
+                            All reported tool implementations are current with
+                            their contracts. No migrations are pending.
+                        </div>
+                    </div>
+                ) : (
+                    <Table
+                        columns={[
+                            { label: 'Application' },
+                            { label: 'Tool' },
+                            { label: 'Status' },
+                            { label: 'Contract' },
+                            { label: 'Implemented', align: 'right' },
+                            { label: 'Environment', align: 'right' },
+                        ]}
+                    >
+                        {drift.map((row, i) => (
+                            <Tr key={i}>
+                                <Td strong>{row.application}</Td>
+                                <Td mono>{row.tool}</Td>
+                                <Td>
+                                    <Badge tone={compatTone(row.status)}>
+                                        {row.status}
+                                    </Badge>
+                                </Td>
+                                <Td mono>v{row.contractVersion}</Td>
+                                <Td align="right" mono>
+                                    {row.implementedVersion
+                                        ? `v${row.implementedVersion}`
+                                        : '—'}
+                                </Td>
+                                <Td
+                                    align="right"
+                                    style={{ color: 'var(--text-3)' }}
+                                >
+                                    {row.environment}
+                                </Td>
+                            </Tr>
+                        ))}
+                    </Table>
+                )}
+            </Card>
+        </div>
+    );
+}
+
 /* ── page ── */
 
 export default function SDKCenter() {
@@ -436,6 +786,8 @@ export default function SDKCenter() {
                         </Btn>
                     }
                 />
+
+                <SdkVersioningPanel />
 
                 {/* app selector */}
                 <Card

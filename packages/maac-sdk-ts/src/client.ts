@@ -10,8 +10,10 @@ import type {
   ManifestAgent,
   ManifestTool,
   Run,
+  SdkCompatibility,
   ToolCall,
 } from './types.ts';
+import { SDK_LANGUAGE, SDK_VERSION } from './version.ts';
 
 /** Connection configuration for a MAAC application credential. */
 export interface MaacConfig {
@@ -45,6 +47,25 @@ export class MaacClient {
   /** Eagerly exchange the credential for an access token and return it. */
   async authenticate(): Promise<string> {
     return this.accessToken();
+  }
+
+  /**
+   * Ask MAAC whether this installed SDK client is compatible with the server's
+   * current API contract. Reports `SDK_VERSION` by default; pass an explicit
+   * version to probe a different one.
+   */
+  async compatibility(clientVersion?: string): Promise<SdkCompatibility> {
+    const response = await this.request({
+      method: 'GET',
+      url: this.url('/api/v1/sdk'),
+      headers: {
+        Accept: 'application/json',
+        'X-Maac-Sdk-Version': clientVersion ?? SDK_VERSION,
+        'X-Maac-Sdk-Language': SDK_LANGUAGE,
+      },
+    });
+
+    return parseCompatibility(this.decode(response));
   }
 
   /** Fetch the SDK manifest for the credential's environment. */
@@ -221,8 +242,7 @@ export class MaacClient {
 
   private async request(request: HttpRequest): Promise<HttpResponse> {
     const token = await this.accessToken();
-    const authorized: HttpRequest = { ...request, headers: { ...request.headers, Authorization: `Bearer ${token}` } };
-    const response = await this.transport(authorized);
+    const response = await this.transport(this.authorize(request, token));
 
     if (response.status !== 401) {
       return response;
@@ -230,7 +250,24 @@ export class MaacClient {
 
     const fresh = await this.refresh();
 
-    return this.transport({ ...request, headers: { ...request.headers, Authorization: `Bearer ${fresh}` } });
+    return this.transport(this.authorize(request, fresh));
+  }
+
+  /**
+   * Stamp a request with the bearer token and the SDK version/language headers.
+   * The request's own headers take precedence, so `compatibility()` can probe an
+   * explicit version.
+   */
+  private authorize(request: HttpRequest, token: string): HttpRequest {
+    return {
+      ...request,
+      headers: {
+        'X-Maac-Sdk-Version': SDK_VERSION,
+        'X-Maac-Sdk-Language': SDK_LANGUAGE,
+        ...request.headers,
+        Authorization: `Bearer ${token}`,
+      },
+    };
   }
 
   private async refresh(): Promise<string> {
@@ -266,7 +303,26 @@ function toWireReport(report: ImplementationReport): Record<string, unknown> {
     handler_name: report.handlerName,
     version: report.version,
     schema_fingerprint: report.schemaFingerprint ?? null,
-    language: report.language ?? 'typescript',
+    language: report.language ?? SDK_LANGUAGE,
+    sdk_version: report.sdkVersion ?? SDK_VERSION,
+  };
+}
+
+function parseCompatibility(data: Record<string, unknown>): SdkCompatibility {
+  const compatibility = asObject(data.compatibility);
+  const deprecations = Array.isArray(data.deprecations)
+    ? data.deprecations.filter((item): item is Record<string, unknown> => item !== null && typeof item === 'object')
+    : [];
+
+  return {
+    compatible: compatibility.compatible === true,
+    status: asString(compatibility.status) || 'unknown',
+    clientVersion: typeof compatibility.client_version === 'string' ? compatibility.client_version : null,
+    apiVersion: asString(compatibility.api_version) || asString(data.api_version),
+    minimumClientVersion: asString(compatibility.minimum_client_version) || asString(data.minimum_client_version),
+    currentClientVersion: asString(compatibility.current_client_version) || asString(data.current_client_version),
+    upgradeRequired: compatibility.upgrade_required === true,
+    deprecations,
   };
 }
 

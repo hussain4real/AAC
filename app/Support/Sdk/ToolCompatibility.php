@@ -47,11 +47,31 @@ class ToolCompatibility
             return ImplStatus::NotApplicable;
         }
 
-        if ($reportedFingerprint !== null && $reportedFingerprint !== $contract->schemaFingerprint()) {
+        return self::status(
+            $reportedVersion,
+            $contract->version,
+            $reportedFingerprint,
+            $contract->schemaFingerprint(),
+        );
+    }
+
+    /**
+     * The pure compatibility rule for a client-side contract: an incompatible
+     * fingerprint wins, then an older version is outdated, otherwise it is
+     * implemented. Shared by {@see self::evaluate()} and the SDK contract
+     * fixtures so MAAC and every SDK language decide compatibility identically.
+     */
+    public static function status(
+        string $reportedVersion,
+        string $currentVersion,
+        ?string $reportedFingerprint = null,
+        ?string $currentFingerprint = null,
+    ): ImplStatus {
+        if ($reportedFingerprint !== null && $reportedFingerprint !== $currentFingerprint) {
             return ImplStatus::Incompatible;
         }
 
-        if (version_compare($reportedVersion, $contract->version, '<')) {
+        if (version_compare($reportedVersion, $currentVersion, '<')) {
             return ImplStatus::Outdated;
         }
 

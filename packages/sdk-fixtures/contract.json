@@ -1,0 +1,327 @@
+{
+    "api_version": "1.0.0",
+    "schema_validation": [
+        {
+            "name": "all base types valid",
+            "schema": {
+                "s": "string",
+                "n": "number",
+                "i": "integer",
+                "b": "boolean",
+                "o": "object",
+                "a": "array"
+            },
+            "payload": {
+                "s": "x",
+                "n": 1.5,
+                "i": 2,
+                "b": true,
+                "o": {
+                    "k": "v"
+                },
+                "a": [
+                    1,
+                    2
+                ]
+            },
+            "valid": true,
+            "errors": []
+        },
+        {
+            "name": "optional field omitted is valid",
+            "schema": {
+                "query": "string",
+                "limit": "integer?"
+            },
+            "payload": {
+                "query": "today"
+            },
+            "valid": true,
+            "errors": []
+        },
+        {
+            "name": "missing required field",
+            "schema": {
+                "query": "string",
+                "total": "number"
+            },
+            "payload": {
+                "total": 5
+            },
+            "valid": false,
+            "errors": [
+                "Missing required field \"query\"."
+            ]
+        },
+        {
+            "name": "wrong scalar type",
+            "schema": {
+                "n": "number"
+            },
+            "payload": {
+                "n": "nope"
+            },
+            "valid": false,
+            "errors": [
+                "Field \"n\" must be of type number."
+            ]
+        },
+        {
+            "name": "integer rejects a float",
+            "schema": {
+                "i": "integer"
+            },
+            "payload": {
+                "i": 1.5
+            },
+            "valid": false,
+            "errors": [
+                "Field \"i\" must be of type integer."
+            ]
+        },
+        {
+            "name": "boolean is not a number",
+            "schema": {
+                "n": "number"
+            },
+            "payload": {
+                "n": true
+            },
+            "valid": false,
+            "errors": [
+                "Field \"n\" must be of type number."
+            ]
+        },
+        {
+            "name": "object rejects a list",
+            "schema": {
+                "o": "object"
+            },
+            "payload": {
+                "o": [
+                    1,
+                    2
+                ]
+            },
+            "valid": false,
+            "errors": [
+                "Field \"o\" must be of type object."
+            ]
+        },
+        {
+            "name": "array rejects an object",
+            "schema": {
+                "a": "array"
+            },
+            "payload": {
+                "a": {
+                    "k": "v"
+                }
+            },
+            "valid": false,
+            "errors": [
+                "Field \"a\" must be of type array."
+            ]
+        },
+        {
+            "name": "format hint is ignored",
+            "schema": {
+                "d": "string·date"
+            },
+            "payload": {
+                "d": "2026-01-01"
+            },
+            "valid": true,
+            "errors": []
+        },
+        {
+            "name": "extra fields are tolerated",
+            "schema": {
+                "query": "string"
+            },
+            "payload": {
+                "query": "hi",
+                "extra": true
+            },
+            "valid": true,
+            "errors": []
+        }
+    ],
+    "fingerprint": [
+        {
+            "name": "basic shape",
+            "input": {
+                "query": "string"
+            },
+            "output": {
+                "records": "array",
+                "total": "number"
+            },
+            "fingerprint": "d91eec3b47384f10a05414a29e0099908b694c982fc6379f88ff0db74e1c0d66"
+        },
+        {
+            "name": "reordered keys match the basic shape",
+            "input": {
+                "query": "string"
+            },
+            "output": {
+                "total": "number",
+                "records": "array"
+            },
+            "fingerprint": "d91eec3b47384f10a05414a29e0099908b694c982fc6379f88ff0db74e1c0d66"
+        },
+        {
+            "name": "insignificant whitespace is ignored",
+            "input": {
+                "query": " string "
+            },
+            "output": {
+                "records": "array",
+                "total": "number"
+            },
+            "fingerprint": "d91eec3b47384f10a05414a29e0099908b694c982fc6379f88ff0db74e1c0d66"
+        },
+        {
+            "name": "a changed type changes the fingerprint",
+            "input": {
+                "query": "number"
+            },
+            "output": {
+                "records": "array",
+                "total": "number"
+            },
+            "fingerprint": "fb48f8f88c41280281515308317c464d188149901666025dbefea01f24280893"
+        }
+    ],
+    "compatibility": [
+        {
+            "name": "current matching report is implemented",
+            "reported_version": "1.2.0",
+            "current_version": "1.2.0",
+            "reported_fingerprint": "fp-a",
+            "current_fingerprint": "fp-a",
+            "status": "implemented"
+        },
+        {
+            "name": "a newer reported version is implemented",
+            "reported_version": "1.3.0",
+            "current_version": "1.2.0",
+            "reported_fingerprint": null,
+            "current_fingerprint": "fp-a",
+            "status": "implemented"
+        },
+        {
+            "name": "an older reported version is outdated",
+            "reported_version": "1.0.0",
+            "current_version": "2.0.0",
+            "reported_fingerprint": "fp-a",
+            "current_fingerprint": "fp-a",
+            "status": "outdated"
+        },
+        {
+            "name": "a mismatched fingerprint is incompatible",
+            "reported_version": "2.0.0",
+            "current_version": "2.0.0",
+            "reported_fingerprint": "fp-old",
+            "current_fingerprint": "fp-new",
+            "status": "incompatible"
+        },
+        {
+            "name": "a null reported fingerprint skips the check",
+            "reported_version": "2.0.0",
+            "current_version": "2.0.0",
+            "reported_fingerprint": null,
+            "current_fingerprint": "fp-a",
+            "status": "implemented"
+        }
+    ],
+    "version_negotiation": [
+        {
+            "name": "within the window is compatible",
+            "reported": "1.2.0",
+            "minimum": "1.0.0",
+            "current": "1.4.0",
+            "status": "compatible",
+            "compatible": true,
+            "upgrade_required": false
+        },
+        {
+            "name": "at the exact minimum is compatible",
+            "reported": "1.0.0",
+            "minimum": "1.0.0",
+            "current": "1.4.0",
+            "status": "compatible",
+            "compatible": true,
+            "upgrade_required": false
+        },
+        {
+            "name": "below the minimum requires an upgrade",
+            "reported": "0.9.0",
+            "minimum": "1.0.0",
+            "current": "1.4.0",
+            "status": "upgrade_required",
+            "compatible": false,
+            "upgrade_required": true
+        },
+        {
+            "name": "ahead of current is compatible",
+            "reported": "2.0.0",
+            "minimum": "1.0.0",
+            "current": "1.4.0",
+            "status": "ahead",
+            "compatible": true,
+            "upgrade_required": false
+        },
+        {
+            "name": "unreported is unknown",
+            "reported": null,
+            "minimum": "1.0.0",
+            "current": "1.4.0",
+            "status": "unknown",
+            "compatible": true,
+            "upgrade_required": false
+        }
+    ],
+    "errors": [
+        {
+            "code": "invalid_token",
+            "status": 401
+        },
+        {
+            "code": "unknown_client",
+            "status": 401
+        },
+        {
+            "code": "credential_revoked",
+            "status": 403
+        },
+        {
+            "code": "agent_not_found",
+            "status": 404
+        },
+        {
+            "code": "run_not_found",
+            "status": 404
+        },
+        {
+            "code": "agent_not_published",
+            "status": 409
+        },
+        {
+            "code": "run_not_waiting",
+            "status": 409
+        },
+        {
+            "code": "payload_too_large",
+            "status": 413
+        },
+        {
+            "code": "invalid_tool_result",
+            "status": 422
+        },
+        {
+            "code": "quota_exceeded",
+            "status": 429
+        }
+    ]
+}

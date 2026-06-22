@@ -59,6 +59,36 @@ it('fetches and parses the manifest with a bearer token', function () {
         ->and($transport->request(1)->headers['Authorization'])->toBe('Bearer tok-123');
 });
 
+it('negotiates compatibility with the MAAC sdk endpoint', function () {
+    $transport = (new FakeTransport)
+        ->push(200, tokenResponse())
+        ->push(200, [
+            'api_version' => '1.0.0',
+            'minimum_client_version' => '1.0.0',
+            'current_client_version' => '1.4.0',
+            'deprecations' => [['id' => 'legacy', 'removed_in' => '2.0.0']],
+            'compatibility' => [
+                'status' => 'compatible', 'compatible' => true, 'client_version' => '1.0.0',
+                'api_version' => '1.0.0', 'minimum_client_version' => '1.0.0',
+                'current_client_version' => '1.4.0', 'upgrade_required' => false,
+            ],
+        ]);
+
+    $compatibility = sdkClient($transport)->compatibility();
+
+    expect($compatibility->isCompatible())->toBeTrue()
+        ->and($compatibility->status)->toBe('compatible')
+        ->and($compatibility->apiVersion)->toBe('1.0.0')
+        ->and($compatibility->currentClientVersion)->toBe('1.4.0')
+        ->and($compatibility->deprecations)->toHaveCount(1)
+        ->and($compatibility->requiresUpgrade())->toBeFalse();
+
+    $request = $transport->request(1);
+    expect($request->url)->toBe('https://maac.test/api/v1/sdk')
+        ->and($request->headers['X-Maac-Sdk-Version'])->toBe(MaacClient::VERSION)
+        ->and($request->headers['X-Maac-Sdk-Language'])->toBe('php');
+});
+
 it('reports registered handlers against the manifest', function () {
     $transport = (new FakeTransport)
         ->push(200, tokenResponse())
