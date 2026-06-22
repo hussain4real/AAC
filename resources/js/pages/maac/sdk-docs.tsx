@@ -119,7 +119,7 @@ $registry = (new ToolHandlerRegistry)->register(new FetchRecordsHandler);`;
 const HANDLER_PY = `from maac_sdk import maac, Context
 
 
-@maac.tool("fetch-records")  # contract v1.0.0
+@maac.tool("fetch-records")  # contract v0.0.1
 async def fetch_records(args: dict, ctx: Context) -> dict:
     # Enforce YOUR caller permissions before returning any data.
     if not ctx.user.has_permission("fetch-records:read"):
@@ -275,14 +275,14 @@ const MATRIX: {
 }[] = [
     {
         name: 'PHP SDK (milaha/maac-sdk)',
-        version: '1.0.0',
+        version: '0.0.1',
         status: 'Supported',
         tone: 'teal',
         notes: 'PHP ≥ 8.2, ext-curl. Default cURL transport.',
     },
     {
         name: 'TypeScript SDK (@maac/sdk)',
-        version: '1.0.0',
+        version: '0.0.1',
         status: 'Supported',
         tone: 'teal',
         notes: 'Node ≥ 18 (global fetch); zero dependencies.',
@@ -617,7 +617,7 @@ export default function SdkDocs() {
                                 }}
                             >
                                 <Badge tone="purple" icon="link">
-                                    API contract v1.0.0
+                                    API contract v0.0.1
                                 </Badge>
                                 <Badge tone="teal">milaha/maac-sdk (PHP)</Badge>
                                 <Badge tone="teal">
@@ -1037,7 +1037,7 @@ export default function SdkDocs() {
                             id="matrix"
                             title="Compatibility matrix"
                             icon="grid"
-                            sub="API contract v1.0.0 — SDK package versions track the contract MAJOR"
+                            sub="API contract v0.0.1 — SDK package versions track the contract MAJOR"
                         >
                             <Table
                                 columns={[

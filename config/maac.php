@@ -54,22 +54,22 @@ return [
     */
 
     'sdk' => [
-        'api_version' => env('MAAC_SDK_API_VERSION', '1.0.0'),
+        'api_version' => env('MAAC_SDK_API_VERSION', '0.0.1'),
 
-        'minimum_client_version' => env('MAAC_SDK_MIN_CLIENT_VERSION', '1.0.0'),
+        'minimum_client_version' => env('MAAC_SDK_MIN_CLIENT_VERSION', '0.0.1'),
 
-        'current_client_version' => env('MAAC_SDK_CURRENT_CLIENT_VERSION', '1.0.0'),
+        'current_client_version' => env('MAAC_SDK_CURRENT_CLIENT_VERSION', '0.0.1'),
 
         'packages' => [
             'php' => [
                 'name' => 'milaha/maac-sdk',
-                'version' => '1.0.0',
+                'version' => '0.0.1',
                 'registry' => 'packagist',
                 'status' => 'supported',
             ],
             'typescript' => [
                 'name' => '@maac/sdk',
-                'version' => '1.0.0',
+                'version' => '0.0.1',
                 'registry' => 'npm',
                 'status' => 'supported',
             ],

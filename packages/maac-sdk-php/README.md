@@ -4,7 +4,7 @@ A framework-agnostic PHP client for the Milaha AI Agent Center (MAAC) SDK &
 runtime API: token exchange, manifest sync, implementation reporting, and
 pause/resume agent runs. Only `ext-curl` and `ext-json` are required.
 
-- **Status:** ✅ Supported · **Version:** 1.0.0 · **MAAC API contract:** v1.0.0
+- **Status:** ✅ Supported · **Version:** 0.0.1 · **MAAC API contract:** v0.0.1
 - **Requires:** PHP ≥ 8.2
 
 See the [SDK Integration Guide](../../docs/MAAC_SDK_Integration_Guide.md) for the

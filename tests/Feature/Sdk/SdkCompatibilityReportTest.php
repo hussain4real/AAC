@@ -10,9 +10,9 @@ use App\Models\ToolImplementation;
 use App\Support\Sdk\SdkCompatibilityReport;
 
 beforeEach(function () {
-    config()->set('maac.sdk.api_version', '1.0.0');
-    config()->set('maac.sdk.minimum_client_version', '1.0.0');
-    config()->set('maac.sdk.current_client_version', '1.4.0');
+    config()->set('maac.sdk.api_version', '0.0.1');
+    config()->set('maac.sdk.minimum_client_version', '0.0.1');
+    config()->set('maac.sdk.current_client_version', '0.2.0');
 
     [, $this->team] = ownerAndTeam();
     $this->application = Application::factory()->for($this->team)->create([
@@ -31,8 +31,8 @@ function clientTool(string $version = '2.0.0'): ToolContract
 test('the report carries the versioned platform descriptor', function () {
     $report = app(SdkCompatibilityReport::class)->forTeam($this->team);
 
-    expect($report['platform']['api_version'])->toBe('1.0.0')
-        ->and($report['platform']['minimum_client_version'])->toBe('1.0.0')
+    expect($report['platform']['api_version'])->toBe('0.0.1')
+        ->and($report['platform']['minimum_client_version'])->toBe('0.0.1')
         ->and($report['platform'])->toHaveKeys(['packages', 'deprecations', 'languages']);
 });
 
@@ -45,7 +45,7 @@ test('it summarises an implemented, compatible application', function () {
         'status' => ImplStatus::Implemented,
         'implemented_version' => '2.0.0',
         'language' => SdkLanguage::Php,
-        'sdk_version' => '1.0.0',
+        'sdk_version' => '0.0.1',
     ]);
 
     $health = app(SdkCompatibilityReport::class)->forTeam($this->team)['applications'][0];
@@ -55,7 +55,7 @@ test('it summarises an implemented, compatible application', function () {
         ->and($health['tools']['total'])->toBe(1)
         ->and($health['compatible'])->toBeTrue()
         ->and($health['clients'])->toHaveCount(1)
-        ->and($health['clients'][0]['version'])->toBe('1.0.0')
+        ->and($health['clients'][0]['version'])->toBe('0.0.1')
         ->and($health['clients'][0]['status'])->toBe('compatible');
 });
 
@@ -68,7 +68,7 @@ test('it flags an application whose SDK client is below the supported minimum', 
         'status' => ImplStatus::Implemented,
         'implemented_version' => '2.0.0',
         'language' => SdkLanguage::Php,
-        'sdk_version' => '0.9.0',
+        'sdk_version' => '0.0.0',
     ]);
 
     $health = app(SdkCompatibilityReport::class)->forTeam($this->team)['applications'][0];
@@ -85,7 +85,7 @@ test('it lists drifted tool implementations needing migration', function () {
         'environment' => Environment::Production,
         'status' => ImplStatus::Outdated,
         'implemented_version' => '1.0.0',
-        'sdk_version' => '1.0.0',
+        'sdk_version' => '0.0.1',
     ]);
 
     $incompatible = clientTool('3.0.0');
@@ -95,7 +95,7 @@ test('it lists drifted tool implementations needing migration', function () {
         'environment' => Environment::Production,
         'status' => ImplStatus::Incompatible,
         'implemented_version' => '3.0.0',
-        'sdk_version' => '1.0.0',
+        'sdk_version' => '0.0.1',
     ]);
 
     $report = app(SdkCompatibilityReport::class)->forTeam($this->team);
@@ -124,7 +124,7 @@ test('an implementation in another environment is treated as not implemented', f
         'environment' => Environment::Staging,
         'status' => ImplStatus::Implemented,
         'implemented_version' => '2.0.0',
-        'sdk_version' => '1.0.0',
+        'sdk_version' => '0.0.1',
     ]);
 
     $health = app(SdkCompatibilityReport::class)->forTeam($this->team)['applications'][0];

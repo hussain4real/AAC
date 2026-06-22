@@ -208,11 +208,11 @@ class ContractFixtures
     private static function versionNegotiationCases(): array
     {
         $cases = [
-            ['name' => 'within the window is compatible', 'reported' => '1.2.0', 'minimum' => '1.0.0', 'current' => '1.4.0'],
-            ['name' => 'at the exact minimum is compatible', 'reported' => '1.0.0', 'minimum' => '1.0.0', 'current' => '1.4.0'],
-            ['name' => 'below the minimum requires an upgrade', 'reported' => '0.9.0', 'minimum' => '1.0.0', 'current' => '1.4.0'],
-            ['name' => 'ahead of current is compatible', 'reported' => '2.0.0', 'minimum' => '1.0.0', 'current' => '1.4.0'],
-            ['name' => 'unreported is unknown', 'reported' => null, 'minimum' => '1.0.0', 'current' => '1.4.0'],
+            ['name' => 'within the window is compatible', 'reported' => '0.1.0', 'minimum' => '0.0.1', 'current' => '0.2.0'],
+            ['name' => 'at the exact minimum is compatible', 'reported' => '0.0.1', 'minimum' => '0.0.1', 'current' => '0.2.0'],
+            ['name' => 'below the minimum requires an upgrade', 'reported' => '0.0.0', 'minimum' => '0.0.1', 'current' => '0.2.0'],
+            ['name' => 'ahead of current is compatible', 'reported' => '1.0.0', 'minimum' => '0.0.1', 'current' => '0.2.0'],
+            ['name' => 'unreported is unknown', 'reported' => null, 'minimum' => '0.0.1', 'current' => '0.2.0'],
         ];
 
         return array_map(static function (array $case): array {
@@ -220,7 +220,7 @@ class ContractFixtures
                 $case['reported'],
                 (string) $case['minimum'],
                 (string) $case['current'],
-                '1.0.0',
+                '0.0.1',
             );
 
             return [

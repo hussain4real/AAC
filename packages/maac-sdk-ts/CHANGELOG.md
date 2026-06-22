@@ -7,9 +7,9 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and
 The SDK's MAJOR version tracks the MAAC **API contract version** it targets: a
 breaking change to a MAAC SDK/runtime response shape bumps the MAJOR of both.
 
-## [1.0.0] — 2026-06-22
+## [0.0.1] — 2026-06-22
 
-First stable release. Targets MAAC API contract **v1.0.0**.
+Initial release. Targets MAAC API contract **v0.0.1**.
 
 ### Added
 
@@ -27,7 +27,7 @@ First stable release. Targets MAAC API contract **v1.0.0**.
 - Conformance to the shared contract fixture suite (`packages/sdk-fixtures`).
 - `examples/simple.ts` and `examples/advanced.ts`.
 
-### Contract baseline (v1.0.0)
+### Contract baseline (v0.0.1)
 
 - Token exchange (`client_credentials`), manifest sync, implementation reporting,
   `startRun` / `getRun` / `submitToolResult`, and the auto-resume `run()` loop.
@@ -37,6 +37,6 @@ First stable release. Targets MAAC API contract **v1.0.0**.
 
 ### Changed
 
-- Version bumped from the `0.1.0` preview to the stable `1.0.0` baseline.
+- Version set to the initial `0.0.1` baseline.
 
-[1.0.0]: https://example.com/maac-sdk-ts/releases/1.0.0
+[0.0.1]: https://example.com/maac-sdk-ts/releases/0.0.1

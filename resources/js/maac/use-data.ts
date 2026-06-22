@@ -45,9 +45,9 @@ const EMPTY_OPERATIONAL: MaacOperational = {
 /** Default SDK compatibility dataset when no team dataset is present. */
 const EMPTY_SDK_COMPATIBILITY: MaacSdkCompatibility = {
     platform: {
-        api_version: '1.0.0',
-        minimum_client_version: '1.0.0',
-        current_client_version: '1.0.0',
+        api_version: '0.0.1',
+        minimum_client_version: '0.0.1',
+        current_client_version: '0.0.1',
         languages: [],
         packages: [],
         deprecations: [],
