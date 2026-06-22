@@ -1,0 +1,26 @@
+{
+    "name": "milaha/maac-php-cli-consumer",
+    "description": "Reference plain-PHP CLI application (no framework) that integrates with the Milaha AI Agent Center (MAAC) through milaha/maac-sdk.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2",
+        "milaha/maac-sdk": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Maac\\Reference\\Cli\\": "src/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../packages/maac-sdk-php"
+        }
+    ],
+    "bin": [
+        "bin/maac-run"
+    ],
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

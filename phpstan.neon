@@ -9,5 +9,8 @@ parameters:
         - config/
         - database/
         - routes/
+        - packages/maac-sdk-php/src
+        - reference-apps/laravel-consumer/src
+        - reference-apps/php-cli-consumer/src
 
     level: 7

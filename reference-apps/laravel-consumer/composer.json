@@ -1,0 +1,32 @@
+{
+    "name": "milaha/maac-laravel-consumer",
+    "description": "Reference Laravel application that integrates with the Milaha AI Agent Center (MAAC) through the milaha/maac-sdk client.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.2",
+        "illuminate/console": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "milaha/maac-sdk": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Maac\\Reference\\Laravel\\": "src/"
+        }
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../packages/maac-sdk-php"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Maac\\Reference\\Laravel\\MaacServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

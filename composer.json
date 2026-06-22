@@ -42,7 +42,10 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "Tests\\": "tests/"
+            "Tests\\": "tests/",
+            "Maac\\Sdk\\": "packages/maac-sdk-php/src/",
+            "Maac\\Reference\\Laravel\\": "reference-apps/laravel-consumer/src/",
+            "Maac\\Reference\\Cli\\": "reference-apps/php-cli-consumer/src/"
         }
     },
     "scripts": {
@@ -72,6 +75,8 @@
             "npm run lint:check",
             "npm run format:check",
             "npm run types:check",
+            "npm run types:check:sdk",
+            "npm run test:sdk",
             "@analyse",
             "@test"
         ],
@@ -86,6 +91,9 @@
         ],
         "test:e2e": [
             "@php artisan test tests/Feature/E2E --compact"
+        ],
+        "test:reference": [
+            "@php artisan test tests/Feature/ReferenceApps tests/Unit/Sdk --compact"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
