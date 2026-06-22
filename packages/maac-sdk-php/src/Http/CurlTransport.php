@@ -36,6 +36,9 @@ final class CurlTransport implements Transport
         curl_setopt($handle, CURLOPT_TIMEOUT, $this->timeout);
         curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, $this->connectTimeout);
         curl_setopt($handle, CURLOPT_HTTPHEADER, $this->formatHeaders($request->headers));
+        curl_setopt($handle, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($handle, CURLOPT_MAXREDIRS, 3);
+        curl_setopt($handle, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL);
 
         if ($request->body !== null) {
             curl_setopt($handle, CURLOPT_POSTFIELDS, $request->body);
@@ -45,13 +48,11 @@ final class CurlTransport implements Transport
 
         if ($body === false) {
             $error = curl_error($handle);
-            curl_close($handle);
 
             throw new TransportException("Could not reach MAAC at {$url}: {$error}");
         }
 
         $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
-        curl_close($handle);
 
         return new HttpResponse($status, is_string($body) ? $body : '');
     }
