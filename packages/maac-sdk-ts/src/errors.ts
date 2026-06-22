@@ -8,7 +8,15 @@ export class MaacError extends Error {}
  * An HTTP round-trip to MAAC could not complete, or returned an undecodable
  * body — distinct from a controlled error MAAC deliberately returned.
  */
-export class TransportError extends MaacError {}
+export class TransportError extends MaacError {
+  static fromFetchError(url: string, error: unknown): TransportError {
+    const cause = fetchCause(error);
+    const detail = cause.message !== '' ? `: ${cause.message}` : '';
+    const hint = fetchHint(cause);
+
+    return new TransportError(`Could not reach MAAC at ${url}${detail}${hint}`);
+  }
+}
 
 /**
  * A controlled error MAAC returned (authentication, unknown agent, oversized
@@ -77,4 +85,35 @@ export class RunNotResolvedError extends MaacError {
     this.name = 'RunNotResolvedError';
     this.run = run;
   }
+}
+
+interface FetchCause {
+  code?: string;
+  message: string;
+}
+
+function fetchCause(error: unknown): FetchCause {
+  if (error instanceof Error) {
+    const cause = (error as { cause?: unknown }).cause;
+
+    if (cause instanceof Error) {
+      return { code: (cause as { code?: unknown }).code as string | undefined, message: cause.message };
+    }
+
+    return { message: error.message };
+  }
+
+  return { message: String(error) };
+}
+
+function fetchHint(cause: FetchCause): string {
+  if (cause.code === 'UNABLE_TO_VERIFY_LEAF_SIGNATURE' || cause.message.includes('certificate')) {
+    return ' If this is local Laravel Herd HTTPS, run Node with --use-system-ca or set NODE_OPTIONS=--use-system-ca.';
+  }
+
+  if (cause.code === 'ENOTFOUND') {
+    return ' Check MAAC_BASE_URL and make sure the hostname resolves from this process.';
+  }
+
+  return '';
 }

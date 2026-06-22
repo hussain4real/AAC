@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { MaacClient } from '../src/client.ts';
-import { MaacApiError, MissingToolHandlerError } from '../src/errors.ts';
+import { MaacApiError, MissingToolHandlerError, TransportError } from '../src/errors.ts';
 import { ToolHandlerRegistry } from '../src/registry.ts';
+import { fetchTransport } from '../src/transport.ts';
 import type { HttpRequest, HttpResponse, Transport } from '../src/transport.ts';
 
 interface ScriptedResponse {
@@ -46,6 +47,30 @@ test('exchanges the credential for a token via the form grant', async () => {
   assert.equal(requests[0].url, 'https://maac.test/oauth/token');
   assert.equal(requests[0].headers['Content-Type'], 'application/x-www-form-urlencoded');
   assert.match(requests[0].body ?? '', /grant_type=client_credentials/);
+});
+
+test('fetch transport surfaces the underlying network failure', async () => {
+  const original = globalThis.fetch;
+  const cause = Object.assign(new Error('unable to verify the first certificate'), {
+    code: 'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+  });
+
+  globalThis.fetch = (() => Promise.reject(new TypeError('fetch failed', { cause }))) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      () => fetchTransport({ method: 'POST', url: 'https://maac.test/oauth/token', headers: {} }),
+      (error: unknown) => {
+        assert.ok(error instanceof TransportError);
+        assert.match(error.message, /unable to verify the first certificate/);
+        assert.match(error.message, /--use-system-ca/);
+
+        return true;
+      },
+    );
+  } finally {
+    globalThis.fetch = original;
+  }
 });
 
 test('fetches and parses the manifest with a bearer token', async () => {

@@ -21,6 +21,13 @@ export MAAC_TOOL_FETCH_RECORDS=e2e-fetch-records
 node reference-apps/node-consumer/bin/run.ts "Summarize current port operations"
 ```
 
+If local Herd HTTPS fails with `fetch failed` or
+`UNABLE_TO_VERIFY_LEAF_SIGNATURE`, run Node with the system certificate store:
+
+```bash
+NODE_OPTIONS=--use-system-ca node reference-apps/node-consumer/bin/run.ts "Summarize current port operations"
+```
+
 The client-side `fetch-records` tool is implemented in
 [`fetchRecordsHandler.ts`](src/fetchRecordsHandler.ts). When MAAC pauses for it,
 the SDK executes it locally, submits the result, and the run completes.

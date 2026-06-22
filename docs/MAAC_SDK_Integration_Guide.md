@@ -227,5 +227,5 @@ php artisan migrate:fresh --seed
 MAAC_LLM_DRIVER=fake php artisan db:seed --class=MaacE2ESeeder   # prints a one-time credential secret
 # then, with that client_id/secret exported as MAAC_CLIENT_ID/MAAC_CLIENT_SECRET and MAAC_BASE_URL:
 reference-apps/php-cli-consumer/bin/maac-run "Summarize today"
-node reference-apps/node-consumer/bin/run.ts "Summarize today"
+NODE_OPTIONS=--use-system-ca node reference-apps/node-consumer/bin/run.ts "Summarize today"
 ```

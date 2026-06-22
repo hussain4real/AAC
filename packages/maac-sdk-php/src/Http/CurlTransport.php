@@ -22,7 +22,7 @@ final class CurlTransport implements Transport
     public function send(HttpRequest $request): HttpResponse
     {
         $url = $request->url;
-        $method = $request->method;
+        $method = strtoupper($request->method);
 
         if ($url === '' || $method === '') {
             throw new TransportException('A MAAC request requires a non-empty method and URL.');
@@ -31,14 +31,21 @@ final class CurlTransport implements Transport
         $handle = curl_init();
 
         curl_setopt($handle, CURLOPT_URL, $url);
-        curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($handle, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($handle, CURLOPT_TIMEOUT, $this->timeout);
         curl_setopt($handle, CURLOPT_CONNECTTIMEOUT, $this->connectTimeout);
         curl_setopt($handle, CURLOPT_HTTPHEADER, $this->formatHeaders($request->headers));
         curl_setopt($handle, CURLOPT_FOLLOWLOCATION, true);
         curl_setopt($handle, CURLOPT_MAXREDIRS, 3);
-        curl_setopt($handle, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL);
+        // Preserve POST for common HTTP-to-HTTPS 301/302 upgrades, but allow
+        // 303 See Other to switch to GET and avoid replaying mutations.
+        curl_setopt($handle, CURLOPT_POSTREDIR, CURL_REDIR_POST_301 | CURL_REDIR_POST_302);
+
+        if ($method === 'POST') {
+            curl_setopt($handle, CURLOPT_POST, true);
+        } elseif ($method !== 'GET') {
+            curl_setopt($handle, CURLOPT_CUSTOMREQUEST, $method);
+        }
 
         if ($request->body !== null) {
             curl_setopt($handle, CURLOPT_POSTFIELDS, $request->body);
