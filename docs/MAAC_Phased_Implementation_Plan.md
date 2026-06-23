@@ -340,20 +340,22 @@ Support long-running and interactive agent experiences without weakening auditab
 
 ### Phase 6E: Remote HTTP Tools & Laravel MCP Connectors
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-6e-remote-mcp-tools`. The two server-side execution modes that previously dead-ended at `unsupported_execution_mode` are now real, behind dedicated executors the `AgentRunner` routes to (alongside hosted/client). **Remote HTTP tools** (`App\Support\Runtime\Remote\RemoteHttpToolExecutor`) enforce an egress allowlist (`config('maac.runtime.remote_http')`, `*.`-wildcards + a loopback/link-local/metadata denylist as SSRF defense), a method constraint (`HttpMethod`), auth (`RemoteAuthType` none/bearer/header — credential stored `encrypted:array` in `tool_contracts.http_config`, never returned), and a retry/timeout policy, returning a JSON object validated against the output schema. **MCP connector tools** use the **real `laravel/mcp` client** (`Client::web(...)->callTool(...)`) via `McpConnectorClientFactory` + `McpToolExecutor`; a new `mcp_connectors` table (registration, encrypted auth, env availability, cached `capabilities`) is discovered by `McpCapabilityDiscoverer` and mapped to a contract by `mcp_connector_id` + `mcp_tool_name`. Every failure is a controlled run failure (`remote_http_blocked`/`_unreachable`/`_unauthorized`/`_failed`/`_invalid_output`, `connector_misconfigured`/`_unavailable`/`_unreachable`/`_unauthorized`/`_failed`/`_invalid_output`) with a trace event; results are field-redactable at rest (`tool_contracts.redaction`) while the LLM still sees raw values. Server-side egress tools that require approval start `Draft` and a runtime guard blocks them until activated; `ApprovalGate` blocks agent publication while an assigned connector tool's connector is disabled/unavailable, and the approval review surfaces endpoint/method/auth/redaction for egress review. The SDK manifest now distinguishes tool types — each agent carries `server_tools` (hosted/http/connector, tagged with mode) alongside the client `tools`, and `sdk.capabilities.tool_execution_modes` advertises client- vs MAAC-executed modes; both SDKs expose `ManifestAgent.serverTools` and were bumped to **0.2.0** (API contract stays v0.0.1). A new **MCP Connectors** console page registers/discovers/manages connectors, and the tool form gained conditional HTTP/connector config sections. Verified: **579 Pest tests at 100 % line coverage**; PHPStan L7, Pint, ESLint, Prettier, `tsc` (frontend + SDK), 30 Node tests, `maac:sdk-fixtures --check`, and `npm run build` all green — plus a live Chrome walkthrough (register a connector, the controlled discovery-failure toast, the HTTP/connector tool-form config, and the SDK docs Server-side-tools section + matrix) with no console errors. Knowledge-retrieval and read-only-DB remain the only `unsupported_execution_mode`s (deferred to Phase 6F).
+
 #### Goal
 
 Expand beyond client-side and MAAC-hosted tools while preserving the same tool-contract-first model, schema validation, policy enforcement, and observability.
 
 #### Checklist
 
-- [ ] Implement remote HTTP tools with allowlisted endpoints, method constraints, auth configuration, retry policy, timeout policy, response validation, and redaction rules.
-- [ ] Add approval gates for production remote HTTP tools, including endpoint, auth, sensitivity, and egress review.
-- [ ] Use Laravel MCP (`laravel/mcp`) to implement connector server support where MCP tools, resources, or prompts fit the connector contract.
-- [ ] Add MCP connector registration, capability discovery, permission mapping, and trace/audit recording.
-- [ ] Add reference connector integration tests that execute an MCP-backed tool from an external application context.
-- [ ] Add controlled failures for unreachable endpoints, blocked domains, invalid connector output, unauthorized connector access, and connector timeout.
-- [ ] Update SDK manifests so external apps can distinguish client-side tools from MAAC-hosted, remote HTTP, and MCP-backed tools.
-- [ ] Update the SDK docs (`resources/js/pages/maac/sdk-docs.tsx` + `docs/MAAC_SDK_Integration_Guide.md`): move remote HTTP & MCP tools from "Coming soon" to Supported in the compatibility matrix and document them + examples.
+- [x] Implement remote HTTP tools with allowlisted endpoints, method constraints, auth configuration, retry policy, timeout policy, response validation, and redaction rules.
+- [x] Add approval gates for production remote HTTP tools, including endpoint, auth, sensitivity, and egress review.
+- [x] Use Laravel MCP (`laravel/mcp`) to implement connector server support where MCP tools, resources, or prompts fit the connector contract.
+- [x] Add MCP connector registration, capability discovery, permission mapping, and trace/audit recording.
+- [x] Add reference connector integration tests that execute an MCP-backed tool from an external application context.
+- [x] Add controlled failures for unreachable endpoints, blocked domains, invalid connector output, unauthorized connector access, and connector timeout.
+- [x] Update SDK manifests so external apps can distinguish client-side tools from MAAC-hosted, remote HTTP, and MCP-backed tools.
+- [x] Update the SDK docs (`resources/js/pages/maac/sdk-docs.tsx` + `docs/MAAC_SDK_Integration_Guide.md`): move remote HTTP & MCP tools from "Coming soon" to Supported in the compatibility matrix and document them + examples.
 
 #### Deliverables
 

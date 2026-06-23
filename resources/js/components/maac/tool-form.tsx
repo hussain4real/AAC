@@ -24,6 +24,8 @@ import type { Tool } from '@/maac/data';
 import {
     EXEC_MODE_OPTIONS,
     FieldError,
+    HTTP_METHOD_OPTIONS,
+    REMOTE_AUTH_OPTIONS,
     SENSITIVITY_OPTIONS,
     TOOL_SCOPE_OPTIONS,
     toEnumValue,
@@ -135,6 +137,10 @@ export function ToolFormModal({
         tool ? objToRows(tool.output) : [{ key: '', type: 'string' }],
     );
 
+    const connectorUuid = tool?.connector
+        ? (MAAC.connectors.find((c) => c.id === tool.connector)?.uuid ?? '')
+        : (MAAC.connectors[0]?.uuid ?? '');
+
     const form = useForm<{
         name: string;
         application_id: string;
@@ -148,6 +154,16 @@ export function ToolFormModal({
         version: string;
         input_schema: Record<string, string>;
         output_schema: Record<string, string>;
+        http_method: string;
+        http_endpoint: string;
+        http_auth_type: string;
+        http_auth_header: string;
+        http_auth_credential: string;
+        http_max_attempts: number;
+        http_backoff_ms: number;
+        mcp_connector_id: string;
+        mcp_tool_name: string;
+        redaction: string;
     }>({
         name: tool?.name ?? '',
         application_id: tool?.appId
@@ -163,6 +179,16 @@ export function ToolFormModal({
         version: tool?.version ?? '1.0.0',
         input_schema: tool ? tool.input : {},
         output_schema: tool ? tool.output : {},
+        http_method: tool?.httpConfig?.method ?? 'post',
+        http_endpoint: tool?.httpConfig?.endpoint ?? '',
+        http_auth_type: tool?.httpConfig?.authType ?? 'none',
+        http_auth_header: tool?.httpConfig?.authHeader ?? '',
+        http_auth_credential: '',
+        http_max_attempts: tool?.httpConfig?.maxAttempts ?? 1,
+        http_backoff_ms: tool?.httpConfig?.backoffMs ?? 0,
+        mcp_connector_id: connectorUuid,
+        mcp_tool_name: tool?.remoteTool ?? '',
+        redaction: (tool?.redaction ?? []).join(', '),
     });
 
     const close = () => {
@@ -175,13 +201,56 @@ export function ToolFormModal({
             return;
         }
 
-        form.transform((data) => ({
-            ...data,
-            application_id:
-                data.application_id === NO_APP ? '' : data.application_id,
-            input_schema: rowsToObj(inputRows),
-            output_schema: rowsToObj(outputRows),
-        }));
+        form.transform((data) => {
+            const base = {
+                name: data.name,
+                application_id:
+                    data.application_id === NO_APP ? '' : data.application_id,
+                description: data.description,
+                scope: data.scope,
+                execution_mode: data.execution_mode,
+                sensitivity: data.sensitivity,
+                requires_approval: data.requires_approval,
+                timeout_seconds: data.timeout_seconds,
+                max_payload_kb: data.max_payload_kb,
+                version: data.version,
+                input_schema: rowsToObj(inputRows),
+                output_schema: rowsToObj(outputRows),
+                redaction: data.redaction
+                    .split(',')
+                    .map((path) => path.trim())
+                    .filter(Boolean),
+            };
+
+            if (data.execution_mode === 'http') {
+                return {
+                    ...base,
+                    http_config: {
+                        method: data.http_method,
+                        endpoint: data.http_endpoint,
+                        auth: {
+                            type: data.http_auth_type,
+                            header: data.http_auth_header,
+                            credential: data.http_auth_credential,
+                        },
+                        retry: {
+                            max_attempts: data.http_max_attempts,
+                            backoff_ms: data.http_backoff_ms,
+                        },
+                    },
+                };
+            }
+
+            if (data.execution_mode === 'connector') {
+                return {
+                    ...base,
+                    mcp_connector_id: data.mcp_connector_id,
+                    mcp_tool_name: data.mcp_tool_name,
+                };
+            }
+
+            return base;
+        });
 
         if (tool) {
             form.put(updateTool([team.slug, tool.id]).url, {
@@ -208,6 +277,25 @@ export function ToolFormModal({
             label: app.name,
         })),
     ];
+    /** Read a (possibly nested) server validation error by its dotted key. */
+    const errFor = (key: string): string | undefined =>
+        (form.errors as Record<string, string | undefined>)[key];
+    const selectedConnector = MAAC.connectors.find(
+        (c) => c.uuid === form.data.mcp_connector_id,
+    );
+    const remoteToolHint =
+        selectedConnector && selectedConnector.capabilities.length > 0
+            ? `Discovered tools: ${selectedConnector.capabilities.map((c) => c.name).join(', ')}`
+            : 'Run discovery on the connector to list its available tools.';
+    const configBox = {
+        display: 'flex',
+        flexDirection: 'column' as const,
+        gap: 14,
+        padding: 14,
+        background: 'var(--surface-3)',
+        borderRadius: 'var(--r-sm)',
+        border: '1px solid var(--border-2)',
+    };
     const half = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 };
     const third = {
         display: 'grid',
@@ -372,6 +460,216 @@ export function ToolFormModal({
                         onChange={(v) => form.setData('requires_approval', v)}
                     />
                 </div>
+                {form.data.execution_mode === 'http' && (
+                    <div style={configBox}>
+                        <div
+                            style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: 'var(--text-2)',
+                            }}
+                        >
+                            Remote HTTP execution
+                        </div>
+                        <div style={half}>
+                            <Field label="Method" required>
+                                <Select
+                                    value={form.data.http_method}
+                                    onChange={(v) =>
+                                        form.setData('http_method', v)
+                                    }
+                                    options={HTTP_METHOD_OPTIONS}
+                                />
+                                <FieldError
+                                    error={errFor('http_config.method')}
+                                />
+                            </Field>
+                            <Field label="Authentication">
+                                <Select
+                                    value={form.data.http_auth_type}
+                                    onChange={(v) =>
+                                        form.setData('http_auth_type', v)
+                                    }
+                                    options={REMOTE_AUTH_OPTIONS}
+                                />
+                            </Field>
+                        </div>
+                        <Field
+                            label="Endpoint URL"
+                            required
+                            hint="The host must be on the platform egress allowlist."
+                        >
+                            <Input
+                                value={form.data.http_endpoint}
+                                onChange={(e) =>
+                                    form.setData(
+                                        'http_endpoint',
+                                        e.target.value,
+                                    )
+                                }
+                                placeholder="https://api.example.com/v1/tool"
+                                style={{ fontFamily: 'var(--mono)' }}
+                            />
+                            <FieldError
+                                error={errFor('http_config.endpoint')}
+                            />
+                        </Field>
+                        {form.data.http_auth_type === 'header' && (
+                            <Field label="Header name" required>
+                                <Input
+                                    value={form.data.http_auth_header}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'http_auth_header',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="X-Api-Key"
+                                    style={{ fontFamily: 'var(--mono)' }}
+                                />
+                            </Field>
+                        )}
+                        {form.data.http_auth_type !== 'none' && (
+                            <Field
+                                label={
+                                    isEdit
+                                        ? 'Credential (leave blank to keep)'
+                                        : 'Credential'
+                                }
+                                hint="Stored encrypted and never displayed again."
+                            >
+                                <Input
+                                    type="password"
+                                    value={form.data.http_auth_credential}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'http_auth_credential',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder={
+                                        isEdit &&
+                                        tool?.httpConfig?.authConfigured
+                                            ? '•••••••• (unchanged)'
+                                            : 'token or key value'
+                                    }
+                                />
+                                <FieldError
+                                    error={errFor(
+                                        'http_config.auth.credential',
+                                    )}
+                                />
+                            </Field>
+                        )}
+                        <div style={half}>
+                            <Field
+                                label="Max attempts"
+                                hint="Retries on 5xx / connection errors."
+                            >
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    max="10"
+                                    value={form.data.http_max_attempts}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'http_max_attempts',
+                                            parseInt(e.target.value, 10) || 1,
+                                        )
+                                    }
+                                />
+                            </Field>
+                            <Field label="Backoff (ms)">
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    value={form.data.http_backoff_ms}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'http_backoff_ms',
+                                            parseInt(e.target.value, 10) || 0,
+                                        )
+                                    }
+                                />
+                            </Field>
+                        </div>
+                    </div>
+                )}
+                {form.data.execution_mode === 'connector' && (
+                    <div style={configBox}>
+                        <div
+                            style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: 'var(--text-2)',
+                            }}
+                        >
+                            MCP connector mapping
+                        </div>
+                        {MAAC.connectors.length === 0 ? (
+                            <div
+                                style={{ fontSize: 12, color: 'var(--text-3)' }}
+                            >
+                                Register an MCP connector first, then map this
+                                tool to one of its remote tools.
+                            </div>
+                        ) : (
+                            <>
+                                <Field label="MCP connector" required>
+                                    <Select
+                                        value={form.data.mcp_connector_id}
+                                        onChange={(v) =>
+                                            form.setData('mcp_connector_id', v)
+                                        }
+                                        options={MAAC.connectors.map((c) => ({
+                                            value: c.uuid,
+                                            label: c.name,
+                                        }))}
+                                    />
+                                    <FieldError
+                                        error={form.errors.mcp_connector_id}
+                                    />
+                                </Field>
+                                <Field
+                                    label="Remote tool name"
+                                    required
+                                    hint={remoteToolHint}
+                                >
+                                    <Input
+                                        value={form.data.mcp_tool_name}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'mcp_tool_name',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="lookup"
+                                        style={{ fontFamily: 'var(--mono)' }}
+                                    />
+                                    <FieldError
+                                        error={form.errors.mcp_tool_name}
+                                    />
+                                </Field>
+                            </>
+                        )}
+                    </div>
+                )}
+                {(form.data.execution_mode === 'http' ||
+                    form.data.execution_mode === 'connector') && (
+                    <Field
+                        label="Redaction"
+                        hint="Comma-separated result field paths to mask in the stored trace (the model still receives raw values)."
+                    >
+                        <Input
+                            value={form.data.redaction}
+                            onChange={(e) =>
+                                form.setData('redaction', e.target.value)
+                            }
+                            placeholder="ssn, customer.email"
+                            style={{ fontFamily: 'var(--mono)' }}
+                        />
+                    </Field>
+                )}
                 <Field
                     label="Input schema"
                     required

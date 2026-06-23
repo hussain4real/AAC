@@ -44,12 +44,19 @@ export interface Run {
   error: string | null;
 }
 
+export interface ManifestServerTool {
+  name: string;
+  executionMode: string;
+  description: string | null;
+}
+
 export interface ManifestAgent {
   slug: string;
   name: string;
   version: string;
   status: string;
   tools: string[];
+  serverTools: ManifestServerTool[];
 }
 
 export interface ManifestToolImplementation {

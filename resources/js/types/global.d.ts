@@ -212,6 +212,37 @@ export interface MaacWebhookEndpoint {
     deliveries: MaacWebhookDelivery[];
 }
 
+/** A remote tool discovered on an MCP connector (Phase 6E). */
+export interface MaacConnectorCapability {
+    name: string;
+    title: string | null;
+    description: string | null;
+    input_schema: Record<string, unknown>;
+}
+
+/** A registered external MCP connector and its discovered capabilities (Phase 6E). */
+export interface MaacConnector {
+    uuid: string;
+    id: string;
+    name: string;
+    description: string | null;
+    transport: string;
+    serverUrl: string;
+    authType: string;
+    authHeader: string | null;
+    authConfigured: boolean;
+    sensitivity: string;
+    requiresApproval: boolean;
+    status: string;
+    statusLabel: string;
+    environments: string[];
+    capabilities: MaacConnectorCapability[];
+    toolCount: number | null;
+    lastDiscovered: string | null;
+    owner: string | null;
+    createdAt: string | null;
+}
+
 export interface MaacProp {
     apps: Application[];
     projects: Project[];
@@ -229,6 +260,7 @@ export interface MaacProp {
     quotas: MaacQuota[];
     sdkCompatibility: MaacSdkCompatibility;
     webhooks: MaacWebhookEndpoint[];
+    connectors: MaacConnector[];
 }
 
 declare module '@inertiajs/core' {

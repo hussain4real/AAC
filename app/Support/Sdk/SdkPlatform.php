@@ -2,6 +2,7 @@
 
 namespace App\Support\Sdk;
 
+use App\Enums\ExecMode;
 use App\Enums\RunMode;
 use App\Enums\SdkLanguage;
 use App\Enums\WebhookEventType;
@@ -110,6 +111,13 @@ class SdkPlatform
             'streaming' => true,
             'webhooks' => true,
             'webhook_events' => WebhookEventType::values(),
+            // Which tool execution modes the runtime supports, split by who runs
+            // them: the calling application via the SDK (client-side) versus MAAC
+            // itself (hosted utilities, remote HTTP, and MCP connectors).
+            'tool_execution_modes' => [
+                'client_side' => [ExecMode::Client->value],
+                'server_side' => [ExecMode::Hosted->value, ExecMode::Http->value, ExecMode::Connector->value],
+            ],
         ];
     }
 

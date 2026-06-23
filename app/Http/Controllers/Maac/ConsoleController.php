@@ -87,6 +87,11 @@ class ConsoleController extends Controller
         return Inertia::render('maac/llm-providers');
     }
 
+    public function connectors(): Response
+    {
+        return Inertia::render('maac/connectors');
+    }
+
     public function governance(): Response
     {
         return Inertia::render('maac/governance');

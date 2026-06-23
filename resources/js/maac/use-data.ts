@@ -14,6 +14,7 @@ import type {
     MaacAuditEvent,
     MaacDashboard,
     MaacGovernanceSettings,
+    MaacConnector,
     MaacOperational,
     MaacQuota,
     MaacSdkCompatibility,
@@ -99,6 +100,7 @@ export type MaacData = MaacDataset & {
     quotas: MaacQuota[];
     sdkCompatibility: MaacSdkCompatibility;
     webhooks: MaacWebhookEndpoint[];
+    connectors: MaacConnector[];
     execModeLabel: typeof FIXTURE.execModeLabel;
     implLabel: typeof FIXTURE.implLabel;
     byId: <T extends { id: string }>(list: T[], id: string) => T | undefined;
@@ -133,6 +135,7 @@ export function useMaacData(): MaacData {
             quotas: maac?.quotas ?? [],
             sdkCompatibility: maac?.sdkCompatibility ?? EMPTY_SDK_COMPATIBILITY,
             webhooks: maac?.webhooks ?? [],
+            connectors: maac?.connectors ?? [],
             execModeLabel: FIXTURE.execModeLabel,
             implLabel: FIXTURE.implLabel,
             byId: <T extends { id: string }>(list: T[], id: string) =>

@@ -37,6 +37,7 @@ export type RouteName =
     | 'sdk'
     | 'sdkDocs'
     | 'playground'
+    | 'connectors'
     | 'runs'
     | 'run'
     | 'llm'
@@ -84,6 +85,7 @@ const SEGMENT_TO_SCREEN: Record<string, ScreenId> = {
     tools: 'tools',
     sdk: 'sdk',
     playground: 'playground',
+    connectors: 'connectors',
     runs: 'runs',
     'llm-providers': 'llm',
     governance: 'governance',
@@ -125,6 +127,8 @@ function urlFor(name: RouteName, team: string, params: GoParams = {}): string {
                 team,
                 params.agent ? { query: { agent: params.agent } } : undefined,
             );
+        case 'connectors':
+            return ConsoleRoutes.connectors.url(team);
         case 'runs':
             return ConsoleRoutes.runs.url(team);
         case 'run':

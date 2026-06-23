@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Maac;
 
+use App\Enums\ExecMode;
+use App\Enums\RemoteAuthType;
 use App\Models\Agent;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
@@ -83,11 +85,62 @@ class ApprovalRequestResource extends JsonResource
                 ['k' => 'Timeout', 'v' => $tool->timeout_seconds.'s'],
                 ['k' => 'Max payload', 'v' => $tool->max_payload_kb.' KB'],
                 ['k' => 'Requires approval', 'v' => $tool->requires_approval ? 'Yes' : 'No'],
+                ...$this->egressFields($tool),
             ],
             'description' => $tool->description,
             'inputSchema' => $tool->input_schema,
             'outputSchema' => $tool->output_schema,
         ];
+    }
+
+    /**
+     * Build the egress-review fields a reviewer needs for a server-side tool —
+     * the remote HTTP endpoint/method/auth or the MCP connector + remote tool.
+     * Credential material is never serialized, only the auth scheme.
+     *
+     * @return array<int, array{k: string, v: string}>
+     */
+    private function egressFields(ToolContract $tool): array
+    {
+        if ($tool->execution_mode === ExecMode::Http) {
+            $config = $tool->httpConfig();
+            $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+
+            return $this->withRedaction($tool, [
+                ['k' => 'HTTP method', 'v' => strtoupper((string) ($config['method'] ?? 'POST'))],
+                ['k' => 'Endpoint', 'v' => (string) ($config['endpoint'] ?? '—')],
+                ['k' => 'Auth', 'v' => (RemoteAuthType::tryFrom((string) ($auth['type'] ?? 'none')) ?? RemoteAuthType::None)->label()],
+            ]);
+        }
+
+        if ($tool->execution_mode === ExecMode::Connector) {
+            $tool->loadMissing('mcpConnector');
+            $connector = $tool->mcpConnector;
+
+            return $this->withRedaction($tool, [
+                ['k' => 'Connector', 'v' => $connector->name ?? '—'],
+                ['k' => 'Server URL', 'v' => $connector->server_url ?? '—'],
+                ['k' => 'Remote tool', 'v' => $tool->mcp_tool_name ?? '—'],
+                ['k' => 'Connector auth', 'v' => $connector !== null ? $connector->auth_type->label() : 'None'],
+            ]);
+        }
+
+        return [];
+    }
+
+    /**
+     * Append the redacted-field-paths review line when the tool defines any.
+     *
+     * @param  array<int, array{k: string, v: string}>  $fields
+     * @return array<int, array{k: string, v: string}>
+     */
+    private function withRedaction(ToolContract $tool, array $fields): array
+    {
+        if ($tool->redactionPaths() !== []) {
+            $fields[] = ['k' => 'Redacted fields', 'v' => implode(', ', $tool->redactionPaths())];
+        }
+
+        return $fields;
     }
 
     /**

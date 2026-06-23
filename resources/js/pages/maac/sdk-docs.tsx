@@ -192,6 +192,30 @@ $ok = WebhookSignature::verify(
 // Stream a run's lifecycle as Server-Sent Events:
 $events = $client->streamRun($run->runId, fn ($e) => printf("%s\\n", $e->event));`;
 
+const SERVER_TOOLS_TS = `// You implement nothing for server-side tools — just invoke the agent.
+// The manifest still shows what MAAC runs for you, tagged with its mode:
+const manifest = await client.manifest();
+for (const agent of manifest.agents) {
+  for (const tool of agent.serverTools) {
+    // tool.executionMode is 'hosted' | 'http' | 'connector'
+    console.log(\`\${agent.slug} runs \${tool.name} server-side (\${tool.executionMode})\`);
+  }
+}
+
+// agent.tools still lists only the client-side tools you must implement.`;
+
+const SERVER_TOOLS_PHP = `// You implement nothing for server-side tools — just invoke the agent.
+// The manifest still shows what MAAC runs for you, tagged with its mode:
+$manifest = $client->manifest();
+foreach ($manifest->agents as $agent) {
+    foreach ($agent->serverTools as $tool) {
+        // $tool['execution_mode'] is 'hosted' | 'http' | 'connector'
+        echo "{$agent->slug} runs {$tool['name']} server-side ({$tool['execution_mode']})\\n";
+    }
+}
+
+// $agent->tools still lists only the client-side tools you must implement.`;
+
 const VALIDATE_TS = `import { findTool, ToolTester } from '@maac/sdk';
 
 const tool = findTool(await client.manifest(), 'fetch-records');
@@ -319,14 +343,14 @@ const MATRIX: {
 }[] = [
     {
         name: 'PHP SDK (milaha/maac-sdk)',
-        version: '0.1.0',
+        version: '0.2.0',
         status: 'Supported',
         tone: 'teal',
         notes: 'PHP ≥ 8.2, ext-curl. Default cURL transport.',
     },
     {
         name: 'TypeScript SDK (@maac/sdk)',
-        version: '0.1.0',
+        version: '0.2.0',
         status: 'Supported',
         tone: 'teal',
         notes: 'Node ≥ 18 (global fetch); zero dependencies.',
@@ -367,11 +391,11 @@ const MATRIX: {
         notes: 'Queue long-running runs; poll, stream (SSE), or receive signed webhooks.',
     },
     {
-        name: 'Remote HTTP & MCP tools',
-        version: '—',
-        status: 'Coming soon',
-        tone: 'neutral',
-        notes: 'Today only client-side + MAAC-hosted tools execute.',
+        name: 'Remote HTTP & MCP connector tools',
+        version: '0.2.0',
+        status: 'Supported',
+        tone: 'teal',
+        notes: 'MAAC executes these server-side; the manifest tags them so the app implements nothing.',
     },
 ];
 
@@ -486,6 +510,7 @@ const SECTIONS: { id: string; label: string }[] = [
     { id: 'quickstart', label: 'Quick start' },
     { id: 'lifecycle', label: 'The run lifecycle' },
     { id: 'runtime-modes', label: 'Runtime modes' },
+    { id: 'server-tools', label: 'Server-side tools' },
     { id: 'handlers', label: 'Implementing a handler' },
     { id: 'versioning', label: 'Versioning & compatibility' },
     { id: 'validate', label: 'Validate before reporting' },
@@ -932,6 +957,69 @@ export default function SdkDocs() {
                                     onClick={() => go('webhooks')}
                                 >
                                     Manage webhook endpoints
+                                </Btn>
+                            </div>
+                        </DocSection>
+
+                        <DocSection
+                            id="server-tools"
+                            title="Server-side tools"
+                            icon="layers"
+                            sub="MAAC-hosted, remote HTTP, and MCP connector tools MAAC runs for you"
+                        >
+                            <p
+                                style={{
+                                    fontSize: 13,
+                                    lineHeight: 1.6,
+                                    color: 'var(--text-2)',
+                                    marginTop: 0,
+                                }}
+                            >
+                                A tool's <strong>execution mode</strong> decides
+                                who runs it. <strong>Client-side</strong> tools
+                                run in your application (you register a handler
+                                and report it) — they are the only tools in{' '}
+                                <span className="mono">manifest.tools</span> and{' '}
+                                <span className="mono">agent.tools</span>.{' '}
+                                <strong>Server-side</strong> tools —{' '}
+                                <span className="mono">hosted</span>,{' '}
+                                <span className="mono">http</span> (an
+                                allowlisted external endpoint MAAC calls), and{' '}
+                                <span className="mono">connector</span> (a
+                                registered MCP server MAAC connects to) — run
+                                inside MAAC. You implement{' '}
+                                <strong>nothing</strong> for them; the manifest
+                                surfaces them per agent as{' '}
+                                <span className="mono">server_tools</span> so
+                                you can see what an agent uses end-to-end. They
+                                follow the same schema, governance/approval,
+                                quota, trace, and audit standards as every other
+                                tool.
+                            </p>
+                            <CodeTabs
+                                samples={[
+                                    {
+                                        value: 'ts',
+                                        label: 'TypeScript',
+                                        lang: 'typescript',
+                                        code: SERVER_TOOLS_TS,
+                                    },
+                                    {
+                                        value: 'php',
+                                        label: 'PHP',
+                                        lang: 'php',
+                                        code: SERVER_TOOLS_PHP,
+                                    },
+                                ]}
+                            />
+                            <div style={{ marginTop: 12 }}>
+                                <Btn
+                                    variant="default"
+                                    size="sm"
+                                    icon="layers"
+                                    onClick={() => go('connectors')}
+                                >
+                                    Manage MCP connectors
                                 </Btn>
                             </div>
                         </DocSection>

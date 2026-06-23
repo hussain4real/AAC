@@ -5,10 +5,12 @@ namespace App\Support\Governance;
 use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalType;
 use App\Enums\Environment;
+use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
 use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\ApprovalRequest;
+use App\Models\McpConnector;
 use App\Models\ToolContract;
 
 /**
@@ -69,7 +71,7 @@ class ApprovalGate
         }
 
         $environment = $request->environment ?? Environment::Production;
-        $agent->loadMissing(['tools', 'llmProvider']);
+        $agent->loadMissing(['tools.mcpConnector', 'llmProvider']);
         $blockers = [];
 
         if (! $agent->llmProvider->isAvailableIn($environment->value)) {
@@ -86,9 +88,24 @@ class ApprovalGate
             if ($tool->isClientSide() && ! $this->isImplemented($tool, $environment)) {
                 $blockers[] = "Tool {$tool->name} has no implemented handler in {$environment->label()}.";
             }
+
+            if ($tool->execution_mode === ExecMode::Connector && ! $this->connectorAvailable($tool, $environment)) {
+                $blockers[] = "Tool {$tool->name} uses an MCP connector that is disabled or unavailable in {$environment->label()}.";
+            }
         }
 
         return $blockers;
+    }
+
+    /**
+     * Determine whether the connector backing an MCP tool is active and available
+     * in the target environment.
+     */
+    private function connectorAvailable(ToolContract $tool, Environment $environment): bool
+    {
+        $connector = $tool->mcpConnector;
+
+        return $connector instanceof McpConnector && $connector->isAvailableIn($environment->value);
     }
 
     /**

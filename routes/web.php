@@ -8,6 +8,7 @@ use App\Http\Controllers\Maac\ConsoleController;
 use App\Http\Controllers\Maac\CredentialController;
 use App\Http\Controllers\Maac\GovernanceSettingController;
 use App\Http\Controllers\Maac\LlmProviderController;
+use App\Http\Controllers\Maac\McpConnectorController;
 use App\Http\Controllers\Maac\ProjectController;
 use App\Http\Controllers\Maac\QuotaLimitController;
 use App\Http\Controllers\Maac\ToolContractController;
@@ -39,6 +40,7 @@ Route::prefix('{current_team}')
         Route::get('runs', [ConsoleController::class, 'runs'])->name('runs');
         Route::get('runs/{run}', [ConsoleController::class, 'run'])->name('runs.show');
         Route::get('llm-providers', [ConsoleController::class, 'llmProviders'])->name('llm-providers');
+        Route::get('connectors', [ConsoleController::class, 'connectors'])->name('connectors');
         Route::get('governance', [ConsoleController::class, 'governance'])->name('governance');
         Route::get('webhooks', [ConsoleController::class, 'webhooks'])->name('webhooks');
         Route::get('platform-settings', [ConsoleController::class, 'settings'])->name('platform-settings');
@@ -57,6 +59,12 @@ Route::prefix('{current_team}')
         Route::resource('llm-providers', LlmProviderController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['llm-providers' => 'llmProvider']);
+
+        // MAAC console (Phase 6E — MCP connectors for connector-backed tools)
+        Route::resource('connectors', McpConnectorController::class)
+            ->only(['store', 'update', 'destroy'])
+            ->parameters(['connectors' => 'mcpConnector']);
+        Route::post('connectors/{mcpConnector}/discover', [McpConnectorController::class, 'discover'])->name('connectors.discover');
 
         // MAAC console (Phase 5 — governance & security hardening)
         Route::post('approvals', [ApprovalRequestController::class, 'store'])->name('approvals.store');

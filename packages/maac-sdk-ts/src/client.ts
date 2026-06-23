@@ -531,6 +531,7 @@ function parseRun(data: Record<string, unknown>): Run {
 
 function parseAgent(data: Record<string, unknown>): ManifestAgent {
   const tools = Array.isArray(data.tools) ? data.tools : [];
+  const serverTools = Array.isArray(data.server_tools) ? data.server_tools : [];
 
   return {
     slug: asString(data.slug),
@@ -538,6 +539,13 @@ function parseAgent(data: Record<string, unknown>): ManifestAgent {
     version: asString(data.version),
     status: asString(data.status),
     tools: tools.map((tool) => String(tool)),
+    serverTools: serverTools
+      .filter((tool): tool is Record<string, unknown> => tool !== null && typeof tool === 'object')
+      .map((tool) => ({
+        name: asString(tool.name),
+        executionMode: asString(tool.execution_mode),
+        description: typeof tool.description === 'string' ? tool.description : null,
+      })),
   };
 }
 

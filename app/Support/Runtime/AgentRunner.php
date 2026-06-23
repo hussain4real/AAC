@@ -21,8 +21,11 @@ use App\Models\ToolContract;
 use App\Support\Governance\RunRedactor;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
+use App\Support\Runtime\Mcp\McpToolExecutor;
+use App\Support\Runtime\Remote\RemoteHttpToolExecutor;
 use App\Support\Sdk\ToolSchema;
 use App\Support\Webhooks\RunWebhookEmitter;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
 use Throwable;
@@ -42,6 +45,8 @@ class AgentRunner
         private readonly RunTracer $tracer,
         private readonly RunRedactor $redactor,
         private readonly RunWebhookEmitter $webhooks,
+        private readonly RemoteHttpToolExecutor $httpTools,
+        private readonly McpToolExecutor $connectorTools,
     ) {}
 
     /**
@@ -197,7 +202,7 @@ class AgentRunner
 
         $this->validateClientResult($run, $tool, $call, $result);
 
-        $this->completeToolCall($run, $call, $result);
+        $this->completeToolCall($run, $tool, $call, $result);
         $this->tracer->record($run, TraceEventType::ToolResultReceived, "Client tool result received: {$call->tool_name}.", ['tool_call_id' => $call->id]);
         $this->tracer->record($run, TraceEventType::Validated, 'Tool result validated.');
         $this->appendMessage($run, LlmMessage::tool($call->tool_name, (string) json_encode($result)));
@@ -331,6 +336,8 @@ class AgentRunner
         return match ($tool->execution_mode) {
             ExecMode::Hosted => $this->executeHosted($run, $tool, $call, $arguments),
             ExecMode::Client => $this->pauseForClient($run, $call),
+            ExecMode::Http => $this->executeRemoteHttp($run, $tool, $call, $arguments),
+            ExecMode::Connector => $this->executeConnector($run, $tool, $call, $arguments),
             default => $this->failUnsupported($run, $tool, $call),
         };
     }
@@ -356,21 +363,111 @@ class AgentRunner
             return $this->fail($run, 'hosted_tool_failed', $exception->getMessage());
         }
 
+        return $this->finishServerTool($run, $tool, $call, $result, 'hosted_tool_invalid_output', 'Hosted');
+    }
+
+    /**
+     * Execute a remote HTTP tool through the egress-governed executor and continue
+     * the loop (null) on success.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private function executeRemoteHttp(AgentRun $run, ToolContract $tool, ToolCall $call, array $arguments): ?AgentRun
+    {
+        if (($blocked = $this->guardToolApproval($run, $tool, $call)) instanceof AgentRun) {
+            return $blocked;
+        }
+
+        try {
+            $result = $this->httpTools->execute($tool, $arguments);
+        } catch (ToolExecutionException $exception) {
+            $this->failToolCall($call);
+
+            return $this->fail($run, $exception->failureCode, $exception->getMessage());
+        }
+
+        return $this->finishServerTool($run, $tool, $call, $result, 'remote_http_invalid_output', 'Remote HTTP', [
+            'execution_mode' => ExecMode::Http->value,
+            'endpoint_host' => $this->endpointHost($tool),
+        ]);
+    }
+
+    /**
+     * Execute an MCP-backed tool through a registered connector and continue the
+     * loop (null) on success.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private function executeConnector(AgentRun $run, ToolContract $tool, ToolCall $call, array $arguments): ?AgentRun
+    {
+        if (($blocked = $this->guardToolApproval($run, $tool, $call)) instanceof AgentRun) {
+            return $blocked;
+        }
+
+        try {
+            $result = $this->connectorTools->execute($tool, $run->environment, $arguments);
+        } catch (ToolExecutionException $exception) {
+            $this->failToolCall($call);
+
+            return $this->fail($run, $exception->failureCode, $exception->getMessage());
+        }
+
+        return $this->finishServerTool($run, $tool, $call, $result, 'connector_invalid_output', 'Connector', [
+            'execution_mode' => ExecMode::Connector->value,
+            'connector' => $tool->mcpConnector?->slug,
+            'remote_tool' => $tool->mcp_tool_name,
+        ]);
+    }
+
+    /**
+     * Validate, persist, trace, and feed back a server-side tool result, then
+     * continue the loop (null). Shared by hosted, remote HTTP, and connector tools.
+     *
+     * @param  array<string, mixed>  $result
+     * @param  array<string, mixed>  $traceData
+     */
+    private function finishServerTool(AgentRun $run, ToolContract $tool, ToolCall $call, array $result, string $invalidCode, string $label, array $traceData = []): ?AgentRun
+    {
         $errors = ToolSchema::validatePayload($tool->output_schema, $result);
 
         if ($errors !== []) {
             $this->failToolCall($call);
 
-            return $this->fail($run, 'hosted_tool_invalid_output', 'The hosted tool returned output that does not satisfy its schema.', ['errors' => $errors]);
+            return $this->fail($run, $invalidCode, "The {$label} tool returned output that does not satisfy its schema.", ['errors' => $errors]);
         }
 
-        $this->completeToolCall($run, $call, $result);
-        $this->tracer->record($run, TraceEventType::ToolResultReceived, "Hosted tool result received: {$tool->slug}.", ['tool_call_id' => $call->id]);
+        $this->completeToolCall($run, $tool, $call, $result);
+        $this->tracer->record($run, TraceEventType::ToolResultReceived, "{$label} tool result received: {$tool->slug}.", ['tool_call_id' => $call->id, ...$traceData]);
         $this->tracer->record($run, TraceEventType::Validated, 'Tool result validated.');
         $this->appendMessage($run, LlmMessage::tool($tool->slug, (string) json_encode($result)));
-        $this->tracer->record($run, TraceEventType::Resumed, 'Run resumed after hosted tool.');
+        $this->tracer->record($run, TraceEventType::Resumed, "Run resumed after {$label} tool.");
 
         return null;
+    }
+
+    /**
+     * Fail a run whose tool requires approval but has not been activated. A
+     * server-side egress tool must clear governance before the runtime executes it.
+     */
+    private function guardToolApproval(AgentRun $run, ToolContract $tool, ToolCall $call): ?AgentRun
+    {
+        if ($tool->requires_approval && $tool->status !== 'Active') {
+            $this->failToolCall($call);
+
+            return $this->fail($run, 'tool_requires_approval', "The tool [{$tool->slug}] requires approval before it can be executed.");
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve the host of a remote HTTP tool's endpoint for trace context.
+     */
+    private function endpointHost(ToolContract $tool): ?string
+    {
+        $endpoint = $tool->httpConfig()['endpoint'] ?? null;
+
+        return is_string($endpoint) ? (parse_url($endpoint, PHP_URL_HOST) ?: null) : null;
     }
 
     /**
@@ -462,13 +559,34 @@ class AgentRunner
      *
      * @param  array<string, mixed>  $result
      */
-    private function completeToolCall(AgentRun $run, ToolCall $call, array $result): void
+    private function completeToolCall(AgentRun $run, ToolContract $tool, ToolCall $call, array $result): void
     {
         $call->update([
             'status' => ToolCallStatus::Completed,
-            'result' => $this->redactor->result($run, $result),
+            'result' => $this->redactResult($run, $tool, $result),
             'completed_at' => Date::now(),
         ]);
+    }
+
+    /**
+     * Apply the team masking policy and the tool's field-level redaction rules to
+     * a tool result before it is stored. The live conversation state keeps the raw
+     * value so the model still reasons over it; only the at-rest copy is redacted.
+     *
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function redactResult(AgentRun $run, ToolContract $tool, array $result): array
+    {
+        $masked = $this->redactor->result($run, $result) ?? [];
+
+        foreach ($tool->redactionPaths() as $path) {
+            if (Arr::has($masked, $path)) {
+                Arr::set($masked, $path, '[redacted]');
+            }
+        }
+
+        return $masked;
     }
 
     /**

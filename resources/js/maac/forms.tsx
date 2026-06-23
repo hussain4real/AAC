@@ -74,6 +74,22 @@ export const TOOL_SCOPE_OPTIONS: Option[] = [
     { value: 'agent', label: 'Agent' },
 ];
 
+/** Remote HTTP tool method constraint (App\Enums\HttpMethod). */
+export const HTTP_METHOD_OPTIONS: Option[] = [
+    { value: 'get', label: 'GET' },
+    { value: 'post', label: 'POST' },
+    { value: 'put', label: 'PUT' },
+    { value: 'patch', label: 'PATCH' },
+    { value: 'delete', label: 'DELETE' },
+];
+
+/** Remote HTTP / MCP connector auth scheme (App\Enums\RemoteAuthType). */
+export const REMOTE_AUTH_OPTIONS: Option[] = [
+    { value: 'none', label: 'No authentication' },
+    { value: 'bearer', label: 'Bearer token' },
+    { value: 'header', label: 'Custom header' },
+];
+
 /** Quota scope (App\Enums\QuotaScope). */
 export const QUOTA_SCOPE_OPTIONS: Option[] = [
     { value: 'platform', label: 'Platform' },

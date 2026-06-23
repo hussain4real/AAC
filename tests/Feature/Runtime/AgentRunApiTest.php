@@ -14,6 +14,7 @@ use App\Models\Application;
 use App\Models\Credential;
 use App\Models\GovernanceSetting;
 use App\Models\LlmProvider;
+use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
@@ -23,8 +24,11 @@ use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
 use App\Support\Runtime\LlmCompletion;
 use App\Support\Runtime\LlmRequest;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Passport;
+use Tests\Support\Mcp\FakeMcpServer;
 use Tests\Support\Runtime\FakeLlmRouter;
 
 beforeEach(function () {
@@ -362,12 +366,12 @@ test('a run fails when a hosted tool returns invalid output', function () {
 
 test('a run fails for an unsupported execution mode', function () {
     assignTool([
-        'slug' => 'remote',
-        'execution_mode' => ExecMode::Http,
+        'slug' => 'knowledge_lookup',
+        'execution_mode' => ExecMode::Knowledge,
         'input_schema' => ['q' => 'string?'],
     ]);
 
-    fakeRouter()->toolCallThen('remote', []);
+    fakeRouter()->toolCallThen('knowledge_lookup', []);
 
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
@@ -583,4 +587,210 @@ test('a run is rejected when the daily run quota is exceeded', function () {
     invokeAgent()
         ->assertStatus(429)
         ->assertJsonPath('error', 'quota_exceeded');
+});
+
+test('a run completes using a remote HTTP tool executed by MAAC', function () {
+    config(['maac.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
+    Http::preventStrayRequests();
+    Http::fake(['tools.example.com/*' => Http::response(['result' => 'on time', 'total' => 3])]);
+
+    assignTool([
+        'slug' => 'fleet_status',
+        'execution_mode' => ExecMode::Http,
+        'input_schema' => ['q' => 'string?'],
+        'output_schema' => ['result' => 'string', 'total' => 'number'],
+        'http_config' => [
+            'method' => 'post',
+            'endpoint' => 'https://tools.example.com/fleet',
+            'auth' => ['type' => 'none'],
+            'retry' => ['max_attempts' => 1, 'backoff_ms' => 0],
+        ],
+    ]);
+
+    fakeRouter()->toolCallThen('fleet_status', ['q' => 'today'])->textThen('All 3 vessels on time.');
+
+    $response = invokeAgent()->assertCreated();
+    $response->assertJsonPath('status', RunStatus::Completed->value)
+        ->assertJsonPath('response', 'All 3 vessels on time.');
+
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+    $call = $run->toolCalls()->first();
+
+    expect($call->status)->toBe(ToolCallStatus::Completed)
+        ->and($call->result)->toBe(['result' => 'on time', 'total' => 3])
+        ->and($run->traceEvents()->where('type', TraceEventType::ToolResultReceived)->get()
+            ->contains(fn ($event) => ($event->data['execution_mode'] ?? null) === 'http'))->toBeTrue();
+});
+
+test('a run completes using an MCP connector tool executed by MAAC', function () {
+    Http::preventStrayRequests();
+    Http::fake(FakeMcpServer::make()->returns('lookup', ['result' => 'Doha'])->handler());
+
+    $connector = McpConnector::factory()->for($this->team)->create([
+        'server_url' => 'https://mcp.example.com/mcp',
+        'environments' => [Environment::Production->value],
+    ]);
+
+    assignTool([
+        'slug' => 'port_lookup',
+        'execution_mode' => ExecMode::Connector,
+        'mcp_connector_id' => $connector->id,
+        'mcp_tool_name' => 'lookup',
+        'input_schema' => ['q' => 'string?'],
+        'output_schema' => ['result' => 'string'],
+    ]);
+
+    fakeRouter()->toolCallThen('port_lookup', ['q' => 'home'])->textThen('The port is Doha.');
+
+    $response = invokeAgent()->assertCreated();
+    $response->assertJsonPath('status', RunStatus::Completed->value)
+        ->assertJsonPath('response', 'The port is Doha.');
+
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+    $call = $run->toolCalls()->first();
+
+    expect($call->result)->toBe(['result' => 'Doha'])
+        ->and($run->traceEvents()->where('type', TraceEventType::ToolResultReceived)->get()
+            ->contains(fn ($event) => ($event->data['connector'] ?? null) === $connector->slug
+                && ($event->data['remote_tool'] ?? null) === 'lookup'))->toBeTrue();
+});
+
+test('a remote HTTP tool result is redacted at rest by the tool redaction rules', function () {
+    config(['maac.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
+    Http::preventStrayRequests();
+    Http::fake(['tools.example.com/*' => Http::response(['result' => 'ok', 'ssn' => '123-45-6789'])]);
+
+    assignTool([
+        'slug' => 'lookup_customer',
+        'execution_mode' => ExecMode::Http,
+        'input_schema' => ['q' => 'string?'],
+        'output_schema' => ['result' => 'string', 'ssn' => 'string'],
+        'http_config' => [
+            'method' => 'post',
+            'endpoint' => 'https://tools.example.com/customer',
+            'auth' => ['type' => 'none'],
+            'retry' => ['max_attempts' => 1, 'backoff_ms' => 0],
+        ],
+        'redaction' => ['ssn'],
+    ]);
+
+    fakeRouter()->toolCallThen('lookup_customer', [])->textThen('done');
+
+    $response = invokeAgent()->assertCreated();
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+
+    // The at-rest copy is redacted; the model still received the raw value to complete.
+    expect($run->toolCalls()->first()->result)->toBe(['result' => 'ok', 'ssn' => '[redacted]'])
+        ->and($run->status)->toBe(RunStatus::Completed);
+});
+
+test('a remote HTTP run fails with a controlled error for a blocked endpoint', function () {
+    config(['maac.runtime.remote_http.allowed_hosts' => []]);
+
+    assignTool([
+        'slug' => 'blocked_tool',
+        'execution_mode' => ExecMode::Http,
+        'input_schema' => ['q' => 'string?'],
+        'output_schema' => ['result' => 'string'],
+        'http_config' => [
+            'method' => 'post',
+            'endpoint' => 'https://blocked.example.org/x',
+            'auth' => ['type' => 'none'],
+            'retry' => ['max_attempts' => 1, 'backoff_ms' => 0],
+        ],
+    ]);
+
+    fakeRouter()->toolCallThen('blocked_tool', []);
+
+    $response = invokeAgent()->assertCreated();
+    $response->assertJsonPath('status', RunStatus::Failed->value);
+
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+
+    expect($run->failure_reason)->toBe('remote_http_blocked')
+        ->and($run->toolCalls()->first()->status)->toBe(ToolCallStatus::Failed)
+        ->and($run->traceEvents()->where('type', TraceEventType::Failed)->get()
+            ->contains(fn ($event) => ($event->data['code'] ?? null) === 'remote_http_blocked'))->toBeTrue();
+});
+
+test('a connector run fails with a controlled error when the server is unreachable', function () {
+    Http::preventStrayRequests();
+    Http::fake(fn () => throw new ConnectionException('Connection refused.'));
+
+    $connector = McpConnector::factory()->for($this->team)->create([
+        'environments' => [Environment::Production->value],
+    ]);
+
+    assignTool([
+        'slug' => 'port_lookup',
+        'execution_mode' => ExecMode::Connector,
+        'mcp_connector_id' => $connector->id,
+        'mcp_tool_name' => 'lookup',
+        'input_schema' => ['q' => 'string?'],
+        'output_schema' => ['result' => 'string'],
+    ]);
+
+    fakeRouter()->toolCallThen('port_lookup', []);
+
+    $response = invokeAgent()->assertCreated();
+    $response->assertJsonPath('status', RunStatus::Failed->value);
+
+    expect(AgentRun::firstWhere('slug', $response->json('run_id'))->failure_reason)->toBe('connector_unreachable');
+});
+
+test('a server-side tool requiring approval is blocked at runtime until activated', function () {
+    config(['maac.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
+    Http::preventStrayRequests();
+    Http::fake(['tools.example.com/*' => Http::response(['result' => 'ok'])]);
+
+    assignTool([
+        'slug' => 'gated_tool',
+        'execution_mode' => ExecMode::Http,
+        'requires_approval' => true,
+        'status' => 'Draft',
+        'input_schema' => ['q' => 'string?'],
+        'output_schema' => ['result' => 'string'],
+        'http_config' => [
+            'method' => 'post',
+            'endpoint' => 'https://tools.example.com/gated',
+            'auth' => ['type' => 'none'],
+            'retry' => ['max_attempts' => 1, 'backoff_ms' => 0],
+        ],
+    ]);
+
+    fakeRouter()->toolCallThen('gated_tool', []);
+
+    $response = invokeAgent()->assertCreated();
+    $response->assertJsonPath('status', RunStatus::Failed->value);
+
+    expect(AgentRun::firstWhere('slug', $response->json('run_id'))->failure_reason)->toBe('tool_requires_approval');
+    Http::assertNothingSent();
+});
+
+test('a connector tool requiring approval is blocked at runtime until activated', function () {
+    Http::preventStrayRequests();
+    Http::fake(FakeMcpServer::make()->returns('lookup', ['result' => 'x'])->handler());
+
+    $connector = McpConnector::factory()->for($this->team)->create([
+        'environments' => [Environment::Production->value],
+    ]);
+
+    assignTool([
+        'slug' => 'gated_connector',
+        'execution_mode' => ExecMode::Connector,
+        'requires_approval' => true,
+        'status' => 'Draft',
+        'mcp_connector_id' => $connector->id,
+        'mcp_tool_name' => 'lookup',
+        'input_schema' => ['q' => 'string?'],
+        'output_schema' => ['result' => 'string'],
+    ]);
+
+    fakeRouter()->toolCallThen('gated_connector', []);
+
+    $response = invokeAgent()->assertCreated();
+    $response->assertJsonPath('status', RunStatus::Failed->value);
+
+    expect(AgentRun::firstWhere('slug', $response->json('run_id'))->failure_reason)->toBe('tool_requires_approval');
+    Http::assertNothingSent();
 });

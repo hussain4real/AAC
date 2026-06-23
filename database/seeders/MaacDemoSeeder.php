@@ -21,6 +21,7 @@ use App\Models\AuditEvent;
 use App\Models\Credential;
 use App\Models\GovernanceSetting;
 use App\Models\LlmProvider;
+use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\QuotaLimit;
 use App\Models\Team;
@@ -280,6 +281,41 @@ class MaacDemoSeeder extends Seeder
                 );
             }
         }
+
+        // Phase 6E — give the demo remote HTTP tool a real egress config so the
+        // tool detail and approval review show the endpoint/auth/redaction, and
+        // register an MCP connector with discovered capabilities.
+        if (isset($out['notifyWorkflowOwner'])) {
+            $out['notifyWorkflowOwner']->update([
+                'http_config' => [
+                    'method' => 'post',
+                    'endpoint' => 'https://notify.milaha.example/api/v1/notifications',
+                    'auth' => ['type' => 'bearer', 'credential' => 'demo-notify-token', 'header' => ''],
+                    'retry' => ['max_attempts' => 2, 'backoff_ms' => 200],
+                ],
+                'redaction' => ['recipient_id'],
+            ]);
+        }
+
+        McpConnector::updateOrCreate(['slug' => 'partner-logistics-mcp'], [
+            'team_id' => $team->id,
+            'application_id' => $apps['MOP']->id,
+            'name' => 'Partner Logistics MCP',
+            'description' => 'External partner MCP server exposing live port and vessel lookup tools.',
+            'transport' => 'http',
+            'server_url' => 'https://mcp.partner.example/mcp',
+            'auth_type' => 'bearer',
+            'auth_credential' => 'demo-mcp-token',
+            'sensitivity' => 'internal',
+            'requires_approval' => false,
+            'status' => 'active',
+            'environments' => ['production', 'staging'],
+            'capabilities' => [
+                ['name' => 'port_status', 'title' => 'Port status', 'description' => 'Live port congestion and berth availability.', 'input_schema' => ['port' => 'string']],
+                ['name' => 'vessel_eta', 'title' => 'Vessel ETA', 'description' => 'Estimated arrival for a vessel by IMO number.', 'input_schema' => ['imo' => 'string']],
+            ],
+            'last_discovered_at' => Carbon::now()->subHours(3),
+        ]);
 
         return $out;
     }

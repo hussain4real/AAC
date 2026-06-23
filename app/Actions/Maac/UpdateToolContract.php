@@ -3,6 +3,7 @@
 namespace App\Actions\Maac;
 
 use App\Models\ToolContract;
+use App\Support\Tools\ToolConfigInput;
 
 class UpdateToolContract
 {
@@ -13,7 +14,7 @@ class UpdateToolContract
      */
     public function handle(ToolContract $toolContract, array $data): ToolContract
     {
-        $toolContract->update($data);
+        $toolContract->update(ToolConfigInput::normalize($data, $toolContract));
 
         return $toolContract;
     }

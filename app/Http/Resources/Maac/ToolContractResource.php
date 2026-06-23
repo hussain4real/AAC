@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources\Maac;
 
+use App\Enums\ExecMode;
+use App\Enums\RemoteAuthType;
 use App\Models\ToolContract;
 use App\Models\ToolImplementation;
 use Illuminate\Http\Request;
@@ -42,6 +44,13 @@ class ToolContractResource extends JsonResource
             'input' => $this->input_schema,
             'output' => $this->output_schema,
             'version' => $this->version,
+            // Server-side execution config. Credential material is never returned —
+            // only whether auth is configured — so the console can edit safely.
+            'httpConfig' => $this->httpConfigView(),
+            'connector' => $this->whenLoaded('mcpConnector', fn () => $this->mcpConnector?->slug),
+            'connectorName' => $this->whenLoaded('mcpConnector', fn () => $this->mcpConnector?->name),
+            'remoteTool' => $this->mcp_tool_name,
+            'redaction' => $this->redactionPaths(),
             // Per-environment client-side implementation status reported via the SDK.
             'implementations' => $this->whenLoaded('implementations', fn () => $this->implementations
                 ->map(fn (ToolImplementation $implementation): array => [
@@ -54,6 +63,35 @@ class ToolContractResource extends JsonResource
                 ])
                 ->values()
                 ->all()),
+        ];
+    }
+
+    /**
+     * Build a console-safe view of the remote HTTP config: method, endpoint,
+     * auth scheme, and retry policy, with credential material reduced to a
+     * "configured" flag so secrets never leave the server.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function httpConfigView(): ?array
+    {
+        if ($this->execution_mode !== ExecMode::Http) {
+            return null;
+        }
+
+        $config = $this->httpConfig();
+        $auth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+        $retry = is_array($config['retry'] ?? null) ? $config['retry'] : [];
+        $authType = RemoteAuthType::tryFrom((string) ($auth['type'] ?? 'none')) ?? RemoteAuthType::None;
+
+        return [
+            'method' => (string) ($config['method'] ?? 'post'),
+            'endpoint' => (string) ($config['endpoint'] ?? ''),
+            'authType' => $authType->value,
+            'authHeader' => isset($auth['header']) ? (string) $auth['header'] : null,
+            'authConfigured' => $authType !== RemoteAuthType::None,
+            'maxAttempts' => (int) ($retry['max_attempts'] ?? 1),
+            'backoffMs' => (int) ($retry['backoff_ms'] ?? 0),
         ];
     }
 

@@ -142,6 +142,27 @@ export type Tool = {
     version?: string;
     /** Per-environment client-side implementation records reported via the SDK. */
     implementations?: ToolImplementationRecord[];
+    /** Remote HTTP execution config (server-side `http` tools). Secrets are never sent. */
+    httpConfig?: ToolHttpConfig | null;
+    /** Slug of the backing MCP connector (server-side `connector` tools). */
+    connector?: string | null;
+    /** Display name of the backing MCP connector. */
+    connectorName?: string | null;
+    /** Remote tool name invoked on the connector. */
+    remoteTool?: string | null;
+    /** Result field paths redacted in the stored trace/audit copy. */
+    redaction?: string[];
+};
+
+/** Console-safe view of a remote HTTP tool's config (no credential material). */
+export type ToolHttpConfig = {
+    method: string;
+    endpoint: string;
+    authType: string;
+    authHeader: string | null;
+    authConfigured: boolean;
+    maxAttempts: number;
+    backoffMs: number;
 };
 
 export type Agent = {

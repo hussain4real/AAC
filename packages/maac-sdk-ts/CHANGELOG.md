@@ -7,6 +7,20 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and
 The SDK's MAJOR version tracks the MAAC **API contract version** it targets: a
 breaking change to a MAAC SDK/runtime response shape bumps the MAJOR of both.
 
+## [0.2.0] — 2026-06-23
+
+Adds visibility of server-side tools. Still targets MAAC API contract **v0.0.1**
+and is fully backward compatible.
+
+### Added
+
+- `ManifestAgent.serverTools` — the tools MAAC executes itself (MAAC-hosted,
+  remote HTTP, and MCP connector), each with its `name`, `executionMode`, and
+  `description`, so an application can distinguish them from the client-side
+  handlers it must implement (it implements nothing for server-side tools).
+- The manifest's `sdk.capabilities.tool_execution_modes` now advertises which
+  execution modes are client-side versus executed by MAAC.
+
 ## [0.1.0] — 2026-06-22
 
 Adds the long-running and interactive runtime modes. Still targets MAAC API

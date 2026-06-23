@@ -7,11 +7,13 @@ use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
 use App\Enums\LlmStatus;
+use App\Enums\McpConnectorStatus;
 use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\ApprovalRequest;
 use App\Models\LlmProvider;
+use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\ToolAssignment;
@@ -94,6 +96,27 @@ test('an agent is blocked when its model is not approved for the environment', f
 
     expect(app(ApprovalGate::class)->blockers($request))
         ->toContain('Model Dev Only Model is not approved for Production.');
+});
+
+test('an agent is blocked while a connector tool uses an unavailable connector', function () {
+    [$owner, $team] = ownerAndTeam();
+    $agent = publishableAgent($team);
+    $connector = McpConnector::factory()->for($team)->disabled()->create();
+    $tool = ToolContract::factory()->for($team)->connector($connector, 'lookup')->create();
+    ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+
+    $request = app(ApprovalManager::class)->requestAgentPublication($agent, $owner, Environment::Production);
+
+    expect(app(ApprovalGate::class)->blockers($request))
+        ->toContain("Tool {$tool->name} uses an MCP connector that is disabled or unavailable in Production.");
+
+    // Enabling the connector for the target environment clears the blocker.
+    $connector->update([
+        'status' => McpConnectorStatus::Active,
+        'environments' => [Environment::Production->value],
+    ]);
+
+    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))->toBe([]);
 });
 
 test('non-agent approvals have no prerequisites', function () {

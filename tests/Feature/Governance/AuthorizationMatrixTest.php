@@ -5,6 +5,7 @@ use App\Models\Application;
 use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
 use App\Models\GovernanceSetting;
+use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\QuotaLimit;
 use App\Models\Team;
@@ -71,6 +72,17 @@ test('approval queue visibility requires a team and team-less users cannot reque
     $teamless->forceFill(['current_team_id' => null])->save();
 
     expect(Gate::forUser($teamless->fresh())->allows('create', ApprovalRequest::class))->toBeFalse();
+});
+
+test('team members can view MCP connectors but outsiders cannot', function () {
+    [$owner, $team] = ownerAndTeam();
+    $connector = McpConnector::factory()->for($team)->create();
+    $member = teamMember($team);
+    $outsider = User::factory()->create();
+
+    expect(Gate::forUser($owner)->allows('viewAny', McpConnector::class))->toBeTrue()
+        ->and(Gate::forUser($member)->allows('view', $connector))->toBeTrue()
+        ->and(Gate::forUser($outsider)->allows('view', $connector))->toBeFalse();
 });
 
 test('team members can view governance settings but outsiders cannot', function () {

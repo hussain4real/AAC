@@ -3,10 +3,13 @@
 namespace Database\Factories;
 
 use App\Enums\ExecMode;
+use App\Enums\HttpMethod;
 use App\Enums\ImplStatus;
+use App\Enums\RemoteAuthType;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Models\Application;
+use App\Models\McpConnector;
 use App\Models\Team;
 use App\Models\ToolContract;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -74,6 +77,38 @@ class ToolContractFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'requires_approval' => true,
             'execution_mode' => ExecMode::Client,
+        ]);
+    }
+
+    /**
+     * Indicate that the tool is a remote HTTP tool.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function remoteHttp(array $config = []): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'execution_mode' => ExecMode::Http,
+            'implementation_status' => ImplStatus::Ready,
+            'http_config' => array_merge([
+                'method' => HttpMethod::Post->value,
+                'endpoint' => 'https://tools.example.com/v1/lookup',
+                'auth' => ['type' => RemoteAuthType::None->value],
+                'retry' => ['max_attempts' => 1, 'backoff_ms' => 0],
+            ], $config),
+        ]);
+    }
+
+    /**
+     * Indicate that the tool is backed by an MCP connector.
+     */
+    public function connector(?McpConnector $connector = null, string $remoteTool = 'lookup'): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'execution_mode' => ExecMode::Connector,
+            'implementation_status' => ImplStatus::Ready,
+            'mcp_connector_id' => $connector instanceof McpConnector ? $connector->id : McpConnector::factory(),
+            'mcp_tool_name' => $remoteTool,
         ]);
     }
 }

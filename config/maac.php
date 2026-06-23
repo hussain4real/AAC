@@ -24,6 +24,16 @@ return [
     | (seconds per retry), and how much clock skew a receiver may tolerate when
     | verifying a signature.
     |
+    | `remote_http` governs egress for remote HTTP tools: `allowed_hosts` is the
+    | allowlist a tool endpoint host must match (supports `*.` wildcards) — an
+    | empty allowlist blocks every remote HTTP tool, which is the safe default;
+    | `blocked_hosts` is a denylist (loopback/link-local/metadata) that overrides
+    | the allowlist as SSRF defense-in-depth; `max_attempts` caps per-tool retry,
+    | and `connect_timeout_seconds` bounds the TCP connect.
+    |
+    | `mcp` configures the outbound MCP client used for connector-backed tools:
+    | the per-call timeout (seconds) MAAC waits on a remote MCP server.
+    |
     */
 
     'runtime' => [
@@ -42,6 +52,27 @@ return [
             'max_attempts' => (int) env('MAAC_WEBHOOK_MAX_ATTEMPTS', 5),
             'backoff' => [10, 30, 60, 120],
             'signature_tolerance_seconds' => (int) env('MAAC_WEBHOOK_SIGNATURE_TOLERANCE', 300),
+        ],
+
+        'remote_http' => [
+            'allowed_hosts' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('MAAC_REMOTE_HTTP_ALLOWED_HOSTS', '')),
+            ))),
+            'blocked_hosts' => [
+                'localhost',
+                '127.0.0.1',
+                '0.0.0.0',
+                '::1',
+                '169.254.169.254',
+                'metadata.google.internal',
+            ],
+            'max_attempts' => (int) env('MAAC_REMOTE_HTTP_MAX_ATTEMPTS', 3),
+            'connect_timeout_seconds' => (int) env('MAAC_REMOTE_HTTP_CONNECT_TIMEOUT', 5),
+        ],
+
+        'mcp' => [
+            'timeout_seconds' => (int) env('MAAC_MCP_TIMEOUT', 20),
         ],
     ],
 
@@ -77,18 +108,18 @@ return [
 
         'minimum_client_version' => env('MAAC_SDK_MIN_CLIENT_VERSION', '0.0.1'),
 
-        'current_client_version' => env('MAAC_SDK_CURRENT_CLIENT_VERSION', '0.1.0'),
+        'current_client_version' => env('MAAC_SDK_CURRENT_CLIENT_VERSION', '0.2.0'),
 
         'packages' => [
             'php' => [
                 'name' => 'milaha/maac-sdk',
-                'version' => '0.1.0',
+                'version' => '0.2.0',
                 'registry' => 'packagist',
                 'status' => 'supported',
             ],
             'typescript' => [
                 'name' => '@maac/sdk',
-                'version' => '0.1.0',
+                'version' => '0.2.0',
                 'registry' => 'npm',
                 'status' => 'supported',
             ],

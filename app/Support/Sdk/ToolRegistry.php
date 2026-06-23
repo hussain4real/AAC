@@ -90,9 +90,22 @@ class ToolRegistry
                     'name' => $agent->name,
                     'version' => $agent->version,
                     'status' => $agent->status->value,
+                    // Client-side tools the application must implement to run this agent.
                     'tools' => $agent->tools
                         ->where('execution_mode', ExecMode::Client)
                         ->pluck('slug')
+                        ->values()
+                        ->all(),
+                    // Tools MAAC executes itself (hosted/remote HTTP/MCP connector) —
+                    // surfaced so the application can distinguish them from the
+                    // client-side handlers it owns, without implementing anything.
+                    'server_tools' => $agent->tools
+                        ->reject(fn (ToolContract $tool): bool => $tool->execution_mode === ExecMode::Client)
+                        ->map(fn (ToolContract $tool): array => [
+                            'name' => $tool->slug,
+                            'execution_mode' => $tool->execution_mode->value,
+                            'description' => $tool->description,
+                        ])
                         ->values()
                         ->all(),
                 ])

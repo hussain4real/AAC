@@ -14,6 +14,7 @@ export type ScreenId =
     | 'tools'
     | 'sdk'
     | 'playground'
+    | 'connectors'
     | 'runs'
     | 'llm'
     | 'governance'
@@ -41,6 +42,7 @@ export const NAV_GROUPS: NavGroup[] = [
         title: 'Integrate',
         items: [
             { id: 'sdk', label: 'SDK Implementation', icon: 'sdk' },
+            { id: 'connectors', label: 'MCP Connectors', icon: 'layers' },
             { id: 'playground', label: 'Agent Playground', icon: 'playground' },
         ],
     },
@@ -74,6 +76,7 @@ export const SCREEN_OF: Record<string, ScreenId> = {
     tool: 'tools',
     sdk: 'sdk',
     playground: 'playground',
+    connectors: 'connectors',
     runs: 'runs',
     run: 'runs',
     llm: 'llm',
@@ -141,6 +144,7 @@ const ROLE_ALLOWED: Record<PersonaId, ScreenId[] | null> = {
         'agents',
         'tools',
         'sdk',
+        'connectors',
         'playground',
         'runs',
         'governance',

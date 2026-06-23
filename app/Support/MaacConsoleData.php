@@ -6,11 +6,13 @@ use App\Http\Resources\Maac\AgentResource;
 use App\Http\Resources\Maac\AgentRunResource;
 use App\Http\Resources\Maac\ApplicationResource;
 use App\Http\Resources\Maac\LlmProviderResource;
+use App\Http\Resources\Maac\McpConnectorResource;
 use App\Http\Resources\Maac\ProjectResource;
 use App\Http\Resources\Maac\ToolContractResource;
 use App\Http\Resources\Maac\WebhookEndpointResource;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\WebhookEndpoint;
@@ -51,7 +53,14 @@ class MaacConsoleData
             ->get();
 
         $tools = $team->toolContracts()
-            ->with(['application', 'agents', 'implementations'])
+            ->with(['application', 'agents', 'implementations', 'mcpConnector'])
+            ->orderBy('name')
+            ->get();
+
+        $connectors = McpConnector::query()
+            ->where('team_id', $team->id)
+            ->with('application')
+            ->withCount('tools')
             ->orderBy('name')
             ->get();
 
@@ -90,6 +99,8 @@ class MaacConsoleData
             'sdkCompatibility' => app(SdkCompatibilityReport::class)->forTeam($team),
             // Phase 6D — webhook endpoints + recent delivery history.
             'webhooks' => WebhookEndpointResource::collection($webhooks)->resolve(),
+            // Phase 6E — registered MCP connectors + discovered capabilities.
+            'connectors' => McpConnectorResource::collection($connectors)->resolve(),
             ...GovernanceConsoleData::forTeam($team),
         ];
     }
