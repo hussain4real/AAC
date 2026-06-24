@@ -150,6 +150,14 @@ export type Tool = {
     connectorName?: string | null;
     /** Remote tool name invoked on the connector. */
     remoteTool?: string | null;
+    /** Slug of the backing knowledge source (server-side `knowledge` tools). */
+    knowledgeSource?: string | null;
+    /** Display name of the backing knowledge source. */
+    knowledgeSourceName?: string | null;
+    /** Database UUID of the backing knowledge source (form submission). */
+    knowledgeSourceId?: string | null;
+    /** Knowledge retrieval policy (top-k chunks + minimum relevance score). */
+    knowledgeConfig?: { topK: number; minScore: number } | null;
     /** Result field paths redacted in the stored trace/audit copy. */
     redaction?: string[];
 };

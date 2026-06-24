@@ -8,6 +8,7 @@ use App\Enums\Environment;
 use App\Models\Agent;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
+use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\Team;
 use App\Models\ToolContract;
@@ -97,6 +98,21 @@ class ApprovalManager
             'summary' => "Promote {$model->name} to {$target->label()}.",
             'sensitivity' => $model->sensitivity,
             'environment' => $target,
+            'requested_by' => $requester->id,
+            'requested_label' => $requester->name,
+        ]);
+    }
+
+    /**
+     * Request approval to ingest a sensitive knowledge (RAG) source.
+     */
+    public function requestKnowledgeIngestion(KnowledgeSource $source, User $requester): ApprovalRequest
+    {
+        return $this->open($source->team, ApprovalType::KnowledgeIngestion, $source, [
+            'application_id' => $source->application_id,
+            'title' => $source->name,
+            'summary' => "Approve ingestion of the knowledge source {$source->name}.",
+            'sensitivity' => $source->sensitivity,
             'requested_by' => $requester->id,
             'requested_label' => $requester->name,
         ]);

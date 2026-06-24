@@ -38,6 +38,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Agent> $agents
  * @property-read Collection<int, User> $members
  * @property-read Collection<int, ProjectMember> $projectMembers
+ * @property-read Collection<int, EvaluationDataset> $evaluationDatasets
  */
 #[Fillable(['application_id', 'slug', 'name', 'environment', 'description', 'business_owner', 'technical_owner', 'status', 'agents_count', 'tools_count', 'runs_7d'])]
 class Project extends Model
@@ -83,6 +84,16 @@ class Project extends Model
     public function projectMembers(): HasMany
     {
         return $this->hasMany(ProjectMember::class);
+    }
+
+    /**
+     * Get the golden evaluation datasets scoped to the project.
+     *
+     * @return HasMany<EvaluationDataset, $this>
+     */
+    public function evaluationDatasets(): HasMany
+    {
+        return $this->hasMany(EvaluationDataset::class);
     }
 
     /**

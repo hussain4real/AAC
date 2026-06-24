@@ -29,23 +29,71 @@ class ToolConfigInput
                 is_array($data['http_config'] ?? null) ? $data['http_config'] : [],
                 $existing?->httpConfig() ?? [],
             );
-            $data['mcp_connector_id'] = null;
-            $data['mcp_tool_name'] = null;
 
-            return $data;
+            return self::withoutConnector(self::withoutKnowledge($data));
         }
 
         if ($mode === ExecMode::Connector->value) {
             $data['http_config'] = null;
 
-            return $data;
+            return self::withoutKnowledge($data);
+        }
+
+        if ($mode === ExecMode::Knowledge->value) {
+            $data['http_config'] = null;
+            $data['knowledge_config'] = self::knowledgeConfig(
+                is_array($data['knowledge_config'] ?? null) ? $data['knowledge_config'] : [],
+            );
+
+            return self::withoutConnector($data);
         }
 
         $data['http_config'] = null;
+
+        return self::withoutKnowledge(self::withoutConnector($data));
+    }
+
+    /**
+     * Null the connector mapping (kept only for connector-mode contracts).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function withoutConnector(array $data): array
+    {
         $data['mcp_connector_id'] = null;
         $data['mcp_tool_name'] = null;
 
         return $data;
+    }
+
+    /**
+     * Null the knowledge mapping (kept only for knowledge-mode contracts).
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private static function withoutKnowledge(array $data): array
+    {
+        $data['knowledge_source_id'] = null;
+        $data['knowledge_config'] = null;
+
+        return $data;
+    }
+
+    /**
+     * Build the stored knowledge-retrieval config (defaults applied at runtime
+     * when a value is omitted).
+     *
+     * @param  array<string, mixed>  $submitted
+     * @return array<string, mixed>
+     */
+    private static function knowledgeConfig(array $submitted): array
+    {
+        return [
+            'top_k' => max(1, (int) ($submitted['top_k'] ?? config('maac.runtime.knowledge.default_top_k', 5))),
+            'min_score' => round((float) ($submitted['min_score'] ?? config('maac.runtime.knowledge.default_min_score', 0.1)), 4),
+        ];
     }
 
     /**

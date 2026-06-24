@@ -372,19 +372,21 @@ Expand beyond client-side and MAAC-hosted tools while preserving the same tool-c
 
 ### Phase 6F: Knowledge Retrieval/RAG & Evaluation Lab
 
+> **Status: ✅ Complete** — branch `feature/maac-phase-6f-rag-evaluation`. The `knowledge` execution mode that previously dead-ended at `unsupported_execution_mode` is now a real, governed RAG capability, and a first-class **Evaluation Lab** tests agent quality/safety/citations/regressions and gates promotion. **Knowledge sources**: a `knowledge_sources`/`knowledge_documents`/`knowledge_chunks` model with a `KnowledgeIndexer` (paragraph→word-window chunking + tokenizer) and a pluggable `KnowledgeRetriever` (default deterministic `LexicalKnowledgeRetriever` — query-term coverage scoring, no embedding spend, bound in `RuntimeServiceProvider` so an embedding retriever can swap in). `KnowledgeToolExecutor` (routed from `AgentRunner::handleToolCall`, alongside hosted/http/connector) enforces source active+environment availability, returns schema-validated `{matches, citations}` (citation = document/uri/chunk/score/freshness), and fails with controlled `knowledge_misconfigured`/`_unavailable`/`_failed`/`_invalid_output` codes. A sensitive (Confidential+) or flagged source starts `Draft` and opens a **`ApprovalType::KnowledgeIngestion`** approval (approving activates it); the runtime won't retrieve from a non-active source. **Evaluation Lab**: `evaluation_datasets`/`evaluation_cases` (no-tool/client-tool/remote-tool/connector/RAG kinds + per-case assertions + client-tool stubs) → `EvaluationRunner` drives each case through the **real** `AgentRunner` (servicing client-tool pauses from stubs; `agent_runs.evaluation_id` lets an evaluation run a not-yet-published candidate) → `EvaluationGrader` records per-check verdicts (completion/correctness/tool/citation/safety/cost/latency) → rolls up pass/correctness/safety/citation rates + cost/latency onto the `evaluations` record. The **promotion gate** (`EvaluationGate`, wired into both `ApprovalGate::agentBlockers` and the direct `AgentController::publish`) blocks publishing while the latest required evaluation per dataset has not passed. Comparison across agent versions (version/prompt-fingerprint/model/cost/latency/correctness/safety/citation deltas) is rendered client-side from the evaluation metrics. New console pages **Knowledge Sources** (Integrate) and **Evaluation Lab** (Validate); the tool form gained a knowledge-config section; the SDK manifest advertises `knowledge` under `capabilities.tool_execution_modes.server_side` and `server_tools`, and the SDK docs/integration-guide move RAG to Supported. Verified: **650 Pest tests at 100 % line coverage**; PHPStan L7, Pint, ESLint, Prettier, `tsc` (frontend + SDK), 30 Node tests, `maac:sdk-fixtures --check`, and `npm run build` all green via `composer ci:check` — plus a live Chrome walkthrough (knowledge source + indexed documents with citations/freshness, a live source registration, the evaluation runs with per-case checks + inspected citation, the cross-version comparison, and the required promotion gate) with no console errors. Knowledge-retrieval is now implemented; **read-only DB (`db`) remains the only documented `unsupported_execution_mode`**, deferred to a later phase.
+
 #### Goal
 
 Add governed knowledge retrieval and evaluation workflows so teams can test agent quality, safety, regressions, and source attribution before production rollout.
 
 #### Checklist
 
-- [ ] Implement knowledge retrieval/RAG tools with approved document sources, indexing pipeline, citation metadata, freshness metadata, and access controls.
-- [ ] Add ingestion approvals for sensitive document sources and environment-specific indexes.
-- [ ] Add evaluation lab capabilities for prompt, tool, model, regression, citation, and safety testing.
-- [ ] Add golden test datasets that exercise no-tool, client-tool, remote-tool, connector, and RAG workflows.
-- [ ] Add comparison reports for agent version, prompt version, model, tool contract version, cost, latency, correctness, and safety outcomes.
-- [ ] Add promotion gates that prevent publishing a risky agent version when required evaluations fail.
-- [ ] Add E2E tests that run an evaluation against seeded data and verify dashboard/audit visibility.
+- [x] Implement knowledge retrieval/RAG tools with approved document sources, indexing pipeline, citation metadata, freshness metadata, and access controls.
+- [x] Add ingestion approvals for sensitive document sources and environment-specific indexes.
+- [x] Add evaluation lab capabilities for prompt, tool, model, regression, citation, and safety testing.
+- [x] Add golden test datasets that exercise no-tool, client-tool, remote-tool, connector, and RAG workflows.
+- [x] Add comparison reports for agent version, prompt version, model, tool contract version, cost, latency, correctness, and safety outcomes.
+- [x] Add promotion gates that prevent publishing a risky agent version when required evaluations fail.
+- [x] Add E2E tests that run an evaluation against seeded data and verify dashboard/audit visibility.
 
 #### Deliverables
 

@@ -141,6 +141,9 @@ export function ToolFormModal({
         ? (MAAC.connectors.find((c) => c.id === tool.connector)?.uuid ?? '')
         : (MAAC.connectors[0]?.uuid ?? '');
 
+    const knowledgeUuid =
+        tool?.knowledgeSourceId ?? MAAC.knowledgeSources[0]?.uuid ?? '';
+
     const form = useForm<{
         name: string;
         application_id: string;
@@ -163,6 +166,9 @@ export function ToolFormModal({
         http_backoff_ms: number;
         mcp_connector_id: string;
         mcp_tool_name: string;
+        knowledge_source_id: string;
+        knowledge_top_k: number;
+        knowledge_min_score: number;
         redaction: string;
     }>({
         name: tool?.name ?? '',
@@ -188,6 +194,9 @@ export function ToolFormModal({
         http_backoff_ms: tool?.httpConfig?.backoffMs ?? 0,
         mcp_connector_id: connectorUuid,
         mcp_tool_name: tool?.remoteTool ?? '',
+        knowledge_source_id: knowledgeUuid,
+        knowledge_top_k: tool?.knowledgeConfig?.topK ?? 5,
+        knowledge_min_score: tool?.knowledgeConfig?.minScore ?? 0.1,
         redaction: (tool?.redaction ?? []).join(', '),
     });
 
@@ -246,6 +255,17 @@ export function ToolFormModal({
                     ...base,
                     mcp_connector_id: data.mcp_connector_id,
                     mcp_tool_name: data.mcp_tool_name,
+                };
+            }
+
+            if (data.execution_mode === 'knowledge') {
+                return {
+                    ...base,
+                    knowledge_source_id: data.knowledge_source_id,
+                    knowledge_config: {
+                        top_k: data.knowledge_top_k,
+                        min_score: data.knowledge_min_score,
+                    },
                 };
             }
 
@@ -654,8 +674,107 @@ export function ToolFormModal({
                         )}
                     </div>
                 )}
+                {form.data.execution_mode === 'knowledge' && (
+                    <div style={configBox}>
+                        <div
+                            style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: 'var(--text-2)',
+                            }}
+                        >
+                            Knowledge retrieval (RAG)
+                        </div>
+                        {MAAC.knowledgeSources.length === 0 ? (
+                            <div
+                                style={{ fontSize: 12, color: 'var(--text-3)' }}
+                            >
+                                Register a knowledge source first, then map this
+                                tool to it.
+                            </div>
+                        ) : (
+                            <>
+                                <Field label="Knowledge source" required>
+                                    <Select
+                                        value={form.data.knowledge_source_id}
+                                        onChange={(v) =>
+                                            form.setData(
+                                                'knowledge_source_id',
+                                                v,
+                                            )
+                                        }
+                                        options={MAAC.knowledgeSources.map(
+                                            (s) => ({
+                                                value: s.uuid,
+                                                label: s.name,
+                                            }),
+                                        )}
+                                    />
+                                    <FieldError
+                                        error={form.errors.knowledge_source_id}
+                                    />
+                                </Field>
+                                <div style={half}>
+                                    <Field
+                                        label="Top K chunks"
+                                        hint="Max passages to retrieve."
+                                    >
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            max="50"
+                                            value={form.data.knowledge_top_k}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'knowledge_top_k',
+                                                    parseInt(
+                                                        e.target.value,
+                                                        10,
+                                                    ) || 1,
+                                                )
+                                            }
+                                        />
+                                        <FieldError
+                                            error={errFor(
+                                                'knowledge_config.top_k',
+                                            )}
+                                        />
+                                    </Field>
+                                    <Field
+                                        label="Min relevance"
+                                        hint="0–1 query-term coverage."
+                                    >
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="1"
+                                            step="0.05"
+                                            value={
+                                                form.data.knowledge_min_score
+                                            }
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'knowledge_min_score',
+                                                    parseFloat(
+                                                        e.target.value,
+                                                    ) || 0,
+                                                )
+                                            }
+                                        />
+                                        <FieldError
+                                            error={errFor(
+                                                'knowledge_config.min_score',
+                                            )}
+                                        />
+                                    </Field>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
                 {(form.data.execution_mode === 'http' ||
-                    form.data.execution_mode === 'connector') && (
+                    form.data.execution_mode === 'connector' ||
+                    form.data.execution_mode === 'knowledge') && (
                     <Field
                         label="Redaction"
                         hint="Comma-separated result field paths to mask in the stored trace (the model still receives raw values)."

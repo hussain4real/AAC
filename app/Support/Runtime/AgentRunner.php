@@ -21,6 +21,7 @@ use App\Models\ToolContract;
 use App\Support\Governance\RunRedactor;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
+use App\Support\Runtime\Knowledge\KnowledgeToolExecutor;
 use App\Support\Runtime\Mcp\McpToolExecutor;
 use App\Support\Runtime\Remote\RemoteHttpToolExecutor;
 use App\Support\Sdk\ToolSchema;
@@ -47,6 +48,7 @@ class AgentRunner
         private readonly RunWebhookEmitter $webhooks,
         private readonly RemoteHttpToolExecutor $httpTools,
         private readonly McpToolExecutor $connectorTools,
+        private readonly KnowledgeToolExecutor $knowledgeTools,
     ) {}
 
     /**
@@ -242,7 +244,10 @@ class AgentRunner
                 return $expired;
             }
 
-            if ($agent->status !== AgentStatus::Published) {
+            // External invocations require a published agent; an internal
+            // evaluation run is permitted against a candidate that is not yet
+            // published so it can be assessed before promotion.
+            if ($agent->status !== AgentStatus::Published && ! $run->isEvaluation()) {
                 return $this->cancel($run);
             }
 
@@ -338,6 +343,7 @@ class AgentRunner
             ExecMode::Client => $this->pauseForClient($run, $call),
             ExecMode::Http => $this->executeRemoteHttp($run, $tool, $call, $arguments),
             ExecMode::Connector => $this->executeConnector($run, $tool, $call, $arguments),
+            ExecMode::Knowledge => $this->executeKnowledge($run, $tool, $call, $arguments),
             default => $this->failUnsupported($run, $tool, $call),
         };
     }
@@ -416,6 +422,33 @@ class AgentRunner
             'execution_mode' => ExecMode::Connector->value,
             'connector' => $tool->mcpConnector?->slug,
             'remote_tool' => $tool->mcp_tool_name,
+        ]);
+    }
+
+    /**
+     * Execute a knowledge-retrieval (RAG) tool against a governed source and
+     * continue the loop (null) on success.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private function executeKnowledge(AgentRun $run, ToolContract $tool, ToolCall $call, array $arguments): ?AgentRun
+    {
+        if (($blocked = $this->guardToolApproval($run, $tool, $call)) instanceof AgentRun) {
+            return $blocked;
+        }
+
+        try {
+            $result = $this->knowledgeTools->execute($tool, $run->environment, $arguments);
+        } catch (ToolExecutionException $exception) {
+            $this->failToolCall($call);
+
+            return $this->fail($run, $exception->failureCode, $exception->getMessage());
+        }
+
+        return $this->finishServerTool($run, $tool, $call, $result, 'knowledge_invalid_output', 'Knowledge', [
+            'execution_mode' => ExecMode::Knowledge->value,
+            'source' => $tool->knowledgeSource?->slug,
+            'citations' => count($result['citations'] ?? []),
         ]);
     }
 

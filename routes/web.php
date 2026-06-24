@@ -6,7 +6,12 @@ use App\Http\Controllers\Maac\ApplicationController;
 use App\Http\Controllers\Maac\ApprovalRequestController;
 use App\Http\Controllers\Maac\ConsoleController;
 use App\Http\Controllers\Maac\CredentialController;
+use App\Http\Controllers\Maac\EvaluationCaseController;
+use App\Http\Controllers\Maac\EvaluationController;
+use App\Http\Controllers\Maac\EvaluationDatasetController;
 use App\Http\Controllers\Maac\GovernanceSettingController;
+use App\Http\Controllers\Maac\KnowledgeDocumentController;
+use App\Http\Controllers\Maac\KnowledgeSourceController;
 use App\Http\Controllers\Maac\LlmProviderController;
 use App\Http\Controllers\Maac\McpConnectorController;
 use App\Http\Controllers\Maac\ProjectController;
@@ -41,6 +46,8 @@ Route::prefix('{current_team}')
         Route::get('runs/{run}', [ConsoleController::class, 'run'])->name('runs.show');
         Route::get('llm-providers', [ConsoleController::class, 'llmProviders'])->name('llm-providers');
         Route::get('connectors', [ConsoleController::class, 'connectors'])->name('connectors');
+        Route::get('knowledge', [ConsoleController::class, 'knowledge'])->name('knowledge');
+        Route::get('evaluations', [ConsoleController::class, 'evaluations'])->name('evaluations');
         Route::get('governance', [ConsoleController::class, 'governance'])->name('governance');
         Route::get('webhooks', [ConsoleController::class, 'webhooks'])->name('webhooks');
         Route::get('platform-settings', [ConsoleController::class, 'settings'])->name('platform-settings');
@@ -65,6 +72,25 @@ Route::prefix('{current_team}')
             ->only(['store', 'update', 'destroy'])
             ->parameters(['connectors' => 'mcpConnector']);
         Route::post('connectors/{mcpConnector}/discover', [McpConnectorController::class, 'discover'])->name('connectors.discover');
+
+        // MAAC console (Phase 6F — knowledge retrieval/RAG sources)
+        Route::resource('knowledge-sources', KnowledgeSourceController::class)
+            ->only(['store', 'update', 'destroy'])
+            ->parameters(['knowledge-sources' => 'knowledgeSource']);
+        Route::post('knowledge-sources/{knowledgeSource}/reindex', [KnowledgeSourceController::class, 'reindex'])->name('knowledge-sources.reindex');
+        Route::post('knowledge-sources/{knowledgeSource}/documents', [KnowledgeDocumentController::class, 'store'])->name('knowledge-sources.documents.store');
+        Route::delete('knowledge-documents/{knowledgeDocument}', [KnowledgeDocumentController::class, 'destroy'])->name('knowledge-documents.destroy');
+
+        // MAAC console (Phase 6F — evaluation lab)
+        Route::resource('evaluation-datasets', EvaluationDatasetController::class)
+            ->only(['store', 'update', 'destroy'])
+            ->parameters(['evaluation-datasets' => 'evaluationDataset']);
+        Route::resource('evaluation-cases', EvaluationCaseController::class)
+            ->only(['store', 'destroy'])
+            ->parameters(['evaluation-cases' => 'evaluationCase']);
+        Route::resource('evaluations', EvaluationController::class)
+            ->only(['store', 'destroy'])
+            ->parameters(['evaluations' => 'evaluation']);
 
         // MAAC console (Phase 5 — governance & security hardening)
         Route::post('approvals', [ApprovalRequestController::class, 'store'])->name('approvals.store');

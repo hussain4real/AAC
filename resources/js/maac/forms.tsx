@@ -105,6 +105,16 @@ export const APPROVAL_TYPE_OPTIONS: Option[] = [
     { value: 'tool_contract', label: 'Tool contract' },
     { value: 'model_access', label: 'Model environment access' },
     { value: 'credential_change', label: 'Production credential change' },
+    { value: 'knowledge_ingestion', label: 'Knowledge source ingestion' },
+];
+
+/** Evaluation case workflow kinds (App\Enums\EvaluationCaseKind). */
+export const EVALUATION_CASE_KIND_OPTIONS: Option[] = [
+    { value: 'no_tool', label: 'No tool' },
+    { value: 'client_tool', label: 'Client-side tool' },
+    { value: 'remote_tool', label: 'Remote HTTP tool' },
+    { value: 'connector', label: 'MCP connector' },
+    { value: 'rag', label: 'Knowledge retrieval (RAG)' },
 ];
 
 /**

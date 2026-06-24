@@ -5,6 +5,9 @@ namespace App\Support;
 use App\Http\Resources\Maac\AgentResource;
 use App\Http\Resources\Maac\AgentRunResource;
 use App\Http\Resources\Maac\ApplicationResource;
+use App\Http\Resources\Maac\EvaluationDatasetResource;
+use App\Http\Resources\Maac\EvaluationResource;
+use App\Http\Resources\Maac\KnowledgeSourceResource;
 use App\Http\Resources\Maac\LlmProviderResource;
 use App\Http\Resources\Maac\McpConnectorResource;
 use App\Http\Resources\Maac\ProjectResource;
@@ -12,6 +15,9 @@ use App\Http\Resources\Maac\ToolContractResource;
 use App\Http\Resources\Maac\WebhookEndpointResource;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\Evaluation;
+use App\Models\EvaluationDataset;
+use App\Models\KnowledgeSource;
 use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\Team;
@@ -53,7 +59,7 @@ class MaacConsoleData
             ->get();
 
         $tools = $team->toolContracts()
-            ->with(['application', 'agents', 'implementations', 'mcpConnector'])
+            ->with(['application', 'agents', 'implementations', 'mcpConnector', 'knowledgeSource'])
             ->orderBy('name')
             ->get();
 
@@ -62,6 +68,27 @@ class MaacConsoleData
             ->with('application')
             ->withCount('tools')
             ->orderBy('name')
+            ->get();
+
+        $knowledgeSources = KnowledgeSource::query()
+            ->where('team_id', $team->id)
+            ->with(['application', 'documents' => fn ($query) => $query->withCount('chunks')->latest()])
+            ->withCount('tools')
+            ->orderBy('name')
+            ->get();
+
+        $evaluationDatasets = EvaluationDataset::query()
+            ->where('team_id', $team->id)
+            ->with(['project', 'cases'])
+            ->withCount('cases')
+            ->orderBy('name')
+            ->get();
+
+        $evaluations = Evaluation::query()
+            ->where('team_id', $team->id)
+            ->with(['agent', 'dataset', 'results' => fn ($query) => $query->with('run')->orderBy('created_at')])
+            ->orderByDesc('created_at')
+            ->limit(50)
             ->get();
 
         $runs = AgentRun::query()
@@ -101,6 +128,10 @@ class MaacConsoleData
             'webhooks' => WebhookEndpointResource::collection($webhooks)->resolve(),
             // Phase 6E — registered MCP connectors + discovered capabilities.
             'connectors' => McpConnectorResource::collection($connectors)->resolve(),
+            // Phase 6F — knowledge (RAG) sources and the evaluation lab.
+            'knowledgeSources' => KnowledgeSourceResource::collection($knowledgeSources)->resolve(),
+            'evaluationDatasets' => EvaluationDatasetResource::collection($evaluationDatasets)->resolve(),
+            'evaluations' => EvaluationResource::collection($evaluations)->resolve(),
             ...GovernanceConsoleData::forTeam($team),
         ];
     }

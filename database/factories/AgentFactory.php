@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\AgentStatus;
+use App\Enums\Sensitivity;
 use App\Models\Agent;
 use App\Models\LlmProvider;
 use App\Models\Project;
@@ -39,6 +40,7 @@ class AgentFactory extends Factory
             'name' => $name,
             'version' => 'v1',
             'status' => AgentStatus::Draft,
+            'sensitivity' => Sensitivity::Internal,
             'system_prompt' => fake()->paragraph(),
             'temperature' => fake()->randomFloat(2, 0, 1),
             'max_tokens' => fake()->randomElement([1200, 1400, 1500, 1800]),

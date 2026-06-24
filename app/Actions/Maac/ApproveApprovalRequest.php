@@ -4,10 +4,12 @@ namespace App\Actions\Maac;
 
 use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalType;
+use App\Enums\KnowledgeSourceStatus;
 use App\Enums\LlmStatus;
 use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\ApprovalRequest;
+use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\ToolContract;
 use App\Models\User;
@@ -60,6 +62,7 @@ class ApproveApprovalRequest
             ApprovalType::AgentPublication => $this->publishAgent($request, $decider),
             ApprovalType::ToolContract => $this->activateTool($request),
             ApprovalType::ModelAccess => $this->promoteModel($request),
+            ApprovalType::KnowledgeIngestion => $this->activateSource($request),
             ApprovalType::CredentialChange => null,
         };
     }
@@ -81,6 +84,16 @@ class ApproveApprovalRequest
     {
         if ($request->subject instanceof ToolContract) {
             $request->subject->update(['status' => 'Active']);
+        }
+    }
+
+    /**
+     * Activate the gated knowledge source, if it still exists.
+     */
+    private function activateSource(ApprovalRequest $request): void
+    {
+        if ($request->subject instanceof KnowledgeSource) {
+            $request->subject->update(['status' => KnowledgeSourceStatus::Active]);
         }
     }
 
