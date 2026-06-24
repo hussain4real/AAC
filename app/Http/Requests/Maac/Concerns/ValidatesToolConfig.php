@@ -39,6 +39,15 @@ trait ValidatesToolConfig
                 Rule::exists('mcp_connectors', 'id')->where('team_id', $teamId),
             ],
             'mcp_tool_name' => ['nullable', 'required_if:execution_mode,connector', 'string', 'max:128'],
+            'knowledge_source_id' => [
+                'nullable',
+                'required_if:execution_mode,knowledge',
+                'uuid',
+                Rule::exists('knowledge_sources', 'id')->where('team_id', $teamId),
+            ],
+            'knowledge_config' => ['nullable', 'array'],
+            'knowledge_config.top_k' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'knowledge_config.min_score' => ['nullable', 'numeric', 'min:0', 'max:1'],
             'redaction' => ['nullable', 'array'],
             'redaction.*' => ['string', 'max:128'],
         ];

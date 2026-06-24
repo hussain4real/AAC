@@ -11,8 +11,10 @@ test('approval type exposes a queue bucket, label, and options', function () {
         ->and(ApprovalType::AgentPublication->queue())->toBe('agents')
         ->and(ApprovalType::ModelAccess->queue())->toBe('models')
         ->and(ApprovalType::CredentialChange->queue())->toBe('data')
+        ->and(ApprovalType::KnowledgeIngestion->queue())->toBe('data')
+        ->and(ApprovalType::KnowledgeIngestion->label())->toBe('Knowledge Ingestion')
         ->and(ApprovalType::AgentPublication->label())->toBe('Agent Publication')
-        ->and(ApprovalType::options())->toHaveCount(4)
+        ->and(ApprovalType::options())->toHaveCount(5)
         ->and(ApprovalType::options()[0])->toHaveKeys(['value', 'label']);
 });
 

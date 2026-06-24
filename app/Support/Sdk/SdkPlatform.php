@@ -113,10 +113,11 @@ class SdkPlatform
             'webhook_events' => WebhookEventType::values(),
             // Which tool execution modes the runtime supports, split by who runs
             // them: the calling application via the SDK (client-side) versus MAAC
-            // itself (hosted utilities, remote HTTP, and MCP connectors).
+            // itself (hosted utilities, remote HTTP, MCP connectors, and
+            // knowledge-retrieval (RAG) sources).
             'tool_execution_modes' => [
                 'client_side' => [ExecMode::Client->value],
-                'server_side' => [ExecMode::Hosted->value, ExecMode::Http->value, ExecMode::Connector->value],
+                'server_side' => [ExecMode::Hosted->value, ExecMode::Http->value, ExecMode::Connector->value, ExecMode::Knowledge->value],
             ],
         ];
     }

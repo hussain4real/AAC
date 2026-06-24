@@ -92,6 +92,16 @@ class ConsoleController extends Controller
         return Inertia::render('maac/connectors');
     }
 
+    public function knowledge(): Response
+    {
+        return Inertia::render('maac/knowledge');
+    }
+
+    public function evaluations(): Response
+    {
+        return Inertia::render('maac/evaluations');
+    }
+
     public function governance(): Response
     {
         return Inertia::render('maac/governance');

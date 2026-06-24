@@ -7,6 +7,7 @@ use App\Enums\RemoteAuthType;
 use App\Models\Agent;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
+use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\ToolContract;
 use App\Support\Governance\ApprovalGate;
@@ -64,8 +65,30 @@ class ApprovalRequestResource extends JsonResource
             $subject instanceof Agent => $this->agentDetails($subject),
             $subject instanceof LlmProvider => $this->modelDetails($subject),
             $subject instanceof Credential => $this->credentialDetails($subject),
+            $subject instanceof KnowledgeSource => $this->knowledgeSourceDetails($subject),
             default => null,
         };
+    }
+
+    /**
+     * Detail view for a knowledge-source ingestion (sensitivity + freshness).
+     *
+     * @return array<string, mixed>
+     */
+    private function knowledgeSourceDetails(KnowledgeSource $source): array
+    {
+        return [
+            'kind' => 'Knowledge source',
+            'fields' => [
+                ['k' => 'Sensitivity', 'v' => $source->sensitivity->label()],
+                ['k' => 'Status', 'v' => $source->status->label()],
+                ['k' => 'Environments', 'v' => implode(', ', array_map(ucfirst(...), $source->environments)) ?: '—'],
+                ['k' => 'Documents', 'v' => (string) $source->document_count],
+                ['k' => 'Indexed chunks', 'v' => (string) $source->chunk_count],
+                ['k' => 'Last indexed', 'v' => $source->last_indexed_at?->diffForHumans() ?? 'Never'],
+            ],
+            'description' => $source->description,
+        ];
     }
 
     /**

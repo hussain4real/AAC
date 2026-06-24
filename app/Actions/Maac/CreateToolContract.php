@@ -46,7 +46,7 @@ class CreateToolContract
      */
     private function initialStatus(array $data, bool $requiresApproval): string
     {
-        $serverSideEgress = in_array($data['execution_mode'] ?? null, [ExecMode::Http->value, ExecMode::Connector->value], true);
+        $serverSideEgress = in_array($data['execution_mode'] ?? null, [ExecMode::Http->value, ExecMode::Connector->value, ExecMode::Knowledge->value], true);
 
         return $requiresApproval && $serverSideEgress ? 'Draft' : 'Active';
     }

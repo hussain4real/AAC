@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $id
  * @property string $agent_id
+ * @property string|null $evaluation_id
  * @property string $project_id
  * @property string $application_id
  * @property string|null $llm_provider_id
@@ -46,13 +47,14 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Agent $agent
+ * @property-read Evaluation|null $evaluation
  * @property-read Project $project
  * @property-read Application $application
  * @property-read LlmProvider|null $llmProvider
  * @property-read Collection<int, ToolCall> $toolCalls
  * @property-read Collection<int, TraceEvent> $traceEvents
  */
-#[Fillable(['agent_id', 'project_id', 'application_id', 'llm_provider_id', 'slug', 'caller', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
+#[Fillable(['agent_id', 'evaluation_id', 'project_id', 'application_id', 'llm_provider_id', 'slug', 'caller', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
 class AgentRun extends Model
 {
     /** @use HasFactory<AgentRunFactory> */
@@ -66,6 +68,16 @@ class AgentRun extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Agent::class);
+    }
+
+    /**
+     * Get the evaluation that produced the run (null for normal runs).
+     *
+     * @return BelongsTo<Evaluation, $this>
+     */
+    public function evaluation(): BelongsTo
+    {
+        return $this->belongsTo(Evaluation::class);
     }
 
     /**
@@ -142,6 +154,15 @@ class AgentRun extends Model
     public function isAsync(): bool
     {
         return $this->mode === RunMode::Async;
+    }
+
+    /**
+     * Determine whether the run is an internal evaluation run (which the runtime
+     * permits against an agent that is not yet published).
+     */
+    public function isEvaluation(): bool
+    {
+        return $this->evaluation_id !== null;
     }
 
     /**

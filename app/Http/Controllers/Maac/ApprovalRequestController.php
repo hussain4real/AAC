@@ -13,6 +13,7 @@ use App\Http\Requests\Maac\RequestApprovalRequest;
 use App\Models\Agent;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
+use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\Team;
 use App\Models\ToolContract;
@@ -42,6 +43,7 @@ class ApprovalRequestController extends Controller
             ApprovalType::ToolContract => $manager->requestToolContractApproval($this->tool($team, $subject), $user),
             ApprovalType::ModelAccess => $manager->requestModelAccess($this->model($team, $subject), $user, $environment),
             ApprovalType::CredentialChange => $manager->requestCredentialChange($this->credential($team, $subject), $user, (string) ($request->validated('change') ?? 'production change')),
+            ApprovalType::KnowledgeIngestion => $manager->requestKnowledgeIngestion($this->source($team, $subject), $user),
         };
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Approval requested.']);
@@ -123,6 +125,17 @@ class ApprovalRequestController extends Controller
         return Credential::query()
             ->whereHas('application', fn ($query) => $query->where('team_id', $team->id))
             ->where('id', $reference)
+            ->firstOrFail();
+    }
+
+    /**
+     * Resolve a knowledge source by slug within the team.
+     */
+    private function source(Team $team, string $reference): KnowledgeSource
+    {
+        return KnowledgeSource::query()
+            ->where('team_id', $team->id)
+            ->where('slug', $reference)
             ->firstOrFail();
     }
 }

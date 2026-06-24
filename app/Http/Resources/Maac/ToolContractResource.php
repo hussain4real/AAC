@@ -50,6 +50,10 @@ class ToolContractResource extends JsonResource
             'connector' => $this->whenLoaded('mcpConnector', fn () => $this->mcpConnector?->slug),
             'connectorName' => $this->whenLoaded('mcpConnector', fn () => $this->mcpConnector?->name),
             'remoteTool' => $this->mcp_tool_name,
+            'knowledgeSource' => $this->whenLoaded('knowledgeSource', fn () => $this->knowledgeSource?->slug),
+            'knowledgeSourceName' => $this->whenLoaded('knowledgeSource', fn () => $this->knowledgeSource?->name),
+            'knowledgeSourceId' => $this->knowledge_source_id,
+            'knowledgeConfig' => $this->knowledgeConfigView(),
             'redaction' => $this->redactionPaths(),
             // Per-environment client-side implementation status reported via the SDK.
             'implementations' => $this->whenLoaded('implementations', fn () => $this->implementations
@@ -92,6 +96,26 @@ class ToolContractResource extends JsonResource
             'authConfigured' => $authType !== RemoteAuthType::None,
             'maxAttempts' => (int) ($retry['max_attempts'] ?? 1),
             'backoffMs' => (int) ($retry['backoff_ms'] ?? 0),
+        ];
+    }
+
+    /**
+     * Build a console view of the knowledge-retrieval config (the retrieval
+     * policy), or null when the tool is not a knowledge tool.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function knowledgeConfigView(): ?array
+    {
+        if ($this->execution_mode !== ExecMode::Knowledge) {
+            return null;
+        }
+
+        $config = $this->knowledgeConfig();
+
+        return [
+            'topK' => (int) ($config['top_k'] ?? config('maac.runtime.knowledge.default_top_k', 5)),
+            'minScore' => (float) ($config['min_score'] ?? config('maac.runtime.knowledge.default_min_score', 0.1)),
         ];
     }
 

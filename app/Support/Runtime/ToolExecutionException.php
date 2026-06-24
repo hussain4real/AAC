@@ -105,4 +105,28 @@ class ToolExecutionException extends RuntimeException
     {
         return new self('connector_invalid_output', $message);
     }
+
+    /**
+     * The tool is not mapped to a usable knowledge source.
+     */
+    public static function knowledgeMisconfigured(string $message): self
+    {
+        return new self('knowledge_misconfigured', $message);
+    }
+
+    /**
+     * The mapped knowledge source is disabled or not available in this environment.
+     */
+    public static function knowledgeUnavailable(string $message): self
+    {
+        return new self('knowledge_unavailable', $message);
+    }
+
+    /**
+     * The retrieval could not be performed (e.g. an empty query).
+     */
+    public static function knowledgeFailed(string $message): self
+    {
+        return new self('knowledge_failed', $message);
+    }
 }

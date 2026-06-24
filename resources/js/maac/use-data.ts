@@ -13,8 +13,11 @@ import type {
     MaacApprovals,
     MaacAuditEvent,
     MaacDashboard,
+    MaacEvaluation,
+    MaacEvaluationDataset,
     MaacGovernanceSettings,
     MaacConnector,
+    MaacKnowledgeSource,
     MaacOperational,
     MaacQuota,
     MaacSdkCompatibility,
@@ -101,6 +104,9 @@ export type MaacData = MaacDataset & {
     sdkCompatibility: MaacSdkCompatibility;
     webhooks: MaacWebhookEndpoint[];
     connectors: MaacConnector[];
+    knowledgeSources: MaacKnowledgeSource[];
+    evaluationDatasets: MaacEvaluationDataset[];
+    evaluations: MaacEvaluation[];
     execModeLabel: typeof FIXTURE.execModeLabel;
     implLabel: typeof FIXTURE.implLabel;
     byId: <T extends { id: string }>(list: T[], id: string) => T | undefined;
@@ -136,6 +142,9 @@ export function useMaacData(): MaacData {
             sdkCompatibility: maac?.sdkCompatibility ?? EMPTY_SDK_COMPATIBILITY,
             webhooks: maac?.webhooks ?? [],
             connectors: maac?.connectors ?? [],
+            knowledgeSources: maac?.knowledgeSources ?? [],
+            evaluationDatasets: maac?.evaluationDatasets ?? [],
+            evaluations: maac?.evaluations ?? [],
             execModeLabel: FIXTURE.execModeLabel,
             implLabel: FIXTURE.implLabel,
             byId: <T extends { id: string }>(list: T[], id: string) =>

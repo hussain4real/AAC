@@ -243,6 +243,124 @@ export interface MaacConnector {
     createdAt: string | null;
 }
 
+/** An ingested document within a knowledge source (Phase 6F). */
+export interface MaacKnowledgeDocument {
+    id: string;
+    title: string;
+    uri: string | null;
+    chunkCount: number | null;
+    indexedAt: string | null;
+    metadata: Record<string, unknown>;
+    uploaded: boolean;
+    originalFilename: string | null;
+    fileSize: number | null;
+    createdAt: string | null;
+}
+
+/** A governed knowledge (RAG) source and its documents (Phase 6F). */
+export interface MaacKnowledgeSource {
+    uuid: string;
+    id: string;
+    name: string;
+    description: string | null;
+    status: string;
+    statusLabel: string;
+    sensitivity: string;
+    requiresApproval: boolean;
+    environments: string[];
+    documentCount: number;
+    chunkCount: number;
+    toolCount: number | null;
+    lastIndexed: string | null;
+    owner: string | null;
+    documents: MaacKnowledgeDocument[];
+    createdAt: string | null;
+}
+
+/** A single assertion verdict recorded for an evaluation case (Phase 6F). */
+export interface MaacEvaluationCheck {
+    type: string;
+    passed: boolean;
+    detail: string;
+}
+
+/** A case in a golden evaluation dataset (Phase 6F). */
+export interface MaacEvaluationCase {
+    id: string;
+    name: string;
+    kind: string;
+    kindLabel: string;
+    input: string;
+    expectations: {
+        expected_contains?: string[];
+        expected_tool?: string | null;
+        forbidden_phrases?: string[];
+        expects_citation?: boolean;
+        max_cost?: number | null;
+        max_latency_ms?: number | null;
+    };
+    toolStubs: Record<string, Record<string, unknown>> | null;
+    ordinal: number;
+}
+
+/** A golden evaluation dataset (Phase 6F). */
+export interface MaacEvaluationDataset {
+    uuid: string;
+    id: string;
+    name: string;
+    description: string | null;
+    projectId: string | null;
+    project: string | null;
+    caseCount: number | null;
+    cases: MaacEvaluationCase[];
+    createdAt: string | null;
+}
+
+/** A per-case evaluation result (Phase 6F). */
+export interface MaacEvaluationResult {
+    id: string;
+    caseName: string;
+    kind: string;
+    kindLabel: string;
+    passed: boolean;
+    checks: MaacEvaluationCheck[];
+    citations: Array<Record<string, unknown>>;
+    cost: number;
+    latencyMs: number;
+    output: string | null;
+    failureReason: string | null;
+    runSlug: string | null;
+}
+
+/** An evaluation run of a dataset against an agent (Phase 6F). */
+export interface MaacEvaluation {
+    id: string;
+    label: string;
+    status: string;
+    statusLabel: string;
+    isRequired: boolean;
+    environment: string;
+    datasetId: string;
+    datasetName: string | null;
+    agentId: string;
+    agentSlug: string | null;
+    agentName: string | null;
+    agentVersion: string;
+    modelCode: string | null;
+    promptFingerprint: string | null;
+    casesTotal: number;
+    casesPassed: number;
+    passRate: number;
+    totalCost: number;
+    avgLatencyMs: number;
+    correctnessRate: number;
+    safetyRate: number;
+    citationRate: number;
+    completedAt: string | null;
+    createdAt: string | null;
+    results: MaacEvaluationResult[];
+}
+
 export interface MaacProp {
     apps: Application[];
     projects: Project[];
@@ -261,6 +379,9 @@ export interface MaacProp {
     sdkCompatibility: MaacSdkCompatibility;
     webhooks: MaacWebhookEndpoint[];
     connectors: MaacConnector[];
+    knowledgeSources: MaacKnowledgeSource[];
+    evaluationDatasets: MaacEvaluationDataset[];
+    evaluations: MaacEvaluation[];
 }
 
 declare module '@inertiajs/core' {

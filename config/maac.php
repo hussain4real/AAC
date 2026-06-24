@@ -34,6 +34,11 @@ return [
     | `mcp` configures the outbound MCP client used for connector-backed tools:
     | the per-call timeout (seconds) MAAC waits on a remote MCP server.
     |
+    | `knowledge` configures knowledge-retrieval (RAG) tools: `chunk_size` is the
+    | maximum number of words per indexed chunk, and `default_top_k` /
+    | `default_min_score` are the retrieval defaults (number of chunks returned and
+    | the minimum query-term coverage, 0–1) when a tool does not set its own.
+    |
     */
 
     'runtime' => [
@@ -73,6 +78,20 @@ return [
 
         'mcp' => [
             'timeout_seconds' => (int) env('MAAC_MCP_TIMEOUT', 20),
+        ],
+
+        'knowledge' => [
+            'chunk_size' => (int) env('MAAC_KNOWLEDGE_CHUNK_SIZE', 120),
+            'default_top_k' => (int) env('MAAC_KNOWLEDGE_TOP_K', 5),
+            'default_min_score' => (float) env('MAAC_KNOWLEDGE_MIN_SCORE', 0.1),
+
+            // Direct document upload: the user-assigned extensions accepted by
+            // the ingest endpoint (the extractor reads them from storage) and
+            // the max upload size in kilobytes.
+            'upload' => [
+                'allowed_extensions' => ['txt', 'md', 'markdown', 'csv', 'pdf', 'docx'],
+                'max_kb' => (int) env('MAAC_KNOWLEDGE_UPLOAD_MAX_KB', 10240),
+            ],
         ],
     ],
 

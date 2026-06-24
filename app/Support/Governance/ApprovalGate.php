@@ -12,16 +12,19 @@ use App\Models\Agent;
 use App\Models\ApprovalRequest;
 use App\Models\McpConnector;
 use App\Models\ToolContract;
+use App\Support\Evaluation\EvaluationGate;
 
 /**
  * Enforces approval due-diligence: a request may only be granted once its
  * prerequisites are met. The headline dependency is agent publication — an
  * agent cannot be published while its required tools are still awaiting
- * approval, are unimplemented in the target environment, or its model is not
- * approved there.
+ * approval, are unimplemented in the target environment, its model is not
+ * approved there, or a required evaluation has not passed.
  */
 class ApprovalGate
 {
+    public function __construct(private readonly EvaluationGate $evaluations) {}
+
     /**
      * List the unmet prerequisites for the request (empty = ready to approve).
      *
@@ -94,7 +97,7 @@ class ApprovalGate
             }
         }
 
-        return $blockers;
+        return array_merge($blockers, $this->evaluations->blockers($agent));
     }
 
     /**

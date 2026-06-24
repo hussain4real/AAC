@@ -41,6 +41,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $mcp_connector_id
  * @property string|null $mcp_tool_name
  * @property array<int, mixed>|null $redaction
+ * @property string|null $knowledge_source_id
+ * @property array<string, mixed>|null $knowledge_config
  * @property string $version
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -48,12 +50,13 @@ use Illuminate\Support\Carbon;
  * @property-read Team $team
  * @property-read Application|null $application
  * @property-read McpConnector|null $mcpConnector
+ * @property-read KnowledgeSource|null $knowledgeSource
  * @property-read Collection<int, ToolAssignment> $assignments
  * @property-read Collection<int, ToolImplementation> $implementations
  * @property-read Collection<int, Agent> $agents
  * @property-read Collection<int, ToolCall> $toolCalls
  */
-#[Fillable(['team_id', 'application_id', 'slug', 'name', 'description', 'scope', 'execution_mode', 'sensitivity', 'requires_approval', 'status', 'implementation_status', 'timeout_seconds', 'max_payload_kb', 'input_schema', 'output_schema', 'http_config', 'mcp_connector_id', 'mcp_tool_name', 'redaction', 'version'])]
+#[Fillable(['team_id', 'application_id', 'slug', 'name', 'description', 'scope', 'execution_mode', 'sensitivity', 'requires_approval', 'status', 'implementation_status', 'timeout_seconds', 'max_payload_kb', 'input_schema', 'output_schema', 'http_config', 'mcp_connector_id', 'mcp_tool_name', 'redaction', 'knowledge_source_id', 'knowledge_config', 'version'])]
 class ToolContract extends Model
 {
     /** @use HasFactory<ToolContractFactory> */
@@ -87,6 +90,16 @@ class ToolContract extends Model
     public function mcpConnector(): BelongsTo
     {
         return $this->belongsTo(McpConnector::class);
+    }
+
+    /**
+     * Get the knowledge source the tool retrieves from (knowledge mode only).
+     *
+     * @return BelongsTo<KnowledgeSource, $this>
+     */
+    public function knowledgeSource(): BelongsTo
+    {
+        return $this->belongsTo(KnowledgeSource::class);
     }
 
     /**
@@ -157,12 +170,13 @@ class ToolContract extends Model
     }
 
     /**
-     * Determine whether MAAC executes the tool itself (hosted, remote HTTP, or
-     * MCP-backed) rather than the calling application via the SDK.
+     * Determine whether MAAC executes the tool itself (hosted, remote HTTP,
+     * MCP-backed, or knowledge retrieval) rather than the calling application via
+     * the SDK.
      */
     public function isServerSide(): bool
     {
-        return in_array($this->execution_mode, [ExecMode::Hosted, ExecMode::Http, ExecMode::Connector], true);
+        return in_array($this->execution_mode, [ExecMode::Hosted, ExecMode::Http, ExecMode::Connector, ExecMode::Knowledge], true);
     }
 
     /**
@@ -173,6 +187,16 @@ class ToolContract extends Model
     public function httpConfig(): array
     {
         return $this->http_config ?? [];
+    }
+
+    /**
+     * Get the knowledge-retrieval config for the tool (empty when unset).
+     *
+     * @return array<string, mixed>
+     */
+    public function knowledgeConfig(): array
+    {
+        return $this->knowledge_config ?? [];
     }
 
     /**
@@ -228,6 +252,7 @@ class ToolContract extends Model
             'output_schema' => 'array',
             'http_config' => 'encrypted:array',
             'redaction' => 'array',
+            'knowledge_config' => 'array',
         ];
     }
 }

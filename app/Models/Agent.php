@@ -45,6 +45,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, AgentVersion> $versions
  * @property-read Collection<int, ToolContract> $tools
  * @property-read Collection<int, AgentRun> $runs
+ * @property-read Collection<int, Evaluation> $evaluations
  */
 #[Fillable(['project_id', 'llm_provider_id', 'current_version_id', 'slug', 'agent_slug', 'name', 'version', 'status', 'sensitivity', 'system_prompt', 'temperature', 'max_tokens', 'description', 'success_rate', 'runs_7d', 'last_run_at', 'published_at'])]
 class Agent extends Model
@@ -111,6 +112,16 @@ class Agent extends Model
     public function runs(): HasMany
     {
         return $this->hasMany(AgentRun::class);
+    }
+
+    /**
+     * Get the evaluations run against the agent.
+     *
+     * @return HasMany<Evaluation, $this>
+     */
+    public function evaluations(): HasMany
+    {
+        return $this->hasMany(Evaluation::class);
     }
 
     /**

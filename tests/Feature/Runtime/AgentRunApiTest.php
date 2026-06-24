@@ -366,12 +366,12 @@ test('a run fails when a hosted tool returns invalid output', function () {
 
 test('a run fails for an unsupported execution mode', function () {
     assignTool([
-        'slug' => 'knowledge_lookup',
-        'execution_mode' => ExecMode::Knowledge,
+        'slug' => 'db_lookup',
+        'execution_mode' => ExecMode::Db,
         'input_schema' => ['q' => 'string?'],
     ]);
 
-    fakeRouter()->toolCallThen('knowledge_lookup', []);
+    fakeRouter()->toolCallThen('db_lookup', []);
 
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)

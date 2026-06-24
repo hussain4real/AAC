@@ -4,9 +4,12 @@ use App\Enums\AgentStatus;
 use App\Enums\AppStatus;
 use App\Enums\CredentialStatus;
 use App\Enums\Environment;
+use App\Enums\EvaluationCaseKind;
+use App\Enums\EvaluationStatus;
 use App\Enums\ExecMode;
 use App\Enums\HttpMethod;
 use App\Enums\ImplStatus;
+use App\Enums\KnowledgeSourceStatus;
 use App\Enums\LlmStatus;
 use App\Enums\MaacPermission;
 use App\Enums\MaacRole;
@@ -63,17 +66,30 @@ test('enums expose value/label option pairs', function (string $enum) {
     HttpMethod::class,
     RemoteAuthType::class,
     McpConnectorStatus::class,
+    KnowledgeSourceStatus::class,
+    EvaluationStatus::class,
+    EvaluationCaseKind::class,
 ]);
 
 test('enum helper predicates behave as expected', function () {
     expect(ExecMode::Client->isClientSide())->toBeTrue()
         ->and(ExecMode::Hosted->isClientSide())->toBeFalse()
+        ->and(ExecMode::Knowledge->isClientSide())->toBeFalse()
         ->and(AgentStatus::Published->isPublished())->toBeTrue()
         ->and(AgentStatus::Draft->isPublished())->toBeFalse()
         ->and(CredentialStatus::Active->isUsable())->toBeTrue()
         ->and(CredentialStatus::Revoked->isUsable())->toBeFalse()
         ->and(RunStatus::Completed->isTerminal())->toBeTrue()
-        ->and(RunStatus::Running->isTerminal())->toBeFalse();
+        ->and(RunStatus::Running->isTerminal())->toBeFalse()
+        ->and(KnowledgeSourceStatus::Active->isActive())->toBeTrue()
+        ->and(KnowledgeSourceStatus::Draft->isActive())->toBeFalse()
+        ->and(EvaluationStatus::Passed->isComplete())->toBeTrue()
+        ->and(EvaluationStatus::Passed->hasPassed())->toBeTrue()
+        ->and(EvaluationStatus::Failed->isComplete())->toBeTrue()
+        ->and(EvaluationStatus::Failed->hasPassed())->toBeFalse()
+        ->and(EvaluationStatus::Running->isComplete())->toBeFalse()
+        ->and(EvaluationCaseKind::ClientTool->usesClientTool())->toBeTrue()
+        ->and(EvaluationCaseKind::Rag->usesClientTool())->toBeFalse();
 });
 
 test('every MAAC role grants a permission set including a viewer baseline', function () {
