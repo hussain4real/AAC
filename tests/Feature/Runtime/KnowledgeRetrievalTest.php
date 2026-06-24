@@ -19,6 +19,7 @@ use App\Support\Runtime\Knowledge\Contracts\KnowledgeRetriever;
 use App\Support\Runtime\Knowledge\KnowledgeIndexer;
 use App\Support\Runtime\Knowledge\KnowledgeToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     [, $this->team] = ownerAndTeam();
@@ -263,4 +264,42 @@ it('splits a long paragraph into word windows', function () {
     ]);
 
     expect($source->fresh()->chunk_count)->toBe(3); // ceil(12 / 5)
+});
+
+it('retrieves and cites chunks from an uploaded document', function () {
+    Storage::fake('local');
+    $source = KnowledgeSource::factory()->for($this->team)->create([
+        'application_id' => null,
+        'status' => KnowledgeSourceStatus::Active,
+        'environments' => [Environment::Production->value],
+    ]);
+
+    Storage::disk('local')->put(
+        'knowledge/uploaded.txt',
+        "Tug boat scheduling assigns tugs by vessel draft.\n\nDeep-draft vessels get priority tug support.",
+    );
+
+    app(KnowledgeIndexer::class)->ingestStoredDocument($source, [
+        'title' => 'Tug Scheduling Guide',
+        'uri' => 'https://docs.example/tug-scheduling',
+        'disk' => 'local',
+        'storage_path' => 'knowledge/uploaded.txt',
+        'original_filename' => 'tug-scheduling.txt',
+        'mime_type' => 'text/plain',
+        'file_size' => 120,
+    ]);
+
+    expect($source->fresh()->chunk_count)->toBe(2);
+
+    $result = app(KnowledgeToolExecutor::class)->execute(
+        knowledgeTool($source),
+        Environment::Production,
+        ['query' => 'tug scheduling vessel draft'],
+    );
+
+    expect($result['matches'])->not->toBeEmpty()
+        ->and($result['citations'][0]['document'])->toBe('Tug Scheduling Guide')
+        ->and($result['citations'][0]['uri'])->toBe('https://docs.example/tug-scheduling')
+        ->and($result['citations'][0]['score'])->toBeGreaterThan(0)
+        ->and($result['citations'][0]['indexed_at'])->not->toBeNull();
 });

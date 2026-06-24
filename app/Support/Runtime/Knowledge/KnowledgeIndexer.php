@@ -16,8 +16,10 @@ use Illuminate\Support\Facades\DB;
  */
 class KnowledgeIndexer
 {
+    public function __construct(private readonly DocumentTextExtractor $extractor) {}
+
     /**
-     * Ingest a new document into the source and index it.
+     * Ingest a new pasted-body document into the source and index it.
      *
      * @param  array{title?: string, uri?: string|null, body?: string, metadata?: array<string, mixed>|null}  $data
      */
@@ -43,6 +45,37 @@ class KnowledgeIndexer
     }
 
     /**
+     * Ingest an uploaded document whose source file already lives in storage.
+     * The whole create-and-index runs in one transaction so a failed text
+     * extraction (corrupt/unreadable file) rolls the document row back.
+     *
+     * @param  array{title?: string, uri?: string|null, disk?: string, storage_path?: string, original_filename?: string|null, mime_type?: string|null, file_size?: int|null, metadata?: array<string, mixed>|null}  $data
+     */
+    public function ingestStoredDocument(KnowledgeSource $source, array $data): KnowledgeDocument
+    {
+        return DB::transaction(function () use ($source, $data): KnowledgeDocument {
+            $document = $source->documents()->create([
+                'title' => (string) ($data['title'] ?? 'Untitled document'),
+                'uri' => $data['uri'] ?? null,
+                'body' => '',
+                'checksum' => '',
+                'disk' => $data['disk'] ?? null,
+                'storage_path' => $data['storage_path'] ?? null,
+                'original_filename' => $data['original_filename'] ?? null,
+                'mime_type' => $data['mime_type'] ?? null,
+                'file_size' => $data['file_size'] ?? null,
+                'metadata' => $data['metadata'] ?? null,
+                'indexed_at' => null,
+            ]);
+
+            $this->indexDocument($document);
+            $this->refreshCounts($source);
+
+            return $document->refresh();
+        });
+    }
+
+    /**
      * Rebuild the chunk index for every document in the source.
      */
     public function reindex(KnowledgeSource $source): void
@@ -58,9 +91,21 @@ class KnowledgeIndexer
 
     /**
      * Re-chunk and re-tokenize a single document, replacing its prior chunks.
+     * For an uploaded document the body is re-extracted from its stored file
+     * first, so storage stays the source of truth across re-indexing.
      */
     private function indexDocument(KnowledgeDocument $document): void
     {
+        if ($document->storage_path !== null && $document->disk !== null) {
+            $body = $this->extractor->extract(
+                $document->disk,
+                $document->storage_path,
+                pathinfo($document->storage_path, PATHINFO_EXTENSION),
+            );
+
+            $document->forceFill(['body' => $body, 'checksum' => hash('sha256', $body)])->save();
+        }
+
         $document->chunks()->delete();
 
         foreach ($this->chunk($document->body) as $ordinal => $content) {

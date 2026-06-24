@@ -8,7 +8,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Serializes an ingested knowledge document for the console: its attribution
- * (title + uri), freshness, indexed chunk count, and metadata.
+ * (title + uri), freshness, indexed chunk count, metadata, and — when the
+ * document was uploaded rather than pasted — its original filename and size.
  *
  * @mixin KnowledgeDocument
  */
@@ -28,6 +29,9 @@ class KnowledgeDocumentResource extends JsonResource
             'chunkCount' => $this->whenCounted('chunks'),
             'indexedAt' => $this->indexed_at?->diffForHumans(),
             'metadata' => $this->metadata ?? [],
+            'uploaded' => $this->isUploaded(),
+            'originalFilename' => $this->original_filename,
+            'fileSize' => $this->file_size,
             'createdAt' => $this->created_at?->format('j M Y'),
         ];
     }

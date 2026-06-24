@@ -251,6 +251,9 @@ export interface MaacKnowledgeDocument {
     chunkCount: number | null;
     indexedAt: string | null;
     metadata: Record<string, unknown>;
+    uploaded: boolean;
+    originalFilename: string | null;
+    fileSize: number | null;
     createdAt: string | null;
 }
 

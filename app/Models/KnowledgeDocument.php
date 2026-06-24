@@ -24,6 +24,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $uri
  * @property string $body
  * @property string $checksum
+ * @property string|null $disk
+ * @property string|null $storage_path
+ * @property string|null $original_filename
+ * @property string|null $mime_type
+ * @property int|null $file_size
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $indexed_at
  * @property Carbon|null $created_at
@@ -31,7 +36,7 @@ use Illuminate\Support\Carbon;
  * @property-read KnowledgeSource $source
  * @property-read Collection<int, KnowledgeChunk> $chunks
  */
-#[Fillable(['knowledge_source_id', 'title', 'uri', 'body', 'checksum', 'metadata', 'indexed_at'])]
+#[Fillable(['knowledge_source_id', 'title', 'uri', 'body', 'checksum', 'disk', 'storage_path', 'original_filename', 'mime_type', 'file_size', 'metadata', 'indexed_at'])]
 class KnowledgeDocument extends Model
 {
     /** @use HasFactory<KnowledgeDocumentFactory> */
@@ -58,6 +63,16 @@ class KnowledgeDocument extends Model
     }
 
     /**
+     * Determine whether this document was ingested from an uploaded file (as
+     * opposed to a pasted body). Uploaded documents keep their source file in
+     * storage so re-indexing can re-read and re-extract them.
+     */
+    public function isUploaded(): bool
+    {
+        return $this->storage_path !== null;
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -65,6 +80,7 @@ class KnowledgeDocument extends Model
     protected function casts(): array
     {
         return [
+            'file_size' => 'integer',
             'metadata' => 'array',
             'indexed_at' => 'datetime',
         ];

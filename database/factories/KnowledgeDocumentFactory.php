@@ -37,4 +37,19 @@ class KnowledgeDocumentFactory extends Factory
             'indexed_at' => null,
         ];
     }
+
+    /**
+     * An uploaded document whose source file lives in storage. Sets the storage
+     * metadata only — point `storage_path` at a real file before re-indexing.
+     */
+    public function uploaded(string $filename = 'policy.pdf', string $extension = 'pdf'): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'disk' => 'local',
+            'storage_path' => 'knowledge/'.fake()->uuid().'/'.fake()->uuid().'.'.$extension,
+            'original_filename' => $filename,
+            'mime_type' => 'application/octet-stream',
+            'file_size' => fake()->numberBetween(1024, 64000),
+        ]);
+    }
 }

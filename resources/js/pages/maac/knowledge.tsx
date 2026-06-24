@@ -254,22 +254,33 @@ function DocumentFormModal({
     onClose: () => void;
 }) {
     const { currentTeam } = usePage().props;
+    const [mode, setMode] = useState<'paste' | 'upload'>('paste');
+    const [fileKey, setFileKey] = useState(0);
     const form = useForm<{
         title: string;
         uri: string;
         body: string;
+        document: File | null;
         author: string;
         published_at: string;
     }>({
         title: '',
         uri: '',
         body: '',
+        document: null,
         author: '',
         published_at: '',
     });
 
+    const reset = () => {
+        form.reset();
+        setMode('paste');
+        setFileKey((key) => key + 1);
+    };
+
     const close = () => {
         form.clearErrors();
+        reset();
         onClose();
     };
 
@@ -281,7 +292,8 @@ function DocumentFormModal({
         form.transform((data) => ({
             title: data.title,
             uri: data.uri || null,
-            body: data.body,
+            body: mode === 'paste' ? data.body : '',
+            document: mode === 'upload' ? data.document : null,
             metadata: {
                 author: data.author || null,
                 published_at: data.published_at || null,
@@ -290,8 +302,9 @@ function DocumentFormModal({
 
         form.post(storeDocument([currentTeam.slug, source.id]).url, {
             preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => {
-                form.reset();
+                reset();
                 onClose();
             },
         });
@@ -339,19 +352,59 @@ function DocumentFormModal({
                     />
                     <FieldError error={form.errors.uri} />
                 </Field>
-                <Field
-                    label="Document body"
-                    required
-                    hint="Plain text. Paragraphs become retrievable chunks."
-                >
-                    <Textarea
-                        rows={8}
-                        value={form.data.body}
-                        onChange={(e) => form.setData('body', e.target.value)}
-                        placeholder="Paste the document content here…"
-                    />
-                    <FieldError error={form.errors.body} />
-                </Field>
+                <div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                        <Btn
+                            variant={mode === 'paste' ? 'primary' : 'soft'}
+                            onClick={() => setMode('paste')}
+                        >
+                            Paste text
+                        </Btn>
+                        <Btn
+                            variant={mode === 'upload' ? 'primary' : 'soft'}
+                            onClick={() => setMode('upload')}
+                        >
+                            Upload file
+                        </Btn>
+                    </div>
+                    {mode === 'paste' ? (
+                        <Field
+                            label="Document body"
+                            required
+                            hint="Plain text. Paragraphs become retrievable chunks."
+                        >
+                            <Textarea
+                                rows={8}
+                                value={form.data.body}
+                                onChange={(e) =>
+                                    form.setData('body', e.target.value)
+                                }
+                                placeholder="Paste the document content here…"
+                            />
+                            <FieldError error={form.errors.body} />
+                        </Field>
+                    ) : (
+                        <Field
+                            label="Document file"
+                            required
+                            hint="TXT, Markdown, CSV, PDF, or Word (.docx). The file is stored and indexed from storage."
+                        >
+                            <input
+                                key={fileKey}
+                                type="file"
+                                accept=".txt,.md,.markdown,.csv,.pdf,.docx"
+                                onChange={(e) =>
+                                    form.setData(
+                                        'document',
+                                        e.target.files?.[0] ?? null,
+                                    )
+                                }
+                                style={{ fontSize: 13, color: 'var(--text)' }}
+                            />
+                            <FieldError error={form.errors.document} />
+                        </Field>
+                    )}
+                </div>
                 <div
                     style={{
                         display: 'grid',
@@ -450,7 +503,26 @@ function DocumentsPanel({
                     >
                         {source.documents.map((doc) => (
                             <Tr key={doc.id}>
-                                <Td strong>{doc.title}</Td>
+                                <Td strong>
+                                    {doc.title}
+                                    {doc.uploaded && doc.originalFilename ? (
+                                        <span
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 4,
+                                                marginTop: 2,
+                                                fontSize: 11,
+                                                fontWeight: 400,
+                                                fontFamily: 'var(--mono)',
+                                                color: 'var(--text-3)',
+                                            }}
+                                        >
+                                            <Icon name="doc" size={11} />
+                                            {doc.originalFilename}
+                                        </span>
+                                    ) : null}
+                                </Td>
                                 <Td>
                                     <span
                                         style={{
