@@ -126,6 +126,26 @@ test('a no-tool run completes and returns the response and usage', function () {
         );
 });
 
+test('the system prompt sent to the model is the user prompt plus the auto-generated tool brief', function () {
+    assignTool([
+        'slug' => 'getRecords',
+        'name' => 'Get Records',
+        'description' => 'Fetches operational voyage records.',
+        'execution_mode' => ExecMode::Client,
+    ]);
+
+    $fake = fakeRouter();
+    $fake->textThen('Done.');
+
+    invokeAgent(['input' => 'Status?'])->assertCreated();
+
+    expect($fake->requests[0]->systemPrompt)
+        ->toContain('You summarize operations.')
+        ->toContain('## Tools available to you')
+        ->toContain('`getRecords` (Get Records)')
+        ->toContain('Fetches operational voyage records.');
+});
+
 test('a run that needs a client-side tool pauses and returns the tool request', function () {
     $tool = assignTool(['slug' => 'getRecords', 'execution_mode' => ExecMode::Client]);
 

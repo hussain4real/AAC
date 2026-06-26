@@ -223,6 +223,12 @@ export type Agent = {
     temp: number;
     maxTokens: number;
     prompt: string;
+    /**
+     * The full system prompt the model receives: the user-authored `prompt`
+     * plus the tool brief MAAC auto-generates from the agent's tools. Falls back
+     * to `prompt` when not supplied by the server.
+     */
+    effectivePrompt?: string;
 };
 
 export type Run = {

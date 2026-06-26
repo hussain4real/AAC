@@ -59,6 +59,7 @@ class AgentRunner
         private readonly RuntimeApprovalPolicy $approvalPolicy,
         private readonly ApprovalManager $approvals,
         private readonly ModelPricing $pricing,
+        private readonly AgentPromptComposer $promptComposer,
     ) {}
 
     /**
@@ -437,7 +438,7 @@ class AgentRunner
         return new LlmRequest(
             providerDriver: $provider->driver(),
             modelCode: $provider->code,
-            systemPrompt: $agent->system_prompt,
+            systemPrompt: $this->promptComposer->compose($agent),
             messages: $this->messages($run),
             tools: $agent->tools->map(fn (ToolContract $tool): LlmToolDefinition => LlmToolDefinition::fromContract($tool))->all(),
             temperature: $agent->temperature,

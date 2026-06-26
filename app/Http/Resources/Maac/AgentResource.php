@@ -3,6 +3,7 @@
 namespace App\Http\Resources\Maac;
 
 use App\Models\Agent;
+use App\Support\Runtime\AgentPromptComposer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -40,6 +41,11 @@ class AgentResource extends JsonResource
             'temp' => $this->temperature,
             'maxTokens' => $this->max_tokens,
             'prompt' => $this->system_prompt,
+            'effectivePrompt' => $this->whenLoaded(
+                'tools',
+                fn (): string => (new AgentPromptComposer)->compose($this->resource),
+                $this->system_prompt,
+            ),
         ];
     }
 }

@@ -374,84 +374,134 @@ function AgentOverview({
 
 /* ---------- AgentPrompt (local) ---------- */
 function AgentPrompt({ agent, onEdit }: { agent: Agent; onEdit: () => void }) {
+    const effective = agent.effectivePrompt ?? agent.prompt;
+    const hasToolBrief = effective !== agent.prompt;
+
     return (
-        <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 300px',
-                gap: 14,
-            }}
-        >
-            <Card>
-                <SectionHeader
-                    title="System prompt"
-                    sub="Defines the agent's role, boundaries, and expected behavior"
-                    icon="doc"
-                    right={
-                        <Btn
-                            variant="default"
-                            size="sm"
-                            icon="edit"
-                            onClick={onEdit}
-                        >
-                            Edit
-                        </Btn>
-                    }
-                />
-                <div
-                    style={{
-                        fontFamily: 'var(--mono)',
-                        fontSize: 12.5,
-                        lineHeight: 1.7,
-                        color: 'var(--text)',
-                        padding: '14px 16px',
-                        background: 'var(--code-bg)',
-                        border: '1px solid var(--border)',
-                        borderRadius: 'var(--r-md)',
-                        whiteSpace: 'pre-wrap',
-                    }}
-                >
-                    {agent.prompt}
-                </div>
-            </Card>
-            <Card>
-                <SectionHeader title="Prompt guidance" icon="info" />
-                <ul
-                    style={{
-                        margin: 0,
-                        paddingLeft: 18,
-                        fontSize: 12.5,
-                        color: 'var(--text-2)',
-                        lineHeight: 1.7,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                    }}
-                >
-                    <li>
-                        State the agent's role and the application it serves.
-                    </li>
-                    <li>Require all claims to be grounded in tool results.</li>
-                    <li>Define explicit boundaries and refusal conditions.</li>
-                    <li>Specify the output format the application expects.</li>
-                </ul>
-                <div
-                    style={{
-                        marginTop: 14,
-                        padding: '11px 13px',
-                        background: 'var(--primary-soft)',
-                        borderRadius: 'var(--r-md)',
-                        fontSize: 12,
-                        color: 'var(--text-2)',
-                        lineHeight: 1.5,
-                    }}
-                >
-                    <b style={{ color: 'var(--primary)' }}>
-                        {agent.prompt.length}
-                    </b>{' '}
-                    characters · ~{Math.round(agent.prompt.length / 4)} tokens
-                </div>
-            </Card>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 300px',
+                    gap: 14,
+                }}
+            >
+                <Card>
+                    <SectionHeader
+                        title="System prompt"
+                        sub="Defines the agent's role, boundaries, and expected behavior"
+                        icon="doc"
+                        right={
+                            <Btn
+                                variant="default"
+                                size="sm"
+                                icon="edit"
+                                onClick={onEdit}
+                            >
+                                Edit
+                            </Btn>
+                        }
+                    />
+                    <div
+                        style={{
+                            fontFamily: 'var(--mono)',
+                            fontSize: 12.5,
+                            lineHeight: 1.7,
+                            color: 'var(--text)',
+                            padding: '14px 16px',
+                            background: 'var(--code-bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--r-md)',
+                            whiteSpace: 'pre-wrap',
+                        }}
+                    >
+                        {agent.prompt}
+                    </div>
+                </Card>
+                <Card>
+                    <SectionHeader title="Prompt guidance" icon="info" />
+                    <ul
+                        style={{
+                            margin: 0,
+                            paddingLeft: 18,
+                            fontSize: 12.5,
+                            color: 'var(--text-2)',
+                            lineHeight: 1.7,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 8,
+                        }}
+                    >
+                        <li>
+                            State the agent's role and the application it
+                            serves.
+                        </li>
+                        <li>
+                            Require all claims to be grounded in tool results.
+                        </li>
+                        <li>
+                            Define explicit boundaries and refusal conditions.
+                        </li>
+                        <li>
+                            Specify the output format the application expects.
+                        </li>
+                    </ul>
+                    <div
+                        style={{
+                            marginTop: 14,
+                            padding: '11px 13px',
+                            background: 'var(--primary-soft)',
+                            borderRadius: 'var(--r-md)',
+                            fontSize: 12,
+                            color: 'var(--text-2)',
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        <b style={{ color: 'var(--primary)' }}>
+                            {agent.prompt.length}
+                        </b>{' '}
+                        characters · ~{Math.round(agent.prompt.length / 4)}{' '}
+                        tokens
+                    </div>
+                </Card>
+            </div>
+            {hasToolBrief && (
+                <Card>
+                    <SectionHeader
+                        title="Effective prompt"
+                        sub="What the model actually receives — your prompt above plus a tool brief MAAC generates automatically from this agent's tools"
+                        icon="layers"
+                    />
+                    <div
+                        style={{
+                            fontFamily: 'var(--mono)',
+                            fontSize: 12.5,
+                            lineHeight: 1.7,
+                            color: 'var(--text)',
+                            padding: '14px 16px',
+                            background: 'var(--code-bg)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--r-md)',
+                            whiteSpace: 'pre-wrap',
+                        }}
+                    >
+                        {effective}
+                    </div>
+                    <div
+                        style={{
+                            marginTop: 12,
+                            fontSize: 12,
+                            color: 'var(--text-2)',
+                            lineHeight: 1.5,
+                        }}
+                    >
+                        ~{Math.round(effective.length / 4)} tokens · the tool
+                        section is generated by MAAC and refreshes when you
+                        change this agent's tools. Only the prompt above is
+                        editable.
+                    </div>
+                </Card>
+            )}
         </div>
     );
 }
