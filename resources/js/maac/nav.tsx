@@ -45,6 +45,7 @@ export type RouteName =
     | 'playground'
     | 'connectors'
     | 'knowledge'
+    | 'dataSources'
     | 'evaluations'
     | 'runs'
     | 'run'
@@ -100,6 +101,7 @@ const SEGMENT_TO_SCREEN: Record<string, ScreenId> = {
     playground: 'playground',
     connectors: 'connectors',
     knowledge: 'knowledge',
+    'data-sources': 'dataSources',
     evaluations: 'evaluations',
     runs: 'runs',
     'llm-providers': 'llm',
@@ -152,6 +154,8 @@ function urlFor(name: RouteName, team: string, params: GoParams = {}): string {
             return ConsoleRoutes.connectors.url(team);
         case 'knowledge':
             return ConsoleRoutes.knowledge.url(team);
+        case 'dataSources':
+            return ConsoleRoutes.dataSources.url(team);
         case 'evaluations':
             return ConsoleRoutes.evaluations.url(team);
         case 'runs':

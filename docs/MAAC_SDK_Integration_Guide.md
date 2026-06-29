@@ -257,12 +257,13 @@ using them.
 | Async, polling, streaming & webhooks| 0.1.0   | ✅ Supported  | Queue long-running runs; poll, stream (SSE), or receive signed webhooks. |
 | Remote HTTP & MCP connector tools   | 0.2.0   | ✅ Supported  | MAAC executes these server-side; the manifest tags them so the app implements nothing. |
 | Knowledge retrieval (RAG) tools     | 0.2.0   | ✅ Supported  | MAAC retrieves cited passages from a governed source server-side (`execution_mode` `knowledge`). |
+| Read-only database tools            | 0.2.0   | ✅ Supported  | MAAC queries an approved read-only data source server-side under strict policy controls (`execution_mode` `db`). |
 
 Every supported SDK language passes the same shared
 [contract fixture suite](../packages/sdk-fixtures), so they decide schema
 validity, implementation compatibility, and error handling identically.
 
-## Server-side tools (remote HTTP, MCP connectors & knowledge retrieval)
+## Server-side tools (remote HTTP, MCP connectors, knowledge retrieval & read-only database)
 
 A tool's **execution mode** decides who runs it:
 
@@ -273,9 +274,14 @@ A tool's **execution mode** decides who runs it:
   - **MAAC-hosted** built-in utilities,
   - **Remote HTTP** tools (MAAC calls an allowlisted external endpoint),
   - **MCP connector** tools (MAAC connects to a registered MCP server as a
-    client and invokes one of its tools), and
+    client and invokes one of its tools),
   - **Knowledge retrieval (RAG)** tools (MAAC retrieves cited passages from a
-    governed, indexed document source and returns them to the agent).
+    governed, indexed document source and returns them to the agent), and
+  - **Read-only database** tools (MAAC runs a governed, parameterized read-only
+    query against an approved data source — a replica or reporting view — under
+    statement-type, query-surface, row, and result-size controls, returning only
+    the minimized, schema-approved columns; the credential is vault-resolved and
+    never stored by MAAC).
 
 You implement **nothing** for server-side tools — you just invoke the agent. The
 manifest still surfaces them on each agent as `server_tools`, tagged with their
@@ -285,7 +291,7 @@ mode, so you can see what an agent uses end-to-end:
 $manifest = $client->manifest();
 foreach ($manifest->agents as $agent) {
     foreach ($agent->serverTools as $tool) {
-        // $tool['name'], $tool['execution_mode'] (hosted|http|connector|knowledge), $tool['description']
+        // $tool['name'], $tool['execution_mode'] (hosted|http|connector|knowledge|db), $tool['description']
         echo "{$agent->slug} runs {$tool['name']} server-side ({$tool['execution_mode']})\n";
     }
 }
@@ -295,7 +301,7 @@ foreach ($manifest->agents as $agent) {
 const manifest = await client.manifest();
 for (const agent of manifest.agents) {
   for (const tool of agent.serverTools) {
-    // tool.name, tool.executionMode ('hosted' | 'http' | 'connector' | 'knowledge'), tool.description
+    // tool.name, tool.executionMode ('hosted' | 'http' | 'connector' | 'knowledge' | 'db'), tool.description
     console.log(`${agent.slug} runs ${tool.name} server-side (${tool.executionMode})`);
   }
 }

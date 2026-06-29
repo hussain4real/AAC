@@ -19,6 +19,7 @@ enum VaultSecretKind: string
     case HttpTool = 'http_tool';
     case Webhook = 'webhook';
     case Connector = 'connector';
+    case Database = 'database';
     case Generic = 'generic';
 
     /**
@@ -32,6 +33,7 @@ enum VaultSecretKind: string
             self::Connector => 'MCP Connector Credential',
             self::Webhook => 'Webhook Signing Secret',
             self::Credential => 'Application Credential',
+            self::Database => 'Database Source Credential',
             self::Generic => 'Generic Secret',
         };
     }

@@ -405,7 +405,7 @@ test('a run fails when a hosted tool returns invalid output', function () {
         ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'does not satisfy'));
 });
 
-test('a run fails for an unsupported execution mode', function () {
+test('a run fails with a controlled code when a db tool is not mapped to a data source', function () {
     assignTool([
         'slug' => 'db_lookup',
         'execution_mode' => ExecMode::Db,
@@ -416,7 +416,7 @@ test('a run fails for an unsupported execution mode', function () {
 
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'not supported'));
+        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'not mapped to a data source'));
 });
 
 test('a run fails safely when the model call errors', function () {

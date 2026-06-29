@@ -197,7 +197,7 @@ const SERVER_TOOLS_TS = `// You implement nothing for server-side tools — just
 const manifest = await client.manifest();
 for (const agent of manifest.agents) {
   for (const tool of agent.serverTools) {
-    // tool.executionMode is 'hosted' | 'http' | 'connector' | 'knowledge'
+    // tool.executionMode is 'hosted' | 'http' | 'connector' | 'knowledge' | 'db'
     console.log(\`\${agent.slug} runs \${tool.name} server-side (\${tool.executionMode})\`);
   }
 }
@@ -209,7 +209,7 @@ const SERVER_TOOLS_PHP = `// You implement nothing for server-side tools — jus
 $manifest = $client->manifest();
 foreach ($manifest->agents as $agent) {
     foreach ($agent->serverTools as $tool) {
-        // $tool['execution_mode'] is 'hosted' | 'http' | 'connector' | 'knowledge'
+        // $tool['execution_mode'] is 'hosted' | 'http' | 'connector' | 'knowledge' | 'db'
         echo "{$agent->slug} runs {$tool['name']} server-side ({$tool['execution_mode']})\\n";
     }
 }
@@ -407,6 +407,13 @@ const MATRIX: {
         status: 'Supported',
         tone: 'teal',
         notes: 'MAAC retrieves cited passages from a governed source server-side; the manifest tags them (execution_mode "knowledge").',
+    },
+    {
+        name: 'Read-only database tools',
+        version: '0.2.0',
+        status: 'Supported',
+        tone: 'teal',
+        notes: 'MAAC queries an approved read-only data source server-side under strict policy controls; the manifest tags them (execution_mode "db").',
     },
 ];
 
@@ -992,7 +999,7 @@ export default function SdkDocs() {
                             id="server-tools"
                             title="Server-side tools"
                             icon="layers"
-                            sub="MAAC-hosted, remote HTTP, MCP connector, and knowledge-retrieval (RAG) tools MAAC runs for you"
+                            sub="MAAC-hosted, remote HTTP, MCP connector, knowledge-retrieval (RAG), and read-only database tools MAAC runs for you"
                         >
                             <p
                                 style={{
@@ -1013,10 +1020,12 @@ export default function SdkDocs() {
                                 <span className="mono">http</span> (an
                                 allowlisted external endpoint MAAC calls),{' '}
                                 <span className="mono">connector</span> (a
-                                registered MCP server MAAC connects to), and{' '}
+                                registered MCP server MAAC connects to),{' '}
                                 <span className="mono">knowledge</span> (cited
-                                retrieval from a governed RAG source) — run
-                                inside MAAC. You implement{' '}
+                                retrieval from a governed RAG source), and{' '}
+                                <span className="mono">db</span> (a governed
+                                read-only query against an approved data source)
+                                — run inside MAAC. You implement{' '}
                                 <strong>nothing</strong> for them; the manifest
                                 surfaces them per agent as{' '}
                                 <span className="mono">server_tools</span> so

@@ -8,7 +8,12 @@
 export type Environment = 'Production' | 'Staging' | 'Development';
 export type Sensitivity = 'Public' | 'Internal' | 'Confidential' | 'Restricted';
 export type ExecMode =
-    'hosted' | 'client' | 'http' | 'connector' | 'knowledge' | 'db';
+    | 'hosted'
+    | 'client'
+    | 'http'
+    | 'connector'
+    | 'knowledge'
+    | 'db';
 export type ToolScope = 'Global' | 'Project' | 'Agent';
 export type ImplStatus =
     | 'ready'
@@ -155,6 +160,20 @@ export type Tool = {
     knowledgeSourceId?: string | null;
     /** Knowledge retrieval policy (top-k chunks + minimum relevance score). */
     knowledgeConfig?: { topK: number; minScore: number } | null;
+    /** Slug of the backing read-only data source (server-side `db` tools). */
+    dataSource?: string | null;
+    /** Display name of the backing data source. */
+    dataSourceName?: string | null;
+    /** Database UUID of the backing data source (form submission). */
+    dataSourceId?: string | null;
+    /** Read-only database query config (query template, bindings, columns, limits). */
+    dbConfig?: {
+        query: string;
+        bindings: string[];
+        columns: string[];
+        rowLimit: number;
+        maxAgeMinutes: number | null;
+    } | null;
     /** Result field paths redacted in the stored trace/audit copy. */
     redaction?: string[];
 };

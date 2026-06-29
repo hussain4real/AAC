@@ -15,6 +15,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
+use App\Models\DataSource;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\Team;
@@ -46,6 +47,7 @@ class ApprovalRequestController extends Controller
             ApprovalType::ModelAccess => $manager->requestModelAccess($this->model($team, $subject), $user, $environment),
             ApprovalType::CredentialChange => $manager->requestCredentialChange($this->credential($team, $subject), $user, (string) ($request->validated('change') ?? 'production change')),
             ApprovalType::KnowledgeIngestion => $manager->requestKnowledgeIngestion($this->source($team, $subject), $user),
+            ApprovalType::DataSourceAccess => $manager->requestDataSourceAccess($this->dataSource($team, $subject), $user),
             ApprovalType::RuntimeAction => abort(422, 'Runtime approvals are opened by the runtime, not requested manually.'),
         };
 
@@ -143,6 +145,17 @@ class ApprovalRequestController extends Controller
     private function source(Team $team, string $reference): KnowledgeSource
     {
         return KnowledgeSource::query()
+            ->where('team_id', $team->id)
+            ->where('slug', $reference)
+            ->firstOrFail();
+    }
+
+    /**
+     * Resolve a read-only data source by slug within the team.
+     */
+    private function dataSource(Team $team, string $reference): DataSource
+    {
+        return DataSource::query()
             ->where('team_id', $team->id)
             ->where('slug', $reference)
             ->firstOrFail();

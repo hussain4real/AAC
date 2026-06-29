@@ -27,6 +27,7 @@ use App\Models\Application;
 use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
 use App\Models\Credential;
+use App\Models\DataSource;
 use App\Models\Evaluation;
 use App\Models\EvaluationDataset;
 use App\Models\GovernanceSetting;
@@ -46,8 +47,11 @@ use App\Support\Secrets\Contracts\SecretVault;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 /**
@@ -76,6 +80,7 @@ class MaacDemoSeeder extends Seeder
         $projects = $this->seedProjects($apps, $llms);
         $tools = $this->seedToolContracts($team, $apps);
         $this->seedKnowledge($team, $tools);
+        $this->seedDataSources($team, $tools);
         $agents = $this->seedAgents($projects, $apps, $llms, $tools, $user);
         $this->seedRuns($agents, $apps, $projects, $llms, $tools);
         $this->seedProjectMembers($projects, $user);
@@ -331,6 +336,7 @@ class MaacDemoSeeder extends Seeder
             ['summarizeUploadedDocument', 'global', 'hosted', 'internal', false, 'ready', null, 'Summarizes an uploaded document passed inline to MAAC.', 20, 1024, ['document_ref' => 'string', 'length' => 'string?'], ['summary' => 'string', 'key_points' => 'array']],
             ['webSearch', 'global', 'hosted', 'public', false, 'ready', null, 'Approved external web search via the platform gateway.', 10, 256, ['query' => 'string', 'recency_days' => 'number?'], ['results' => 'array']],
             ['notifyWorkflowOwner', 'global', 'http', 'internal', true, 'ready', null, 'Sends a notification to a workflow owner via the internal Notify API.', 6, 32, ['recipient_id' => 'string', 'message' => 'string', 'priority' => 'string?'], ['delivered' => 'boolean', 'notification_id' => 'string']],
+            ['getPortCallMetrics', 'global', 'db', 'internal', false, 'ready', null, 'Runs a governed read-only query over the approved port-call reporting replica.', 10, 256, ['region' => 'string?', 'limit' => 'number?'], ['rows' => 'array', 'row_count' => 'number']],
         ];
 
         $out = [];
@@ -433,6 +439,7 @@ class MaacDemoSeeder extends Seeder
             ['ag_fin_exception', 'Financial Exception Agent', 'prj_fws_appr', 'claude-37-sonnet', 'v2', 'published', 96.8, '12 min ago', 420, 'Detects anomalous financial transactions and routes them for review.', ['getFinancialTransactions', 'getPendingApprovals', 'notifyWorkflowOwner'], 'financial-exception', 0.2, 1300, 'You are the Financial Exception Agent. Detect anomalous transactions (duplicate payments, threshold breaches, unusual vendors). Explain why each is flagged and recommend a next action. Treat all amounts as confidential.'],
             ['ag_maint_risk', 'Maintenance Risk Agent', 'prj_vms_risk', 'llama3-70b', 'v1', 'draft', 0, '—', 0, 'Flags assets at elevated risk based on maintenance history and overdue work orders.', ['getMaintenanceSchedules', 'searchPolicyDocuments'], 'maintenance-risk', 0.3, 1400, 'You are the Maintenance Risk Agent. Assess asset risk from maintenance schedules and overdue work orders. Rank assets by risk and recommend prioritized maintenance actions.'],
             ['ag_doc_review', 'Document Review Agent', 'prj_mop_docs', 'claude-37-sonnet', 'v2', 'testing', 95.5, '35 min ago', 180, 'Reviews shipping documents for completeness and policy compliance.', ['summarizeUploadedDocument', 'searchPolicyDocuments', 'getOperationalRecords'], 'document-review', 0.2, 1800, 'You are the Document Review Agent. Review shipping documents for missing fields and policy compliance. List issues found and cite the relevant policy section.'],
+            ['ag_port_metrics', 'Port Metrics Agent', 'prj_mop_ops', 'gpt-4o', 'v1', 'published', 97.6, '5 min ago', 210, 'Answers port-call reporting questions from the governed read-only reporting replica.', ['getPortCallMetrics'], 'port-metrics', 0.2, 1200, 'You are the Port Metrics Agent. Answer questions about port-call volumes strictly from the governed read-only reporting data returned by the getPortCallMetrics tool. Report figures exactly as returned; never invent numbers.'],
             ['ag_compliance', 'Compliance Assistant Agent', 'prj_fws_close', 'gpt-4o', 'v1', 'disabled', 92.0, '2 days ago', 0, 'Answers compliance questions grounded in company policy documents.', ['searchPolicyDocuments', 'summarizeUploadedDocument'], 'compliance-assistant', 0.1, 1500, 'You are the Compliance Assistant Agent. Answer compliance questions strictly from indexed policy documents. Always cite the policy reference. If the answer is not in policy, say so.'],
         ];
 
@@ -845,6 +852,86 @@ class MaacDemoSeeder extends Seeder
                 'knowledge_config' => ['top_k' => 5, 'min_score' => 0.1],
             ]);
         }
+    }
+
+    /**
+     * Seed the example governed read-only data source for `db` tools: build the
+     * approved read-only reporting replica (a separate SQLite surface holding a
+     * single curated reporting view), register the data source that references it
+     * by name, and wire the `getPortCallMetrics` db tool to it. No connection
+     * string or credential is persisted by MAAC — only the approved connection
+     * name reference.
+     *
+     * @param  array<string, ToolContract>  $tools
+     */
+    private function seedDataSources(Team $team, array $tools): void
+    {
+        $this->buildReportingReplica();
+
+        $source = DataSource::updateOrCreate(['slug' => 'port-call-reporting'], [
+            'team_id' => $team->id,
+            'application_id' => null,
+            'name' => 'Port Call Reporting Replica',
+            'description' => 'Approved read-only reporting replica of port-call volumes for analytics agents. Governed reporting data only — not application-owned transactional access.',
+            'connection_type' => 'read_replica',
+            'connection' => 'maac_reporting',
+            'driver' => 'sqlite',
+            'status' => 'active',
+            'sensitivity' => 'internal',
+            'requires_approval' => false,
+            'environments' => ['production', 'staging', 'development'],
+            'allowed_relations' => ['reporting_port_calls'],
+            'max_rows' => 100,
+            'statement_timeout_ms' => 5000,
+            'max_result_kb' => 256,
+            'data_refreshed_at' => Carbon::now(),
+        ]);
+
+        if (isset($tools['getPortCallMetrics'])) {
+            $tools['getPortCallMetrics']->update([
+                'data_source_id' => $source->id,
+                'db_config' => [
+                    'query' => 'select port, vessel, calls from reporting_port_calls order by calls desc',
+                    'bindings' => [],
+                    'columns' => ['port', 'vessel', 'calls'],
+                    'row_limit' => 10,
+                    'max_age_minutes' => null,
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * (Re)build the demo read-only reporting replica with a single curated
+     * reporting table and a few rows, so a `db` tool returns real data.
+     */
+    private function buildReportingReplica(): void
+    {
+        // SQLite refuses to open a non-existent file connection, so ensure the
+        // demo reporting database file exists before connecting to it.
+        $database = config('database.connections.maac_reporting.database');
+
+        if (is_string($database) && $database !== ':memory:' && ! file_exists($database)) {
+            touch($database);
+        }
+
+        $schema = Schema::connection('maac_reporting');
+        $schema->dropIfExists('reporting_port_calls');
+        $schema->create('reporting_port_calls', function (Blueprint $table): void {
+            $table->increments('id');
+            $table->string('region');
+            $table->string('port');
+            $table->string('vessel');
+            $table->integer('calls');
+        });
+
+        DB::connection('maac_reporting')->table('reporting_port_calls')->insert([
+            ['region' => 'EU', 'port' => 'Rotterdam', 'vessel' => 'Milaha Ras Laffan', 'calls' => 18],
+            ['region' => 'EU', 'port' => 'Antwerp', 'vessel' => 'Milaha Doha', 'calls' => 14],
+            ['region' => 'APAC', 'port' => 'Singapore', 'vessel' => 'Milaha Qatar', 'calls' => 22],
+            ['region' => 'APAC', 'port' => 'Busan', 'vessel' => 'Milaha Explorer', 'calls' => 9],
+            ['region' => 'MENA', 'port' => 'Hamad', 'vessel' => 'Milaha Gulf', 'calls' => 31],
+        ]);
     }
 
     /**

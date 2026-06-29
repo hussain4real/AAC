@@ -144,6 +144,9 @@ export function ToolFormModal({
     const knowledgeUuid =
         tool?.knowledgeSourceId ?? MAAC.knowledgeSources[0]?.uuid ?? '';
 
+    const dataSourceUuid =
+        tool?.dataSourceId ?? MAAC.dataSources[0]?.uuid ?? '';
+
     const form = useForm<{
         name: string;
         application_id: string;
@@ -169,6 +172,12 @@ export function ToolFormModal({
         knowledge_source_id: string;
         knowledge_top_k: number;
         knowledge_min_score: number;
+        data_source_id: string;
+        db_query: string;
+        db_bindings: string;
+        db_columns: string;
+        db_row_limit: number;
+        db_max_age_minutes: string;
         redaction: string;
     }>({
         name: tool?.name ?? '',
@@ -197,6 +206,14 @@ export function ToolFormModal({
         knowledge_source_id: knowledgeUuid,
         knowledge_top_k: tool?.knowledgeConfig?.topK ?? 5,
         knowledge_min_score: tool?.knowledgeConfig?.minScore ?? 0.1,
+        data_source_id: dataSourceUuid,
+        db_query: tool?.dbConfig?.query ?? '',
+        db_bindings: (tool?.dbConfig?.bindings ?? []).join(', '),
+        db_columns: (tool?.dbConfig?.columns ?? []).join(', '),
+        db_row_limit: tool?.dbConfig?.rowLimit ?? 50,
+        db_max_age_minutes: tool?.dbConfig?.maxAgeMinutes
+            ? String(tool.dbConfig.maxAgeMinutes)
+            : '',
         redaction: (tool?.redaction ?? []).join(', '),
     });
 
@@ -265,6 +282,29 @@ export function ToolFormModal({
                     knowledge_config: {
                         top_k: data.knowledge_top_k,
                         min_score: data.knowledge_min_score,
+                    },
+                };
+            }
+
+            if (data.execution_mode === 'db') {
+                return {
+                    ...base,
+                    data_source_id: data.data_source_id,
+                    db_config: {
+                        query: data.db_query,
+                        bindings: data.db_bindings
+                            .split(',')
+                            .map((b) => b.trim())
+                            .filter(Boolean),
+                        columns: data.db_columns
+                            .split(',')
+                            .map((c) => c.trim())
+                            .filter(Boolean),
+                        row_limit: data.db_row_limit,
+                        max_age_minutes:
+                            data.db_max_age_minutes === ''
+                                ? null
+                                : parseInt(data.db_max_age_minutes, 10),
                     },
                 };
             }
@@ -772,9 +812,151 @@ export function ToolFormModal({
                         )}
                     </div>
                 )}
+                {form.data.execution_mode === 'db' && (
+                    <div style={configBox}>
+                        <div
+                            style={{
+                                fontSize: 12,
+                                fontWeight: 700,
+                                color: 'var(--text-2)',
+                            }}
+                        >
+                            Read-only database query
+                        </div>
+                        {MAAC.dataSources.length === 0 ? (
+                            <div
+                                style={{ fontSize: 12, color: 'var(--text-3)' }}
+                            >
+                                Register a read-only data source first, then map
+                                this tool to it.
+                            </div>
+                        ) : (
+                            <>
+                                <Field label="Data source" required>
+                                    <Select
+                                        value={form.data.data_source_id}
+                                        onChange={(v) =>
+                                            form.setData('data_source_id', v)
+                                        }
+                                        options={MAAC.dataSources.map((s) => ({
+                                            value: s.uuid,
+                                            label: s.name,
+                                        }))}
+                                    />
+                                    <FieldError
+                                        error={form.errors.data_source_id}
+                                    />
+                                </Field>
+                                <Field
+                                    label="Query (read-only SELECT)"
+                                    required
+                                    hint="Parameterized SELECT against the source's approved relations. Bind values with :name — never interpolate."
+                                >
+                                    <Textarea
+                                        rows={3}
+                                        value={form.data.db_query}
+                                        onChange={(e) =>
+                                            form.setData(
+                                                'db_query',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="select region, calls from reporting_metrics where region = :region"
+                                        style={{ fontFamily: 'var(--mono)' }}
+                                    />
+                                    <FieldError
+                                        error={errFor('db_config.query')}
+                                    />
+                                </Field>
+                                <div style={half}>
+                                    <Field
+                                        label="Bindings"
+                                        hint="Comma-separated :name params, from the input schema."
+                                    >
+                                        <Input
+                                            value={form.data.db_bindings}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'db_bindings',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="region"
+                                            style={{
+                                                fontFamily: 'var(--mono)',
+                                            }}
+                                        />
+                                    </Field>
+                                    <Field
+                                        label="Return columns"
+                                        hint="Result minimization — only these are returned."
+                                    >
+                                        <Input
+                                            value={form.data.db_columns}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'db_columns',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="region, calls"
+                                            style={{
+                                                fontFamily: 'var(--mono)',
+                                            }}
+                                        />
+                                    </Field>
+                                </div>
+                                <div style={half}>
+                                    <Field
+                                        label="Row limit"
+                                        hint="Capped by the source's max rows."
+                                    >
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            value={form.data.db_row_limit}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'db_row_limit',
+                                                    parseInt(
+                                                        e.target.value,
+                                                        10,
+                                                    ) || 1,
+                                                )
+                                            }
+                                        />
+                                        <FieldError
+                                            error={errFor(
+                                                'db_config.row_limit',
+                                            )}
+                                        />
+                                    </Field>
+                                    <Field
+                                        label="Max data age (min)"
+                                        hint="Optional freshness expectation."
+                                    >
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            value={form.data.db_max_age_minutes}
+                                            onChange={(e) =>
+                                                form.setData(
+                                                    'db_max_age_minutes',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            placeholder="1440"
+                                        />
+                                    </Field>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
                 {(form.data.execution_mode === 'http' ||
                     form.data.execution_mode === 'connector' ||
-                    form.data.execution_mode === 'knowledge') && (
+                    form.data.execution_mode === 'knowledge' ||
+                    form.data.execution_mode === 'db') && (
                     <Field
                         label="Redaction"
                         hint="Comma-separated result field paths to mask in the stored trace (the model still receives raw values)."

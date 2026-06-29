@@ -163,6 +163,15 @@ class ConsoleController extends Controller
         return Inertia::render('maac/knowledge');
     }
 
+    public function dataSources(): Response
+    {
+        return Inertia::render('maac/data-sources', [
+            // The approved, ops-provisioned read-only connection names a data
+            // source may reference (config allowlist) — never MAAC's own DB.
+            'connections' => array_values((array) config('maac.runtime.db.allowed_connections', [])),
+        ]);
+    }
+
     public function evaluations(): Response
     {
         return Inertia::render('maac/evaluations');

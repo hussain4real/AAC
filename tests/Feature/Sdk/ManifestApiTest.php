@@ -127,5 +127,5 @@ test('the manifest distinguishes client-side tools from server-side tools MAAC e
     // Capabilities advertise which modes are client- vs MAAC-executed.
     expect($response->json('sdk.capabilities.tool_execution_modes.client_side'))->toBe(['client'])
         ->and($response->json('sdk.capabilities.tool_execution_modes.server_side'))
-        ->toBe(['hosted', 'http', 'connector', 'knowledge']);
+        ->toBe(['hosted', 'http', 'connector', 'knowledge', 'db']);
 });

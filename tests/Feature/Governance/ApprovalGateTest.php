@@ -3,6 +3,7 @@
 use App\Actions\Maac\ApproveApprovalRequest;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalType;
+use App\Enums\DataSourceStatus;
 use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
@@ -12,6 +13,7 @@ use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\ApprovalRequest;
+use App\Models\DataSource;
 use App\Models\LlmProvider;
 use App\Models\McpConnector;
 use App\Models\Project;
@@ -113,6 +115,27 @@ test('an agent is blocked while a connector tool uses an unavailable connector',
     // Enabling the connector for the target environment clears the blocker.
     $connector->update([
         'status' => McpConnectorStatus::Active,
+        'environments' => [Environment::Production->value],
+    ]);
+
+    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))->toBe([]);
+});
+
+test('an agent is blocked while a db tool uses an unavailable data source', function () {
+    [$owner, $team] = ownerAndTeam();
+    $agent = publishableAgent($team);
+    $source = DataSource::factory()->for($team)->disabled()->create();
+    $tool = ToolContract::factory()->for($team)->db($source)->create();
+    ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+
+    $request = app(ApprovalManager::class)->requestAgentPublication($agent, $owner, Environment::Production);
+
+    expect(app(ApprovalGate::class)->blockers($request))
+        ->toContain("Tool {$tool->name} uses a data source that is not approved or unavailable in Production.");
+
+    // Activating the source for the target environment clears the blocker.
+    $source->update([
+        'status' => DataSourceStatus::Active,
         'environments' => [Environment::Production->value],
     ]);
 

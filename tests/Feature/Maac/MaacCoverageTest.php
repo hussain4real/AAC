@@ -33,8 +33,8 @@ test('the console serializes the full seeded dataset through the shared prop', f
         ->assertInertia(fn (Assert $page) => $page
             ->has('maac.apps', 5)
             ->has('maac.projects', 8)
-            ->has('maac.agents', 8)
-            ->has('maac.tools', 10)
+            ->has('maac.agents', 9)
+            ->has('maac.tools', 11)
             ->has('maac.runs', 12)
             ->has('maac.llms', 7));
 });

@@ -4,6 +4,8 @@ use App\Enums\AgentStatus;
 use App\Enums\AlertSeverity;
 use App\Enums\AppStatus;
 use App\Enums\CredentialStatus;
+use App\Enums\DataSourceStatus;
+use App\Enums\DbConnectionType;
 use App\Enums\Environment;
 use App\Enums\EvaluationCaseKind;
 use App\Enums\EvaluationStatus;
@@ -78,6 +80,8 @@ test('enums expose value/label option pairs', function (string $enum) {
     RemoteAuthType::class,
     McpConnectorStatus::class,
     KnowledgeSourceStatus::class,
+    DataSourceStatus::class,
+    DbConnectionType::class,
     EvaluationStatus::class,
     EvaluationCaseKind::class,
     VaultSecretKind::class,
@@ -116,6 +120,8 @@ test('enum helper predicates behave as expected', function () {
         ->and(RunStatus::Running->isTerminal())->toBeFalse()
         ->and(KnowledgeSourceStatus::Active->isActive())->toBeTrue()
         ->and(KnowledgeSourceStatus::Draft->isActive())->toBeFalse()
+        ->and(DataSourceStatus::Active->isActive())->toBeTrue()
+        ->and(DataSourceStatus::Draft->isActive())->toBeFalse()
         ->and(EvaluationStatus::Passed->isComplete())->toBeTrue()
         ->and(EvaluationStatus::Passed->hasPassed())->toBeTrue()
         ->and(EvaluationStatus::Failed->isComplete())->toBeTrue()

@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Http\Resources\Maac\AgentResource;
 use App\Http\Resources\Maac\AgentRunResource;
 use App\Http\Resources\Maac\ApplicationResource;
+use App\Http\Resources\Maac\DataSourceResource;
 use App\Http\Resources\Maac\EvaluationDatasetResource;
 use App\Http\Resources\Maac\EvaluationResource;
 use App\Http\Resources\Maac\KnowledgeSourceResource;
@@ -15,6 +16,7 @@ use App\Http\Resources\Maac\ToolContractResource;
 use App\Http\Resources\Maac\WebhookEndpointResource;
 use App\Models\Agent;
 use App\Models\AgentRun;
+use App\Models\DataSource;
 use App\Models\Evaluation;
 use App\Models\EvaluationDataset;
 use App\Models\KnowledgeSource;
@@ -59,7 +61,7 @@ class MaacConsoleData
             ->get();
 
         $tools = $team->toolContracts()
-            ->with(['application', 'agents', 'implementations', 'mcpConnector', 'knowledgeSource'])
+            ->with(['application', 'agents', 'implementations', 'mcpConnector', 'knowledgeSource', 'dataSource'])
             ->orderBy('name')
             ->get();
 
@@ -73,6 +75,13 @@ class MaacConsoleData
         $knowledgeSources = KnowledgeSource::query()
             ->where('team_id', $team->id)
             ->with(['application', 'documents' => fn ($query) => $query->withCount('chunks')->latest()])
+            ->withCount('tools')
+            ->orderBy('name')
+            ->get();
+
+        $dataSources = DataSource::query()
+            ->where('team_id', $team->id)
+            ->with('application')
             ->withCount('tools')
             ->orderBy('name')
             ->get();
@@ -130,6 +139,8 @@ class MaacConsoleData
             'connectors' => McpConnectorResource::collection($connectors)->resolve(),
             // Phase 6F — knowledge (RAG) sources and the evaluation lab.
             'knowledgeSources' => KnowledgeSourceResource::collection($knowledgeSources)->resolve(),
+            // Phase 8A — governed read-only data sources for db tools.
+            'dataSources' => DataSourceResource::collection($dataSources)->resolve(),
             'evaluationDatasets' => EvaluationDatasetResource::collection($evaluationDatasets)->resolve(),
             'evaluations' => EvaluationResource::collection($evaluations)->resolve(),
             ...GovernanceConsoleData::forTeam($team),

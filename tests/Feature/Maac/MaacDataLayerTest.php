@@ -22,8 +22,8 @@ test('the seeder reproduces the fixture entity counts', function () {
     expect(LlmProvider::count())->toBe(7)
         ->and(Application::count())->toBe(5)
         ->and(Project::count())->toBe(8)
-        ->and(ToolContract::count())->toBe(10)
-        ->and(Agent::count())->toBe(8)
+        ->and(ToolContract::count())->toBe(11)
+        ->and(Agent::count())->toBe(9)
         ->and(AgentRun::count())->toBe(12)
         ->and(Credential::count())->toBe(5);
 });
@@ -119,8 +119,8 @@ test('the seeder is idempotent', function () {
     $this->seed(MaacDemoSeeder::class);
 
     expect(Application::count())->toBe(5)
-        ->and(Agent::count())->toBe(8)
-        ->and(ToolContract::count())->toBe(10)
+        ->and(Agent::count())->toBe(9)
+        ->and(ToolContract::count())->toBe(11)
         ->and(Credential::count())->toBe(5);
 });
 

@@ -4,12 +4,14 @@ namespace App\Actions\Maac;
 
 use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalType;
+use App\Enums\DataSourceStatus;
 use App\Enums\KnowledgeSourceStatus;
 use App\Enums\LlmStatus;
 use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\ApprovalRequest;
+use App\Models\DataSource;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\ToolContract;
@@ -65,6 +67,7 @@ class ApproveApprovalRequest
             ApprovalType::ToolContract => $this->activateTool($request),
             ApprovalType::ModelAccess => $this->promoteModel($request),
             ApprovalType::KnowledgeIngestion => $this->activateSource($request),
+            ApprovalType::DataSourceAccess => $this->activateDataSource($request),
             ApprovalType::RuntimeAction => $this->resumeRun($request),
             ApprovalType::CredentialChange => null,
         };
@@ -108,6 +111,16 @@ class ApproveApprovalRequest
     {
         if ($request->subject instanceof KnowledgeSource) {
             $request->subject->update(['status' => KnowledgeSourceStatus::Active]);
+        }
+    }
+
+    /**
+     * Activate the gated read-only data source, if it still exists.
+     */
+    private function activateDataSource(ApprovalRequest $request): void
+    {
+        if ($request->subject instanceof DataSource) {
+            $request->subject->update(['status' => DataSourceStatus::Active]);
         }
     }
 

@@ -44,6 +44,22 @@ return [
             'transaction_mode' => 'DEFERRED',
         ],
 
+        /*
+        | An example approved, read-only reporting surface a MAAC `db` tool may
+        | query. A governed data source references an ops-provisioned read-only
+        | connection like this by name — never a connection string. In a real
+        | deployment this points at a read replica or reporting schema with
+        | read-only credentials (resolved from the secrets vault); here it is a
+        | separate SQLite file holding only curated reporting views/tables.
+        */
+        'maac_reporting' => [
+            'driver' => 'sqlite',
+            'url' => env('MAAC_REPORTING_DB_URL'),
+            'database' => env('MAAC_REPORTING_DB_DATABASE', database_path('maac_reporting.sqlite')),
+            'prefix' => '',
+            'foreign_key_constraints' => false,
+        ],
+
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),

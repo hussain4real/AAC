@@ -8,6 +8,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
+use App\Models\DataSource;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\ToolContract;
@@ -67,6 +68,7 @@ class ApprovalRequestResource extends JsonResource
             $subject instanceof LlmProvider => $this->modelDetails($subject),
             $subject instanceof Credential => $this->credentialDetails($subject),
             $subject instanceof KnowledgeSource => $this->knowledgeSourceDetails($subject),
+            $subject instanceof DataSource => $this->dataSourceDetails($subject),
             $subject instanceof AgentRun => $this->runtimeDetails($subject),
             default => null,
         };
@@ -112,6 +114,30 @@ class ApprovalRequestResource extends JsonResource
                 ['k' => 'Documents', 'v' => (string) $source->document_count],
                 ['k' => 'Indexed chunks', 'v' => (string) $source->chunk_count],
                 ['k' => 'Last indexed', 'v' => $source->last_indexed_at?->diffForHumans() ?? 'Never'],
+            ],
+            'description' => $source->description,
+        ];
+    }
+
+    /**
+     * Detail view for a read-only data source access request — the approved
+     * query surface, connection type, sensitivity, and result caps a reviewer
+     * needs. No connection string or credential is ever serialized.
+     *
+     * @return array<string, mixed>
+     */
+    private function dataSourceDetails(DataSource $source): array
+    {
+        return [
+            'kind' => 'Data source',
+            'fields' => [
+                ['k' => 'Connection type', 'v' => $source->connection_type->label()],
+                ['k' => 'Sensitivity', 'v' => $source->sensitivity->label()],
+                ['k' => 'Status', 'v' => $source->status->label()],
+                ['k' => 'Environments', 'v' => implode(', ', array_map(ucfirst(...), $source->environments)) ?: '—'],
+                ['k' => 'Query surface', 'v' => implode(', ', $source->allowedRelations()) ?: '—'],
+                ['k' => 'Max rows', 'v' => (string) $source->max_rows],
+                ['k' => 'Credential', 'v' => $source->vault_secret_id !== null ? 'Vault-managed' : 'Connection-managed'],
             ],
             'description' => $source->description,
         ];
@@ -171,6 +197,19 @@ class ApprovalRequestResource extends JsonResource
                 ['k' => 'Server URL', 'v' => $connector->server_url ?? '—'],
                 ['k' => 'Remote tool', 'v' => $tool->mcp_tool_name ?? '—'],
                 ['k' => 'Connector auth', 'v' => $connector !== null ? $connector->auth_type->label() : 'None'],
+            ]);
+        }
+
+        if ($tool->execution_mode === ExecMode::Db) {
+            $tool->loadMissing('dataSource');
+            $source = $tool->dataSource;
+            $query = $tool->dbConfig()['query'] ?? null;
+
+            return $this->withRedaction($tool, [
+                ['k' => 'Data source', 'v' => $source->name ?? '—'],
+                ['k' => 'Connection type', 'v' => $source !== null ? $source->connection_type->label() : '—'],
+                ['k' => 'Query surface', 'v' => $source !== null ? (implode(', ', $source->allowedRelations()) ?: '—') : '—'],
+                ['k' => 'Query', 'v' => is_string($query) && $query !== '' ? $query : '—'],
             ]);
         }
 

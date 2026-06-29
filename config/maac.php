@@ -95,6 +95,24 @@ return [
                 'max_kb' => (int) env('MAAC_KNOWLEDGE_UPLOAD_MAX_KB', 10240),
             ],
         ],
+
+        // `db` configures governed read-only database tools: `default_row_limit`
+        // is the per-query row cap applied when a tool does not set its own (and
+        // is itself bounded by the data source's hard `max_rows`). Read-only `db`
+        // tools query only approved, ops-provisioned read-only connections
+        // (replicas / reporting schemas) referenced by name; MAAC never persists
+        // a connection string and resolves any injected credential from the vault.
+        // `allowed_connections` is the allowlist of `config/database.php`
+        // connection names a data source may reference — it blocks pointing a
+        // data source at MAAC's own operational database or any unapproved
+        // connection. An empty allowlist blocks every connection (safe default).
+        'db' => [
+            'default_row_limit' => (int) env('MAAC_DB_DEFAULT_ROW_LIMIT', 50),
+            'allowed_connections' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('MAAC_DB_ALLOWED_CONNECTIONS', 'maac_reporting')),
+            ))),
+        ],
     ],
 
     /*

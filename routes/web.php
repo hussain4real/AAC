@@ -7,6 +7,7 @@ use App\Http\Controllers\Maac\ApprovalRequestController;
 use App\Http\Controllers\Maac\AuditExportController;
 use App\Http\Controllers\Maac\ConsoleController;
 use App\Http\Controllers\Maac\CredentialController;
+use App\Http\Controllers\Maac\DataSourceController;
 use App\Http\Controllers\Maac\EvaluationCaseController;
 use App\Http\Controllers\Maac\EvaluationController;
 use App\Http\Controllers\Maac\EvaluationDatasetController;
@@ -61,6 +62,7 @@ Route::prefix('{current_team}')
         Route::get('llm-providers', [ConsoleController::class, 'llmProviders'])->name('llm-providers');
         Route::get('connectors', [ConsoleController::class, 'connectors'])->name('connectors');
         Route::get('knowledge', [ConsoleController::class, 'knowledge'])->name('knowledge');
+        Route::get('data-sources', [ConsoleController::class, 'dataSources'])->name('data-sources');
         Route::get('evaluations', [ConsoleController::class, 'evaluations'])->name('evaluations');
         Route::get('governance', [ConsoleController::class, 'governance'])->name('governance');
         Route::get('webhooks', [ConsoleController::class, 'webhooks'])->name('webhooks');
@@ -103,6 +105,12 @@ Route::prefix('{current_team}')
         Route::post('knowledge-sources/{knowledgeSource}/reindex', [KnowledgeSourceController::class, 'reindex'])->name('knowledge-sources.reindex');
         Route::post('knowledge-sources/{knowledgeSource}/documents', [KnowledgeDocumentController::class, 'store'])->name('knowledge-sources.documents.store');
         Route::delete('knowledge-documents/{knowledgeDocument}', [KnowledgeDocumentController::class, 'destroy'])->name('knowledge-documents.destroy');
+
+        // MAAC console (Phase 8A — governed read-only database data sources)
+        Route::resource('data-sources', DataSourceController::class)
+            ->only(['store', 'update', 'destroy'])
+            ->parameters(['data-sources' => 'dataSource']);
+        Route::post('data-sources/{dataSource}/refresh', [DataSourceController::class, 'refresh'])->name('data-sources.refresh');
 
         // MAAC console (Phase 6F — evaluation lab)
         Route::resource('evaluation-datasets', EvaluationDatasetController::class)

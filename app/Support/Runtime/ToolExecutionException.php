@@ -129,4 +129,69 @@ class ToolExecutionException extends RuntimeException
     {
         return new self('knowledge_failed', $message);
     }
+
+    /**
+     * The `db` tool is not correctly mapped to a usable, configured data source.
+     */
+    public static function dbMisconfigured(string $message): self
+    {
+        return new self('db_source_misconfigured', $message);
+    }
+
+    /**
+     * The mapped data source is disabled or not available in this environment.
+     */
+    public static function dbUnavailable(string $message): self
+    {
+        return new self('db_source_unavailable', $message);
+    }
+
+    /**
+     * The configured query is not a safe, single read-only statement against the
+     * approved query surface.
+     */
+    public static function dbUnsafeQuery(string $message): self
+    {
+        return new self('db_unsafe_query', $message);
+    }
+
+    /**
+     * The read-only connection could not be established.
+     */
+    public static function dbConnectionFailed(string $message): self
+    {
+        return new self('db_connection_failed', "The read-only data source connection failed: {$message}");
+    }
+
+    /**
+     * The query failed to execute against the read-only connection.
+     */
+    public static function dbQueryFailed(string $message): self
+    {
+        return new self('db_query_failed', "The read-only data source query failed: {$message}");
+    }
+
+    /**
+     * The query returned more rows than the governed row limit allows.
+     */
+    public static function dbTooManyRows(int $limit): self
+    {
+        return new self('db_too_many_rows', "The query returned more than the {$limit}-row limit.");
+    }
+
+    /**
+     * The query result exceeds the governed result-size limit.
+     */
+    public static function dbResultTooLarge(int $limitKb): self
+    {
+        return new self('db_result_too_large', "The query result exceeds the {$limitKb} KB result-size limit.");
+    }
+
+    /**
+     * The data source's data is older than the freshness expectation.
+     */
+    public static function dbStale(string $message): self
+    {
+        return new self('db_stale', $message);
+    }
 }

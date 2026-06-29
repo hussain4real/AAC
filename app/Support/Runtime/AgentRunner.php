@@ -23,6 +23,7 @@ use App\Support\Governance\ApprovalManager;
 use App\Support\Governance\RunRedactor;
 use App\Support\Governance\RuntimeApprovalPolicy;
 use App\Support\Runtime\Contracts\LlmRouter;
+use App\Support\Runtime\Db\DbToolExecutor;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
 use App\Support\Runtime\HostedTools\ProviderHostedToolRegistry;
 use App\Support\Runtime\Knowledge\KnowledgeToolExecutor;
@@ -56,6 +57,7 @@ class AgentRunner
         private readonly RemoteHttpToolExecutor $httpTools,
         private readonly McpToolExecutor $connectorTools,
         private readonly KnowledgeToolExecutor $knowledgeTools,
+        private readonly DbToolExecutor $dbTools,
         private readonly SecretVault $vault,
         private readonly ModelRouter $modelRouter,
         private readonly RuntimeApprovalPolicy $approvalPolicy,
@@ -522,7 +524,7 @@ class AgentRunner
             ExecMode::Http => $this->executeRemoteHttp($run, $tool, $call, $arguments),
             ExecMode::Connector => $this->executeConnector($run, $tool, $call, $arguments),
             ExecMode::Knowledge => $this->executeKnowledge($run, $tool, $call, $arguments),
-            default => $this->failUnsupported($run, $tool, $call),
+            ExecMode::Db => $this->executeDb($run, $tool, $call, $arguments),
         };
     }
 
@@ -631,6 +633,33 @@ class AgentRunner
     }
 
     /**
+     * Execute a governed read-only database (`db`) tool against an approved data
+     * source and continue the loop (null) on success.
+     *
+     * @param  array<string, mixed>  $arguments
+     */
+    private function executeDb(AgentRun $run, ToolContract $tool, ToolCall $call, array $arguments): ?AgentRun
+    {
+        if (($blocked = $this->guardToolApproval($run, $tool, $call)) instanceof AgentRun) {
+            return $blocked;
+        }
+
+        try {
+            $result = $this->dbTools->execute($tool, $run->environment, $arguments);
+        } catch (ToolExecutionException $exception) {
+            $this->failToolCall($call);
+
+            return $this->fail($run, $exception->failureCode, $exception->getMessage());
+        }
+
+        return $this->finishServerTool($run, $tool, $call, $result, 'db_invalid_output', 'Database', [
+            'execution_mode' => ExecMode::Db->value,
+            'source' => $tool->dataSource?->slug,
+            'rows' => $result['row_count'] ?? 0,
+        ]);
+    }
+
+    /**
      * Validate, persist, trace, and feed back a server-side tool result, then
      * continue the loop (null). Shared by hosted, remote HTTP, and connector tools.
      *
@@ -691,16 +720,6 @@ class AgentRunner
         $this->webhooks->emit($run, WebhookEventType::RunToolRequested);
 
         return $run;
-    }
-
-    /**
-     * Fail the run for an execution mode the runtime does not yet support.
-     */
-    private function failUnsupported(AgentRun $run, ToolContract $tool, ToolCall $call): AgentRun
-    {
-        $this->failToolCall($call);
-
-        return $this->fail($run, 'unsupported_execution_mode', "Execution mode [{$tool->execution_mode->value}] is not supported by the runtime yet.");
     }
 
     /**

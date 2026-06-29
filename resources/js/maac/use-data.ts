@@ -17,6 +17,7 @@ import type {
     MaacEvaluationDataset,
     MaacGovernanceSettings,
     MaacConnector,
+    MaacDataSource,
     MaacIncident,
     MaacKnowledgeSource,
     MaacOperational,
@@ -110,6 +111,7 @@ export type MaacData = MaacDataset & {
     webhooks: MaacWebhookEndpoint[];
     connectors: MaacConnector[];
     knowledgeSources: MaacKnowledgeSource[];
+    dataSources: MaacDataSource[];
     evaluationDatasets: MaacEvaluationDataset[];
     evaluations: MaacEvaluation[];
     vaultSecrets: MaacVaultSecret[];
@@ -153,6 +155,7 @@ export function useMaacData(): MaacData {
             webhooks: maac?.webhooks ?? [],
             connectors: maac?.connectors ?? [],
             knowledgeSources: maac?.knowledgeSources ?? [],
+            dataSources: maac?.dataSources ?? [],
             evaluationDatasets: maac?.evaluationDatasets ?? [],
             evaluations: maac?.evaluations ?? [],
             vaultSecrets: maac?.vaultSecrets ?? [],

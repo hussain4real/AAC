@@ -9,6 +9,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
+use App\Models\DataSource;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\Team;
@@ -113,6 +114,21 @@ class ApprovalManager
             'application_id' => $source->application_id,
             'title' => $source->name,
             'summary' => "Approve ingestion of the knowledge source {$source->name}.",
+            'sensitivity' => $source->sensitivity,
+            'requested_by' => $requester->id,
+            'requested_label' => $requester->name,
+        ]);
+    }
+
+    /**
+     * Request approval to access a sensitive read-only data source.
+     */
+    public function requestDataSourceAccess(DataSource $source, User $requester): ApprovalRequest
+    {
+        return $this->open($source->team, ApprovalType::DataSourceAccess, $source, [
+            'application_id' => $source->application_id,
+            'title' => $source->name,
+            'summary' => "Approve access to the read-only data source {$source->name}.",
             'sensitivity' => $source->sensitivity,
             'requested_by' => $requester->id,
             'requested_label' => $requester->name,

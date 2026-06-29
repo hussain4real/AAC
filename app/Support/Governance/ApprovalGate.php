@@ -10,6 +10,7 @@ use App\Enums\ImplStatus;
 use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\ApprovalRequest;
+use App\Models\DataSource;
 use App\Models\McpConnector;
 use App\Models\ToolContract;
 use App\Support\Evaluation\EvaluationGate;
@@ -74,7 +75,7 @@ class ApprovalGate
         }
 
         $environment = $request->environment ?? Environment::Production;
-        $agent->loadMissing(['tools.mcpConnector', 'llmProvider']);
+        $agent->loadMissing(['tools.mcpConnector', 'tools.dataSource', 'llmProvider']);
         $blockers = [];
 
         if (! $agent->llmProvider->isAvailableIn($environment->value)) {
@@ -95,6 +96,10 @@ class ApprovalGate
             if ($tool->execution_mode === ExecMode::Connector && ! $this->connectorAvailable($tool, $environment)) {
                 $blockers[] = "Tool {$tool->name} uses an MCP connector that is disabled or unavailable in {$environment->label()}.";
             }
+
+            if ($tool->execution_mode === ExecMode::Db && ! $this->dataSourceAvailable($tool, $environment)) {
+                $blockers[] = "Tool {$tool->name} uses a data source that is not approved or unavailable in {$environment->label()}.";
+            }
         }
 
         return array_merge($blockers, $this->evaluations->blockers($agent));
@@ -109,6 +114,17 @@ class ApprovalGate
         $connector = $tool->mcpConnector;
 
         return $connector instanceof McpConnector && $connector->isAvailableIn($environment->value);
+    }
+
+    /**
+     * Determine whether the data source backing a `db` tool is active and
+     * available in the target environment.
+     */
+    private function dataSourceAvailable(ToolContract $tool, Environment $environment): bool
+    {
+        $source = $tool->dataSource;
+
+        return $source instanceof DataSource && $source->isAvailableIn($environment->value);
     }
 
     /**

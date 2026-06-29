@@ -278,6 +278,32 @@ export interface MaacKnowledgeSource {
     createdAt: string | null;
 }
 
+/** A governed read-only data source backing `db` tools (Phase 8A). */
+export interface MaacDataSource {
+    uuid: string;
+    id: string;
+    name: string;
+    description: string | null;
+    connectionType: string;
+    connectionTypeLabel: string;
+    driver: string | null;
+    status: string;
+    statusLabel: string;
+    sensitivity: string;
+    requiresApproval: boolean;
+    environments: string[];
+    allowedRelations: string[];
+    maxRows: number;
+    statementTimeoutMs: number;
+    maxResultKb: number;
+    credentialManaged: boolean;
+    stalenessThresholdMinutes: number | null;
+    dataRefreshed: string | null;
+    toolCount: number | null;
+    owner: string | null;
+    createdAt: string | null;
+}
+
 /** A single assertion verdict recorded for an evaluation case (Phase 6F). */
 export interface MaacEvaluationCheck {
     type: string;
@@ -478,6 +504,7 @@ export interface MaacProp {
     webhooks: MaacWebhookEndpoint[];
     connectors: MaacConnector[];
     knowledgeSources: MaacKnowledgeSource[];
+    dataSources: MaacDataSource[];
     evaluationDatasets: MaacEvaluationDataset[];
     evaluations: MaacEvaluation[];
     vaultSecrets: MaacVaultSecret[];

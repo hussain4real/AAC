@@ -8,8 +8,9 @@ use Illuminate\Support\Str;
 /**
  * The category of change a governance {@see ApprovalRequest} gates
  * before it may take effect: a sensitive tool contract, an agent publication, a
- * model environment promotion, a production credential change, or the ingestion
- * of a sensitive knowledge (RAG) source.
+ * model environment promotion, a production credential change, the ingestion of
+ * a sensitive knowledge (RAG) source, or access to a sensitive read-only data
+ * source.
  */
 enum ApprovalType: string
 {
@@ -18,6 +19,7 @@ enum ApprovalType: string
     case ModelAccess = 'model_access';
     case CredentialChange = 'credential_change';
     case KnowledgeIngestion = 'knowledge_ingestion';
+    case DataSourceAccess = 'data_source_access';
     case RuntimeAction = 'runtime_action';
 
     /**
@@ -39,6 +41,7 @@ enum ApprovalType: string
             self::ModelAccess => 'models',
             self::CredentialChange => 'data',
             self::KnowledgeIngestion => 'data',
+            self::DataSourceAccess => 'data',
             self::RuntimeAction => 'runtime',
         };
     }

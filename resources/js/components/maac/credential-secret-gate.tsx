@@ -18,7 +18,8 @@ export function CredentialSecretGate() {
         return router.on('flash', (event) => {
             const flash = (event as CustomEvent).detail?.flash;
             const data = flash?.credentialSecret as
-                CredentialSecretFlash | undefined;
+                | CredentialSecretFlash
+                | undefined;
 
             if (data) {
                 setSecret(data);

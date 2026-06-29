@@ -54,6 +54,10 @@ class ToolContractResource extends JsonResource
             'knowledgeSourceName' => $this->whenLoaded('knowledgeSource', fn () => $this->knowledgeSource?->name),
             'knowledgeSourceId' => $this->knowledge_source_id,
             'knowledgeConfig' => $this->knowledgeConfigView(),
+            'dataSource' => $this->whenLoaded('dataSource', fn () => $this->dataSource?->slug),
+            'dataSourceName' => $this->whenLoaded('dataSource', fn () => $this->dataSource?->name),
+            'dataSourceId' => $this->data_source_id,
+            'dbConfig' => $this->dbConfigView(),
             'redaction' => $this->redactionPaths(),
             // Per-environment client-side implementation status reported via the SDK.
             'implementations' => $this->whenLoaded('implementations', fn () => $this->implementations
@@ -116,6 +120,31 @@ class ToolContractResource extends JsonResource
         return [
             'topK' => (int) ($config['top_k'] ?? config('maac.runtime.knowledge.default_top_k', 5)),
             'minScore' => (float) ($config['min_score'] ?? config('maac.runtime.knowledge.default_min_score', 0.1)),
+        ];
+    }
+
+    /**
+     * Build a console view of the read-only database config (the query template,
+     * its bindings, the minimized columns, the row limit, and the freshness
+     * expectation), or null when the tool is not a db tool. The config holds no
+     * secrets — the credential is vault-resolved via the data source.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function dbConfigView(): ?array
+    {
+        if ($this->execution_mode !== ExecMode::Db) {
+            return null;
+        }
+
+        $config = $this->dbConfig();
+
+        return [
+            'query' => (string) ($config['query'] ?? ''),
+            'bindings' => array_values(array_filter((array) ($config['bindings'] ?? []), 'is_string')),
+            'columns' => array_values(array_filter((array) ($config['columns'] ?? []), 'is_string')),
+            'rowLimit' => (int) ($config['row_limit'] ?? config('maac.runtime.db.default_row_limit', 50)),
+            'maxAgeMinutes' => isset($config['max_age_minutes']) ? (int) $config['max_age_minutes'] : null,
         ];
     }
 

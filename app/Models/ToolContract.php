@@ -43,6 +43,8 @@ use Illuminate\Support\Carbon;
  * @property array<int, mixed>|null $redaction
  * @property string|null $knowledge_source_id
  * @property array<string, mixed>|null $knowledge_config
+ * @property string|null $data_source_id
+ * @property array<string, mixed>|null $db_config
  * @property string $version
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -51,6 +53,7 @@ use Illuminate\Support\Carbon;
  * @property-read Application|null $application
  * @property-read McpConnector|null $mcpConnector
  * @property-read KnowledgeSource|null $knowledgeSource
+ * @property-read DataSource|null $dataSource
  * @property-read Collection<int, ToolAssignment> $assignments
  * @property-read Collection<int, ToolImplementation> $implementations
  * @property-read Collection<int, ToolContractVersion> $versions
@@ -58,7 +61,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Agent> $agents
  * @property-read Collection<int, ToolCall> $toolCalls
  */
-#[Fillable(['team_id', 'application_id', 'slug', 'name', 'description', 'scope', 'execution_mode', 'sensitivity', 'requires_approval', 'status', 'implementation_status', 'timeout_seconds', 'max_payload_kb', 'input_schema', 'output_schema', 'http_config', 'mcp_connector_id', 'mcp_tool_name', 'redaction', 'knowledge_source_id', 'knowledge_config', 'version'])]
+#[Fillable(['team_id', 'application_id', 'slug', 'name', 'description', 'scope', 'execution_mode', 'sensitivity', 'requires_approval', 'status', 'implementation_status', 'timeout_seconds', 'max_payload_kb', 'input_schema', 'output_schema', 'http_config', 'mcp_connector_id', 'mcp_tool_name', 'redaction', 'knowledge_source_id', 'knowledge_config', 'data_source_id', 'db_config', 'version'])]
 class ToolContract extends Model
 {
     /** @use HasFactory<ToolContractFactory> */
@@ -102,6 +105,16 @@ class ToolContract extends Model
     public function knowledgeSource(): BelongsTo
     {
         return $this->belongsTo(KnowledgeSource::class);
+    }
+
+    /**
+     * Get the read-only data source the tool queries (db mode only).
+     *
+     * @return BelongsTo<DataSource, $this>
+     */
+    public function dataSource(): BelongsTo
+    {
+        return $this->belongsTo(DataSource::class);
     }
 
     /**
@@ -193,12 +206,12 @@ class ToolContract extends Model
 
     /**
      * Determine whether MAAC executes the tool itself (hosted, remote HTTP,
-     * MCP-backed, or knowledge retrieval) rather than the calling application via
-     * the SDK.
+     * MCP-backed, knowledge retrieval, or read-only database) rather than the
+     * calling application via the SDK.
      */
     public function isServerSide(): bool
     {
-        return in_array($this->execution_mode, [ExecMode::Hosted, ExecMode::Http, ExecMode::Connector, ExecMode::Knowledge], true);
+        return in_array($this->execution_mode, [ExecMode::Hosted, ExecMode::Http, ExecMode::Connector, ExecMode::Knowledge, ExecMode::Db], true);
     }
 
     /**
@@ -219,6 +232,16 @@ class ToolContract extends Model
     public function knowledgeConfig(): array
     {
         return $this->knowledge_config ?? [];
+    }
+
+    /**
+     * Get the read-only database execution config for the tool (empty when unset).
+     *
+     * @return array<string, mixed>
+     */
+    public function dbConfig(): array
+    {
+        return $this->db_config ?? [];
     }
 
     /**
@@ -275,6 +298,7 @@ class ToolContract extends Model
             'http_config' => 'encrypted:array',
             'redaction' => 'array',
             'knowledge_config' => 'array',
+            'db_config' => 'array',
         ];
     }
 }

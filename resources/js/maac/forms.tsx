@@ -90,6 +90,14 @@ export const REMOTE_AUTH_OPTIONS: Option[] = [
     { value: 'header', label: 'Custom header' },
 ];
 
+/** Read-only data source surface type (App\Enums\DbConnectionType). */
+export const DB_CONNECTION_TYPE_OPTIONS: Option[] = [
+    { value: 'read_replica', label: 'Read replica' },
+    { value: 'materialized_view', label: 'Materialized view' },
+    { value: 'reporting_schema', label: 'Reporting schema' },
+    { value: 'curated_view', label: 'Curated view' },
+];
+
 /** Quota scope (App\Enums\QuotaScope). */
 export const QUOTA_SCOPE_OPTIONS: Option[] = [
     { value: 'platform', label: 'Platform' },
@@ -106,6 +114,7 @@ export const APPROVAL_TYPE_OPTIONS: Option[] = [
     { value: 'model_access', label: 'Model environment access' },
     { value: 'credential_change', label: 'Production credential change' },
     { value: 'knowledge_ingestion', label: 'Knowledge source ingestion' },
+    { value: 'data_source_access', label: 'Data source access' },
 ];
 
 /** Evaluation case workflow kinds (App\Enums\EvaluationCaseKind). */

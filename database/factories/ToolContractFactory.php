@@ -9,6 +9,7 @@ use App\Enums\RemoteAuthType;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Models\Application;
+use App\Models\DataSource;
 use App\Models\McpConnector;
 use App\Models\Team;
 use App\Models\ToolContract;
@@ -109,6 +110,27 @@ class ToolContractFactory extends Factory
             'implementation_status' => ImplStatus::Ready,
             'mcp_connector_id' => $connector instanceof McpConnector ? $connector->id : McpConnector::factory(),
             'mcp_tool_name' => $remoteTool,
+        ]);
+    }
+
+    /**
+     * Indicate that the tool is backed by a governed read-only data source.
+     *
+     * @param  array<string, mixed>  $config
+     */
+    public function db(?DataSource $source = null, array $config = []): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'execution_mode' => ExecMode::Db,
+            'implementation_status' => ImplStatus::Ready,
+            'data_source_id' => $source instanceof DataSource ? $source->id : DataSource::factory(),
+            'db_config' => array_merge([
+                'query' => 'select * from reporting_metrics',
+                'bindings' => [],
+                'columns' => [],
+                'row_limit' => 50,
+                'max_age_minutes' => null,
+            ], $config),
         ]);
     }
 }
