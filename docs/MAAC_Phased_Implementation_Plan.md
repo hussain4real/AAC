@@ -467,6 +467,87 @@ Make every MAAC console action button perform its real, governed action end-to-e
 - List and detail views reflect mutations immediately via the reloaded shared `maac` prop.
 - `composer ci:check` stays green (ESLint, Prettier, `tsc`, PHPStan L7, Pint, Pest) with coverage held at 100 %.
 
+## Phase 8: Production Pilot & Remaining Execution Modes
+
+> **Status: Planned** — Phase 8 turns the completed MAAC platform into a production-pilot-ready release while closing the only documented execution-mode gap that remains after Phase 6G: read-only database (`db`) tools. Phase 8A should be implemented only for approved analytics/reporting use cases where a client-side, remote HTTP, MCP, or knowledge tool is not the safer fit. Phase 8B should be run before any broad rollout, even if Phase 8A is deferred for the first pilot.
+
+### Phase 8A: Governed Read-Only Database Tools
+
+> **Status: Planned** — This phase implements the BRS-listed read-only database execution mode for tightly controlled analytics and reporting use cases. It must not weaken the core MAAC isolation principle: client-side tools still keep application-owned operational data access inside the owning application. MAAC-hosted database access is allowed only through approved read-only views, replicas, or curated query surfaces with explicit governance, vault-backed credentials, traceability, and result minimization.
+
+#### Goal
+
+Add a governed `db` tool execution mode that lets selected agents query approved read-only data sources under strict policy controls, while preserving schema validation, auditability, redaction, quotas, approval gates, and environment separation.
+
+#### Checklist
+
+- [ ] Add read-only data source registration with owner, environment availability, sensitivity, business purpose, connection type, and approval status.
+- [ ] Store database credentials through the secrets vault only; never persist plaintext connection strings, usernames, passwords, certificates, or tokens.
+- [ ] Restrict connections to approved read-only replicas, materialized views, reporting schemas, or curated database views; block unrestricted production database access.
+- [ ] Add query governance: allowlisted views/tables, statement type enforcement, blocked keywords, parameter binding, row limits, timeout limits, result-size limits, and explain-plan or dry-run validation where supported.
+- [ ] Add a `db` tool configuration model that maps a tool contract to an approved data source, query template or query-builder definition, input bindings, output schema, redaction rules, and freshness expectations.
+- [ ] Execute `db` tools through a dedicated runtime executor that validates inputs, binds parameters safely, runs the query with a read-only connection, validates outputs, redacts stored results, and returns only schema-approved fields to the LLM.
+- [ ] Add approval gates for production `db` tools, covering data owner approval, security review, query surface, sensitivity, retention, and maximum result scope.
+- [ ] Add runtime safeguards for unauthorized data sources, disabled sources, unsafe query shapes, timeout, too many rows, oversized payloads, invalid output schema, stale replicas, and connection failures.
+- [ ] Surface read-only data sources and `db` tool configuration in the console with clear warnings that this mode is for governed reporting data, not application-owned transactional access.
+- [ ] Update the SDK manifest, SDK docs page, integration guide, and compatibility matrix so external apps can distinguish `db` tools as MAAC-executed server-side tools.
+- [ ] Add focused feature, runtime, policy, approval, and E2E tests proving successful `db` execution plus every controlled failure path.
+- [ ] Keep `composer ci:check`, `php artisan test --coverage --min=100 --compact`, `maac:sdk-fixtures --check`, SDK tests, and browser smoke coverage green.
+
+#### Deliverables
+
+- Read-only data source registry with vault-backed credentials and environment-specific governance.
+- `db` tool contract configuration and runtime executor.
+- Approval, trace, audit, redaction, quota, retention, and controlled-failure coverage for database-backed tools.
+- Console and SDK documentation updates that make the safety boundary explicit.
+
+#### Acceptance Criteria
+
+- A platform admin can register an approved read-only data source without exposing secrets in the database, API payloads, logs, or UI.
+- A project owner can create a governed `db` tool that only queries approved reporting surfaces and returns schema-valid, minimized results.
+- A published agent can execute a `db` tool through the runtime with complete trace, audit, quota, retention, redaction, and cost metadata.
+- Unsafe SQL, non-read-only access, disabled sources, excessive rows, oversized results, invalid outputs, and unauthorized environments fail safely with controlled error codes.
+- External SDK consumers see `db` tools as MAAC-executed server-side tools and do not need to implement local handlers for them.
+
+### Phase 8B: Production Pilot Readiness & Release Baseline
+
+> **Status: Planned** — This phase validates the complete MAAC platform against a real pilot rollout. It should produce a release baseline that security, platform, application, and business stakeholders can sign off. The goal is not to add broad new product scope; it is to prove the implemented BRS workflows under realistic configuration, operational controls, external integration, and failure conditions.
+
+#### Goal
+
+Prepare MAAC for the first production pilot by freezing the public integration contract, validating the full management/runtime/SDK path with at least one real consuming application, and producing evidence for security, operations, support, and stakeholder sign-off.
+
+#### Checklist
+
+- [ ] Select and document the pilot application, pilot project, pilot agent, approved tools, environments, LLM providers, owners, and success metrics.
+- [ ] Freeze the v1 runtime and SDK public contract: OAuth token exchange, manifest sync, implementation reporting, run creation, status retrieval, tool result submission, async/polling/streaming/webhooks, compatibility negotiation, and server-side tool metadata.
+- [ ] Run the full happy path through a real pilot application: credential generation, SDK installation, manifest sync, handler reporting, run invocation, pause/resume, final response, trace review, audit review, dashboard review, and incident rollback.
+- [ ] Validate all supported execution modes needed by the pilot: MAAC-hosted, client-side, remote HTTP, MCP connector, knowledge/RAG, and `db` if Phase 8A is included in the pilot.
+- [ ] Validate enterprise controls in pilot configuration: SSO role mapping, project membership, secrets vault rotation, model routing fallback, runtime approval, break-glass freeze, audit export, retention, masking, quota enforcement, and webhook replay.
+- [ ] Run performance and reliability smoke tests for synchronous runs, async runs, streaming, polling, webhook delivery, connector calls, RAG retrieval, and the highest-risk pilot tools.
+- [ ] Run security review checks for OAuth scopes, credential revocation, secret leakage, SSRF controls, connector auth, webhook signatures, audit completeness, retention settings, role matrix, and data-minimization rules.
+- [ ] Create an operations runbook for deployment, seed/setup, environment variables, queue workers, scheduler, failed jobs, webhook replay, incident response, audit export, SDK troubleshooting, and model-provider outage handling.
+- [ ] Create pilot onboarding documentation for application developers, project owners, security reviewers, auditors, and support operators.
+- [ ] Update the BRS from "Draft for Review" to an implementation-backed release baseline, noting which BRS items are complete, deferred, or intentionally out of scope.
+- [ ] Tag the release candidate, publish SDK package artifacts or internal package references, and record the exact MAAC app commit, SDK versions, migration state, and contract fixture checksum.
+- [ ] Run and record the final release gate: `composer ci:check`, `php artisan test --coverage --min=100 --compact`, SDK fixture checks, SDK package tests, E2E/reference tests, browser smoke, and pilot integration smoke.
+
+#### Deliverables
+
+- Production pilot readiness report with pass/fail evidence for the full BRS workflow.
+- Frozen v1 public API and SDK compatibility baseline.
+- Pilot application integration proof and rollback plan.
+- Operations, support, security-review, and onboarding documentation.
+- Updated BRS release baseline and release-candidate tag.
+
+#### Acceptance Criteria
+
+- A real pilot application can complete the agreed MAAC workflow end to end using documented SDK/public APIs only.
+- Security and operations reviewers can verify identity, secrets, access control, data handling, auditability, failure handling, and incident response from documented evidence.
+- The SDK/API contract is frozen for the pilot and backed by shared fixtures, compatibility checks, changelog entries, and migration notes.
+- The final release gate passes with 100 % required coverage, green static analysis, green SDK tests, green E2E/reference tests, and a successful browser/pilot smoke.
+- Stakeholders have a clear list of shipped, deferred, and out-of-scope BRS items before production pilot approval.
+
 ## Public Interfaces To Preserve
 
 ### Management UI
