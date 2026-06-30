@@ -1,21 +1,26 @@
-# `milaha/maac-sdk` — MAAC PHP SDK
+# `maac/sdk` — MAAC PHP SDK
 
-A framework-agnostic PHP client for the Milaha AI Agent Center (MAAC) SDK &
-runtime API: token exchange, manifest sync, implementation reporting, and
-pause/resume agent runs. Only `ext-curl` and `ext-json` are required.
+A framework-agnostic PHP client for the MAAC SDK and runtime API: token
+exchange, manifest sync, implementation reporting, and pause/resume agent runs.
+Only `ext-curl` and `ext-json` are required.
 
-- **Status:** ✅ Supported · **Version:** 0.0.1 · **MAAC API contract:** v0.0.1
+- **Status:** ✅ Supported · **Version:** 0.2.0 · **MAAC API contract:** v0.0.1
 - **Requires:** PHP ≥ 8.2
 
 See the [SDK Integration Guide](../../docs/MAAC_SDK_Integration_Guide.md) for the
 full lifecycle, the [Migration Guide](../../docs/MAAC_SDK_Migration_Guide.md) for
-versioning policy, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
+versioning policy, the
+[Distribution Guide](../../docs/MAAC_SDK_Distribution_Guide.md) for private
+package setup, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 ## Install
 
 ```bash
-composer require milaha/maac-sdk
+composer require maac/sdk:^0.2
 ```
+
+Private pilot installs require Composer repository/auth configuration. See the
+Distribution Guide before running this command in a consuming application.
 
 ## Quick start (simple mode)
 

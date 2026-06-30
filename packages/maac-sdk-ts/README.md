@@ -1,21 +1,26 @@
 # `@maac/sdk` — MAAC TypeScript SDK
 
-A dependency-free TypeScript client for the Milaha AI Agent Center (MAAC) SDK &
-runtime API: token exchange, manifest sync, implementation reporting, and
-pause/resume agent runs. Zero runtime dependencies — built on the global `fetch`.
+A dependency-free TypeScript client for the MAAC SDK and runtime API: token
+exchange, manifest sync, implementation reporting, and pause/resume agent runs.
+Zero runtime dependencies — built on the global `fetch`.
 
-- **Status:** ✅ Supported · **Version:** 0.0.1 · **MAAC API contract:** v0.0.1
+- **Status:** ✅ Supported · **Version:** 0.2.0 · **MAAC API contract:** v0.0.1
 - **Requires:** Node ≥ 18 (or any runtime with global `fetch`)
 
 See the [SDK Integration Guide](../../docs/MAAC_SDK_Integration_Guide.md) for the
 full lifecycle, the [Migration Guide](../../docs/MAAC_SDK_Migration_Guide.md) for
-versioning policy, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
+versioning policy, the
+[Distribution Guide](../../docs/MAAC_SDK_Distribution_Guide.md) for private
+package setup, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 
 ## Install
 
 ```bash
-npm install @maac/sdk
+npm install @maac/sdk@^0.2
 ```
+
+Private pilot installs require GitHub Packages registry/auth configuration. See
+the Distribution Guide before running this command in a consuming application.
 
 ## Quick start (simple mode)
 

@@ -1,7 +1,7 @@
 # MAAC Laravel reference consumer
 
-A minimal Laravel application showing how to integrate with the Milaha AI Agent
-Center (MAAC) using the framework-agnostic [`milaha/maac-sdk`](../../packages/maac-sdk-php)
+A minimal Laravel application showing how to integrate with MAAC using the
+framework-agnostic [`maac/sdk`](../../packages/maac-sdk-php)
 client. It proves an external Laravel app can complete an agent run — including a
 client-side tool pause/resume — using only MAAC's public SDK/runtime APIs.
 
@@ -22,7 +22,7 @@ In a real Laravel app you would require the SDK (this project references it via 
 path repository in [`composer.json`](composer.json)):
 
 ```bash
-composer require milaha/maac-sdk
+composer require maac/sdk:^0.2
 ```
 
 Publish or copy the configuration in `config/maac-consumer.php` and add the

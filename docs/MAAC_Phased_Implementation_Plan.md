@@ -245,7 +245,7 @@ Create a repeatable, automated validation path that proves MAAC works from manag
 
 ### Phase 6B: External SDK Reference Applications
 
-> **Status: ✅ Complete** — branch `feature/maac-phase-6b-reference-apps`. Two reusable SDK client packages were extracted — a **framework-agnostic PHP SDK** (`packages/maac-sdk-php`, namespace `Maac\Sdk\`, only ext-curl/ext-json; default `CurlTransport`, swappable `Transport`) and a **dependency-free TypeScript SDK** (`packages/maac-sdk-ts`, `@maac/sdk`, global `fetch`). Both implement the full contract: client_credentials token exchange (cached + refreshed, 401-retry), manifest sync, `reportHandlers()` reconciliation, `startRun`/`getRun`/`submitToolResult`, and a one-call auto-resume `run()` loop that services client-side tool pauses from a local `ToolHandlerRegistry` (typed errors: `MaacApiException`/`MaacApiError`, `MissingToolHandler*`, `RunNotResolved*`). **Three reference consumers** ride on them: a **Laravel consumer** (`reference-apps/laravel-consumer` — service provider + `maac:run-agent` command + app-owned `CargoRepository` handler), a **plain-PHP CLI consumer** (`reference-apps/php-cli-consumer`, no Illuminate), and a **Node/TypeScript consumer** (`reference-apps/node-consumer`) — the latter proving the contract is not Laravel- or PHP-only. **Integration tests** run the SDK + consumers against the seeded canonical scenario (`MaacE2ESeeder`) through an in-process kernel transport (`tests/Support/Sdk/KernelTransport` → MAAC's real HTTP stack, real OAuth token, no network): token exchange, manifest sync, the **required → implemented** transition, run invocation, client-side pause/resume, and final-status read. A **negative matrix** covers revoked credentials, outdated/incompatible reports, unknown-tool reports, cross-tenant (`agent_not_found`) and unpublished agent access, oversized tool result, and a missing local handler. SDK internals are unit-tested with scripted fakes (`FakeTransport`, Node mock transport). Onboarding docs + a compatibility matrix live in `docs/MAAC_SDK_Integration_Guide.md` and per-package READMEs. **Commands:** `composer test:reference` (PHP), `npm run test:sdk` + `npm run types:check:sdk` (Node — wired into `composer ci:check`). Verified: 405 Pest tests at **100 % line coverage** (`app/`), 10 Node tests, PHPStan level 7 (now including the SDK + reference `src/`), Pint, ESLint, Prettier, and both frontend + SDK `tsc` all clean, plus a live Chrome walkthrough confirming external-consumer runs surface on the dashboard, SDK Implementation Center, run trace, and audit log.
+> **Status: ✅ Complete** — branch `feature/maac-phase-6b-reference-apps`. Two reusable SDK client packages were extracted — a **framework-agnostic PHP SDK** (`packages/maac-sdk-php`, package `maac/sdk`, namespace `Maac\Sdk\`, only ext-curl/ext-json; default `CurlTransport`, swappable `Transport`) and a **dependency-free TypeScript SDK** (`packages/maac-sdk-ts`, `@maac/sdk`, global `fetch`). Both implement the full contract: client_credentials token exchange (cached + refreshed, 401-retry), manifest sync, `reportHandlers()` reconciliation, `startRun`/`getRun`/`submitToolResult`, and a one-call auto-resume `run()` loop that services client-side tool pauses from a local `ToolHandlerRegistry` (typed errors: `MaacApiException`/`MaacApiError`, `MissingToolHandler*`, `RunNotResolved*`). **Three reference consumers** ride on them: a **Laravel consumer** (`reference-apps/laravel-consumer` — service provider + `maac:run-agent` command + app-owned `CargoRepository` handler), a **plain-PHP CLI consumer** (`reference-apps/php-cli-consumer`, no Illuminate), and a **Node/TypeScript consumer** (`reference-apps/node-consumer`) — the latter proving the contract is not Laravel- or PHP-only. **Integration tests** run the SDK + consumers against the seeded canonical scenario (`MaacE2ESeeder`) through an in-process kernel transport (`tests/Support/Sdk/KernelTransport` → MAAC's real HTTP stack, real OAuth token, no network): token exchange, manifest sync, the **required → implemented** transition, run invocation, client-side pause/resume, and final-status read. A **negative matrix** covers revoked credentials, outdated/incompatible reports, unknown-tool reports, cross-tenant (`agent_not_found`) and unpublished agent access, oversized tool result, and a missing local handler. SDK internals are unit-tested with scripted fakes (`FakeTransport`, Node mock transport). Onboarding docs + a compatibility matrix live in `docs/MAAC_SDK_Integration_Guide.md` and per-package READMEs. **Commands:** `composer test:reference` (PHP), `npm run test:sdk` + `npm run types:check:sdk` (Node — wired into `composer ci:check`). Verified: 405 Pest tests at **100 % line coverage** (`app/`), 10 Node tests, PHPStan level 7 (now including the SDK + reference `src/`), Pint, ESLint, Prettier, and both frontend + SDK `tsc` all clean, plus a live Chrome walkthrough confirming external-consumer runs surface on the dashboard, SDK Implementation Center, run trace, and audit log.
 
 #### Goal
 
@@ -255,7 +255,7 @@ Prove MAAC can be integrated by real applications outside the MAAC codebase, sta
 
 - [x] Create a Laravel reference consumer application that obtains a Passport `client_credentials` token, fetches the MAAC manifest, registers local tool handlers, reports implementation status, invokes an agent, handles `requires_tool`, submits tool results, and reads final run status.
 - [x] Create a second reference consumer in another priority stack, such as TypeScript/Node or a lightweight PHP CLI app, using the same manifest and runtime contracts. *(Both delivered: Node/TypeScript and a plain-PHP CLI.)*
-- [x] Package reusable SDK client code rather than copying request logic into each reference app. *(`milaha/maac-sdk` for PHP, `@maac/sdk` for TypeScript.)*
+- [x] Package reusable SDK client code rather than copying request logic into each reference app. *(`maac/sdk` for PHP, `@maac/sdk` for TypeScript.)*
 - [x] Add consumer-app integration tests that run against a seeded MAAC test instance and assert token exchange, manifest sync, implementation reporting, run invocation, pause/resume, and final response handling.
 - [x] Add negative integration tests for revoked credentials, stale implementation versions, schema fingerprint mismatch, unauthorized agent access, and missing local handlers.
 - [x] Document required environment variables, token exchange flow, handler registration pattern, and troubleshooting steps for external application teams. *(`docs/MAAC_SDK_Integration_Guide.md` + per-package READMEs.)*
@@ -467,9 +467,9 @@ Make every MAAC console action button perform its real, governed action end-to-e
 - List and detail views reflect mutations immediately via the reloaded shared `maac` prop.
 - `composer ci:check` stays green (ESLint, Prettier, `tsc`, PHPStan L7, Pint, Pest) with coverage held at 100 %.
 
-## Phase 8: Production Pilot & Remaining Execution Modes
+## Phase 8: Production Governance & Remaining Execution Modes
 
-> **Status: Planned** — Phase 8 turns the completed MAAC platform into a production-pilot-ready release while closing the only documented execution-mode gap that remains after Phase 6G: read-only database (`db`) tools. Phase 8A should be implemented only for approved analytics/reporting use cases where a client-side, remote HTTP, MCP, or knowledge tool is not the safer fit. Phase 8B should be run before any broad rollout, even if Phase 8A is deferred for the first pilot.
+> **Status: Planned** — Phase 8 hardens the completed MAAC platform for governed production operation while closing the only documented execution-mode gap that remains after Phase 6G: read-only database (`db`) tools. Phase 8A should be implemented only for approved analytics/reporting use cases where a client-side, remote HTTP, MCP, or knowledge tool is not the safer fit. Phase 8B is internal MAAC administration work: it gives MAAC platform admins top-level role and permission control before any broader tenant rollout.
 
 ### Phase 8A: Governed Read-Only Database Tools
 
@@ -509,44 +509,44 @@ Add a governed `db` tool execution mode that lets selected agents query approved
 - Unsafe SQL, non-read-only access, disabled sources, excessive rows, oversized results, invalid outputs, and unauthorized environments fail safely with controlled error codes.
 - External SDK consumers see `db` tools as MAAC-executed server-side tools and do not need to implement local handlers for them.
 
-### Phase 8B: Production Pilot Readiness & Release Baseline
+### Phase 8B: MAAC Admin Roles, Permissions & Control Baseline
 
-> **Status: Planned** — This phase validates the complete MAAC platform against a real pilot rollout. It should produce a release baseline that security, platform, application, and business stakeholders can sign off. The goal is not to add broad new product scope; it is to prove the implemented BRS workflows under realistic configuration, operational controls, external integration, and failure conditions.
+> **Status: Planned** — This phase formalizes MAAC's own internal administration model using Spatie roles and permissions. Tenant users and consuming applications are not responsible for pilot readiness or release baselines; those controls belong to MAAC platform admins. The goal is to give MAAC admins explicit top-level control over platform access, governance actions, approvals, audits, SDK/runtime operations, and tenant/application visibility without weakening tenant data boundaries.
 
 #### Goal
 
-Prepare MAAC for the first production pilot by freezing the public integration contract, validating the full management/runtime/SDK path with at least one real consuming application, and producing evidence for security, operations, support, and stakeholder sign-off.
+Implement a dedicated MAAC admin authorization layer with `spatie/laravel-permission`, seeded platform roles, granular permissions, policy enforcement, audit evidence, and UI/API guards so MAAC admins can control the platform centrally while tenant users remain limited to their approved integration and application-scoped workflows.
 
 #### Checklist
 
-- [ ] Select and document the pilot application, pilot project, pilot agent, approved tools, environments, LLM providers, owners, and success metrics.
-- [ ] Freeze the v1 runtime and SDK public contract: OAuth token exchange, manifest sync, implementation reporting, run creation, status retrieval, tool result submission, async/polling/streaming/webhooks, compatibility negotiation, and server-side tool metadata.
-- [ ] Run the full happy path through a real pilot application: credential generation, SDK installation, manifest sync, handler reporting, run invocation, pause/resume, final response, trace review, audit review, dashboard review, and incident rollback.
-- [ ] Validate all supported execution modes needed by the pilot: MAAC-hosted, client-side, remote HTTP, MCP connector, knowledge/RAG, and `db` if Phase 8A is included in the pilot.
-- [ ] Validate enterprise controls in pilot configuration: SSO role mapping, project membership, secrets vault rotation, model routing fallback, runtime approval, break-glass freeze, audit export, retention, masking, quota enforcement, and webhook replay.
-- [ ] Run performance and reliability smoke tests for synchronous runs, async runs, streaming, polling, webhook delivery, connector calls, RAG retrieval, and the highest-risk pilot tools.
-- [ ] Run security review checks for OAuth scopes, credential revocation, secret leakage, SSRF controls, connector auth, webhook signatures, audit completeness, retention settings, role matrix, and data-minimization rules.
-- [ ] Create an operations runbook for deployment, seed/setup, environment variables, queue workers, scheduler, failed jobs, webhook replay, incident response, audit export, SDK troubleshooting, and model-provider outage handling.
-- [ ] Create pilot onboarding documentation for application developers, project owners, security reviewers, auditors, and support operators.
-- [ ] Update the BRS from "Draft for Review" to an implementation-backed release baseline, noting which BRS items are complete, deferred, or intentionally out of scope.
-- [ ] Tag the release candidate, publish SDK package artifacts or internal package references, and record the exact MAAC app commit, SDK versions, migration state, and contract fixture checksum.
-- [ ] Run and record the final release gate: `composer ci:check`, `php artisan test --coverage --min=100 --compact`, SDK fixture checks, SDK package tests, E2E/reference tests, browser smoke, and pilot integration smoke.
+- [ ] Install and configure `spatie/laravel-permission` as the dedicated MAAC admin RBAC layer, including guard configuration, migrations, cache handling, and team/tenant boundary decisions.
+- [ ] Define and seed MAAC platform roles such as Super Admin, Platform Admin, Security Reviewer, Auditor, Support Operator, Release Manager, and Read-Only Observer.
+- [ ] Define granular permissions for platform users, teams, registered applications, projects, agents, tools, models, credentials, approvals, quotas, runs, audits, webhooks, SDK/package operations, and system settings.
+- [ ] Add a top-level Super Admin override for MAAC-owned platform administration while keeping tenant/application data access controlled by the owning application and approved tool contracts.
+- [ ] Map existing authenticated users, team membership, and SSO/IAM claims into MAAC roles and permissions without granting tenant users platform-admin privileges by default.
+- [ ] Protect MAAC management routes, controller actions, policies, API endpoints, Inertia props, and navigation items with Spatie-backed permissions.
+- [ ] Add an admin role/permission management UI for MAAC admins to assign, revoke, inspect, and audit platform access.
+- [ ] Record role and permission changes in the audit log, including actor, target user, previous access, new access, reason, and affected tenant/application scope.
+- [ ] Add break-glass and access-review controls for emergency admin access, permission drift detection, stale admin accounts, and periodic access certification.
+- [ ] Update the BRS/admin authorization notes to make clear that pilot readiness, release baselines, platform approvals, and operational sign-off are MAAC-admin responsibilities, not tenant-user workflows.
+- [ ] Add feature, policy, authorization, audit, and browser tests covering every MAAC admin role, denied tenant access, Super Admin override, SSO role mapping, and permission-management flow.
+- [ ] Run and record the final control gate: `composer ci:check`, `php artisan test --coverage --min=100 --compact`, authorization matrix tests, browser smoke for admin access, and SDK fixture checks.
 
 #### Deliverables
 
-- Production pilot readiness report with pass/fail evidence for the full BRS workflow.
-- Frozen v1 public API and SDK compatibility baseline.
-- Pilot application integration proof and rollback plan.
-- Operations, support, security-review, and onboarding documentation.
-- Updated BRS release baseline and release-candidate tag.
+- Spatie-backed MAAC admin roles, permissions, seeders, policies, and authorization tests.
+- Top-level Super Admin control for MAAC-owned platform administration.
+- Permission-gated MAAC management UI, API endpoints, navigation, and Inertia props.
+- Audited role/permission assignment, revocation, break-glass, and access-review workflows.
+- Updated BRS/admin authorization language that separates MAAC admin responsibilities from tenant-user responsibilities.
 
 #### Acceptance Criteria
 
-- A real pilot application can complete the agreed MAAC workflow end to end using documented SDK/public APIs only.
-- Security and operations reviewers can verify identity, secrets, access control, data handling, auditability, failure handling, and incident response from documented evidence.
-- The SDK/API contract is frozen for the pilot and backed by shared fixtures, compatibility checks, changelog entries, and migration notes.
-- The final release gate passes with 100 % required coverage, green static analysis, green SDK tests, green E2E/reference tests, and a successful browser/pilot smoke.
-- Stakeholders have a clear list of shipped, deferred, and out-of-scope BRS items before production pilot approval.
+- A MAAC Super Admin can grant, revoke, and audit top-level platform access without touching tenant-owned application data directly.
+- Tenant users and consuming applications cannot access MAAC admin controls unless explicitly assigned MAAC platform roles.
+- Every MAAC management route, API action, policy, approval workflow, audit view, and navigation item is permission-gated and covered by authorization tests.
+- Role changes, permission changes, break-glass access, and access-review decisions are visible in the audit log with enough evidence for security review.
+- The final control gate passes with 100 % required coverage, green static analysis, green SDK tests, green authorization matrix tests, and a successful admin-browser smoke.
 
 ## Public Interfaces To Preserve
 
@@ -555,7 +555,7 @@ Prepare MAAC for the first production pilot by freezing the public integration c
 - MAAC management pages live in the authenticated Inertia application.
 - React pages should use existing app layout, Tailwind CSS, shadcn-style primitives, and lucide icons where appropriate.
 - Frontend navigation and form/action wiring should use Wayfinder-generated route helpers rather than hardcoded URLs.
-- Initial MAAC roles may be mapped onto the existing user/team scaffold until dedicated MAAC RBAC is implemented.
+- Phase 8B replaces the initial user/team role mapping with Spatie-backed MAAC admin roles and permissions for top-level platform control.
 
 ### Runtime And SDK API
 
