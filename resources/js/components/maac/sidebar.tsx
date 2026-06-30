@@ -2,6 +2,7 @@
    MAAC — App shell sidebar (navy gradient, grouped nav,
    persona switcher). Bespoke chrome ported from the prototype.
    ============================================================ */
+import { usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/maac/icons';
 import { useMaacNav } from '@/maac/nav';
@@ -244,9 +245,18 @@ export function Sidebar() {
     // severity alert degrades the footer indicator.
     const degraded = MAAC.dashboard.alerts.some((a) => a.sev === 'high');
     const [acctOpen, setAcctOpen] = useState(false);
+    // Platform-administration nav items are additionally gated on the real
+    // global RBAC, so they appear only for actual MAAC platform admins — not
+    // merely whoever selects the admin persona (Phase 8B).
+    const platformPermissions =
+        usePage().props.auth.platform?.permissions ?? [];
     const visibleGroups = NAV_GROUPS.map((g) => ({
         ...g,
-        items: g.items.filter((it) => navAllowed(persona.id, it.id)),
+        items: g.items.filter(
+            (it) =>
+                navAllowed(persona.id, it.id) &&
+                (!it.permission || platformPermissions.includes(it.permission)),
+        ),
     })).filter((g) => g.items.length);
 
     return (

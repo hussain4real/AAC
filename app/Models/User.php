@@ -4,6 +4,7 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Concerns\HasMaacAccess;
+use App\Concerns\HasPlatformAccess;
 use App\Concerns\HasTeams;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -19,6 +20,7 @@ use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Passport\Contracts\OAuthenticatable;
 use Laravel\Passport\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
 
 /**
  * @property int $id
@@ -45,7 +47,11 @@ use Laravel\Passport\HasApiTokens;
 class User extends Authenticatable implements OAuthenticatable, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasMaacAccess, HasTeams, Notifiable, PasskeyAuthenticatable,TwoFactorAuthenticatable;
+    use HasApiTokens, HasFactory, HasMaacAccess, HasPlatformAccess, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable,TwoFactorAuthenticatable {
+        // The app's tenant `teams` relation wins over Spatie's teams-feature
+        // helper (MAAC runs Spatie in non-teams mode — platform roles are global).
+        HasTeams::teams insteadof HasRoles;
+    }
 
     /**
      * Get the user's linked external SSO identities.

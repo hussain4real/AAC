@@ -27,9 +27,21 @@ export type ScreenId =
     | 'routing'
     | 'identity'
     | 'incidents'
+    | 'accessControl'
     | 'settings';
 
-export type NavItem = { id: ScreenId; label: string; icon: string };
+/**
+ * A nav item. `permission`, when set, is a MAAC platform permission
+ * ({@see auth.platform.permissions}) the item is additionally gated on — used
+ * for the platform-administration surfaces so they appear only for real
+ * platform admins, not merely the selected persona.
+ */
+export type NavItem = {
+    id: ScreenId;
+    label: string;
+    icon: string;
+    permission?: string;
+};
 export type NavGroup = { title: string | null; items: NavItem[] };
 
 export const NAV_GROUPS: NavGroup[] = [
@@ -81,6 +93,12 @@ export const NAV_GROUPS: NavGroup[] = [
                 label: 'Incident Response',
                 icon: 'shield-alert',
             },
+            {
+                id: 'accessControl',
+                label: 'Access Control',
+                icon: 'shield',
+                permission: 'users.view',
+            },
             { id: 'settings', label: 'Settings', icon: 'settings' },
         ],
     },
@@ -113,6 +131,7 @@ export const SCREEN_OF: Record<string, ScreenId> = {
     routing: 'routing',
     identity: 'identity',
     incidents: 'incidents',
+    accessControl: 'accessControl',
     settings: 'settings',
 };
 

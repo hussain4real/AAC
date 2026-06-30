@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Secrets\DatabaseSecretVault;
 use Carbon\CarbonImmutable;
@@ -10,6 +11,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Passport\Passport;
@@ -37,6 +39,18 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configurePassport();
+        $this->configurePlatformAuthorization();
+    }
+
+    /**
+     * Grant the MAAC Super Admin platform role an unrestricted authorization
+     * override (Phase 8B). Returning null falls through to the normal policy and
+     * permission checks, so only a Super Admin is short-circuited — every other
+     * platform role is gated by its explicit permissions.
+     */
+    protected function configurePlatformAuthorization(): void
+    {
+        Gate::before(fn (User $user, string $ability): ?bool => $user->isPlatformSuperAdmin() ? true : null);
     }
 
     /**

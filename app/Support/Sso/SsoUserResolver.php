@@ -9,6 +9,7 @@ use App\Models\SsoConnection;
 use App\Models\SsoIdentity;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Platform\PlatformAccessManager;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,6 +23,8 @@ use Illuminate\Support\Str;
  */
 class SsoUserResolver
 {
+    public function __construct(private readonly PlatformAccessManager $platformAccess = new PlatformAccessManager) {}
+
     /**
      * Resolve (and provision/role-map) the local user for an SSO identity.
      *
@@ -65,6 +68,13 @@ class SsoUserResolver
 
             foreach ($connection->resolveProjectRoles($payload->groups) as $assignment) {
                 $this->syncProjectRole($connection->team, $user, $assignment['project'], $assignment['role']);
+            }
+
+            // Map IdP group claims onto MAAC platform-admin roles (Phase 8B). A
+            // tenant user gets none unless a group is explicitly mapped, so SSO
+            // never grants platform-admin access by default.
+            foreach ($connection->resolvePlatformRoles($payload->groups) as $platformRole) {
+                $this->platformAccess->syncSsoRole($user, $platformRole, $connection->slug);
             }
 
             $user->switchTeam($connection->team);
