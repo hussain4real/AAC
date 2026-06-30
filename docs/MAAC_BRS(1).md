@@ -481,13 +481,33 @@ For the initial release, the recommended priority is:
 
 ## 14. Roles and Permissions
 
+MAAC distinguishes **tenant-scoped roles** (governing a team/application's own workflows) from **MAAC platform-administration roles** (governing the platform itself). A tenant user holds **no** platform role by default and cannot reach the platform-admin surfaces; platform administration, approvals, pilot readiness, release baselines, and operational sign-off are MAAC-admin responsibilities, not tenant-user workflows.
+
+### 14.1 Tenant-scoped roles (per team / project)
+
 | Role | Capabilities |
 |---|---|
-| Platform Admin | Manage global settings, approved LLMs, global tools, credentials, policies, and audit access. |
+| Platform Admin (team) | Manage their team's settings, approved LLMs, tools, credentials, policies, and audit access for their own tenant. |
 | Project Owner | Register and manage projects, manage members, approve agents/tools, and view project usage. |
 | Developer | Create agents, define tool contracts, test agents, and implement SDK handlers. |
 | Viewer | View agents, documentation, and logs where permitted. |
 | Auditor | Review logs, execution traces, access history, and governance reports. |
+
+### 14.2 MAAC platform-administration roles (global)
+
+Implemented as a dedicated, Spatie-backed global RBAC layer (see `docs/MAAC_Platform_Administration.md`), held by MAAC's own operators and layered above the tenant RBAC. The Super Admin holds an unrestricted authorization override; assigning Super Admin and activating break-glass are Super-Admin-only. Tenant users are mapped into these roles only by explicit grant or SSO group mapping.
+
+| Platform Role | Remit |
+|---|---|
+| Super Admin | Unrestricted MAAC platform control, including break-glass and assigning any role. |
+| Platform Admin | Full operational control of the platform, tenants, and governance (no emergency break-glass). |
+| Security Reviewer | Review/decide approvals, approve tools, read audits, and run incident containment. |
+| Auditor | Read-only access across the platform plus signed audit export. |
+| Support Operator | Investigate runs and replay webhooks to support tenant applications. |
+| Release Manager | Promote agents/models and manage SDK distribution and release approvals. |
+| Read-Only Observer | Read-only visibility across the platform with no change or export rights. |
+
+All platform-role grants, break-glass activations, revocations, certifications, and expiries are audited; emergency break-glass access is time-boxed and reviewed, and a scheduled access review flags grants needing re-certification and stale admin accounts.
 
 ---
 

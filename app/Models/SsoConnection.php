@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Concerns\RecordsAuditEvents;
+use App\Enums\PlatformRole;
 use App\Enums\SsoConnectionStatus;
 use App\Enums\SsoProvider;
 use App\Enums\TeamRole;
@@ -136,6 +137,26 @@ class SsoConnection extends Model
             ->filter(fn (array $mapping): bool => in_array($mapping['group'] ?? null, $groups, true)
                 && ! empty($mapping['project_slug']) && ! empty($mapping['maac_role']))
             ->map(fn (array $mapping): array => ['project' => (string) $mapping['project_slug'], 'role' => (string) $mapping['maac_role']])
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Resolve the MAAC platform roles ({@see PlatformRole}) mapped from a set of
+     * external groups. A tenant user gets no platform role unless an IdP group is
+     * explicitly mapped to one, so platform-admin access is never granted by
+     * default (Phase 8B).
+     *
+     * @param  array<int, string>  $groups
+     * @return array<int, PlatformRole>
+     */
+    public function resolvePlatformRoles(array $groups): array
+    {
+        return collect($this->group_role_mappings ?? [])
+            ->filter(fn (array $mapping): bool => in_array($mapping['group'] ?? null, $groups, true))
+            ->map(fn (array $mapping): ?PlatformRole => PlatformRole::tryFrom((string) ($mapping['platform_role'] ?? '')))
+            ->filter()
+            ->unique()
             ->values()
             ->all();
     }

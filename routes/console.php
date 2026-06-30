@@ -13,3 +13,7 @@ Schedule::call(function () {
 Schedule::command('maac:prune-run-data')
     ->daily()
     ->description('Prune run payloads and audit events past governance retention windows');
+
+Schedule::command('maac:review-platform-access')
+    ->daily()
+    ->description('Expire elapsed break-glass grants and flag platform access for review');

@@ -56,6 +56,7 @@ export type RouteName =
     | 'routing'
     | 'identity'
     | 'incidents'
+    | 'accessControl'
     | 'settings';
 
 type GoParams = { id?: string; agent?: string } & Record<
@@ -111,6 +112,7 @@ const SEGMENT_TO_SCREEN: Record<string, ScreenId> = {
     routing: 'routing',
     identity: 'identity',
     incidents: 'incidents',
+    'access-control': 'accessControl',
     'platform-settings': 'settings',
 };
 
@@ -176,6 +178,8 @@ function urlFor(name: RouteName, team: string, params: GoParams = {}): string {
             return ConsoleRoutes.identity.url(team);
         case 'incidents':
             return ConsoleRoutes.incidents.url(team);
+        case 'accessControl':
+            return ConsoleRoutes.accessControl.url(team);
         case 'settings':
             return ConsoleRoutes.settings.url(team);
     }

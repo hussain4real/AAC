@@ -10,8 +10,17 @@ export type User = {
     [key: string]: unknown;
 };
 
+/** The current user's MAAC platform-administration access (Phase 8B). */
+export type PlatformAccess = {
+    roles: string[];
+    permissions: string[];
+    isSuperAdmin: boolean;
+    isAdministrator: boolean;
+};
+
 export type Auth = {
     user: User;
+    platform: PlatformAccess;
 };
 
 /* @chisel-passkeys */

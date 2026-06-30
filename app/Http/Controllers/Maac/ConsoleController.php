@@ -8,6 +8,7 @@ use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AgentVersion;
 use App\Models\Membership;
+use App\Support\Platform\PlatformAccessReport;
 use App\Support\Sdk\VersionJourney;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -205,6 +206,22 @@ class ConsoleController extends Controller
     public function incidents(): Response
     {
         return Inertia::render('maac/incidents');
+    }
+
+    /**
+     * Render the MAAC platform-administration Access Control page (Phase 8B):
+     * the platform role/permission catalogue, every platform admin with their
+     * grants, the access-review work lists, and the audit trail. The route is
+     * gated by the platform `users.view` permission; write actions live on
+     * {@see PlatformAccessController}.
+     */
+    public function accessControl(Request $request, PlatformAccessReport $report): Response
+    {
+        return Inertia::render('maac/access-control', [
+            'access' => fn (): array => $report->forConsole(),
+            'directory' => fn (): array => $report->directory(),
+            'capabilities' => fn (): array => $report->capabilities($request->user()),
+        ]);
     }
 
     public function settings(Request $request): Response

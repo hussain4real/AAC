@@ -268,4 +268,41 @@ return [
         'http_timeout_seconds' => (int) env('MAAC_SSO_HTTP_TIMEOUT', 10),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Platform Administration (Phase 8B)
+    |--------------------------------------------------------------------------
+    |
+    | MAAC's own internal administration model (Spatie roles/permissions). These
+    | global platform roles ({@see \App\Enums\PlatformRole}) gate cross-tenant
+    | MAAC administration and are distinct from the team/project-scoped tenant
+    | RBAC. Tenant users hold no platform role by default.
+    |
+    | `super_admins` bootstraps MAAC Super Admins by email so the platform is
+    | never left without an administrator — empty in production by default;
+    | assign platform roles through the console or SSO rather than auto-granting.
+    | `break_glass` bounds emergency access grants (a default and a hard-max TTL
+    | in minutes). `access_review` configures the re-certification window for a
+    | standard grant and the inactivity window after which a platform admin is
+    | flagged stale.
+    |
+    */
+
+    'platform' => [
+        'super_admins' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('MAAC_PLATFORM_SUPER_ADMINS', '')),
+        ))),
+
+        'break_glass' => [
+            'default_ttl_minutes' => (int) env('MAAC_BREAK_GLASS_TTL', 60),
+            'max_ttl_minutes' => (int) env('MAAC_BREAK_GLASS_MAX_TTL', 240),
+        ],
+
+        'access_review' => [
+            'certification_days' => (int) env('MAAC_ACCESS_CERTIFICATION_DAYS', 90),
+            'stale_days' => (int) env('MAAC_ACCESS_STALE_DAYS', 60),
+        ],
+    ],
+
 ];

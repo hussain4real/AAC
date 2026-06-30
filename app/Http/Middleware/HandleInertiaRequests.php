@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Support\MaacConsoleData;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -43,6 +44,10 @@ class HandleInertiaRequests extends Middleware
             'name' => config('app.name'),
             'auth' => [
                 'user' => $user,
+                // The user's MAAC platform-administration access (Phase 8B), so
+                // the console can gate platform-admin nav and controls on the
+                // real global RBAC rather than the front-end persona mock.
+                'platform' => fn (): array => $this->platformAccess($user),
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,
@@ -50,6 +55,26 @@ class HandleInertiaRequests extends Middleware
             // MAAC console dataset for the current team (Phase 2). Feeds the
             // client-side scope/persona layer with real records.
             'maac' => fn () => $user?->currentTeam ? MaacConsoleData::forTeam($user->currentTeam) : null,
+        ];
+    }
+
+    /**
+     * The current user's MAAC platform-administration access snapshot for the
+     * client (empty for a guest or a pure tenant user).
+     *
+     * @return array{roles: array<int, string>, permissions: array<int, string>, isSuperAdmin: bool, isAdministrator: bool}
+     */
+    private function platformAccess(?User $user): array
+    {
+        if ($user === null) {
+            return ['roles' => [], 'permissions' => [], 'isSuperAdmin' => false, 'isAdministrator' => false];
+        }
+
+        return [
+            'roles' => $user->platformRoleValues(),
+            'permissions' => $user->platformPermissionValues(),
+            'isSuperAdmin' => $user->isPlatformSuperAdmin(),
+            'isAdministrator' => $user->isPlatformAdministrator(),
         ];
     }
 }

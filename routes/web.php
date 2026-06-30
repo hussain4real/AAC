@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PlatformPermission;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\Maac\AgentController;
 use App\Http\Controllers\Maac\ApplicationController;
@@ -18,6 +19,7 @@ use App\Http\Controllers\Maac\KnowledgeSourceController;
 use App\Http\Controllers\Maac\LlmProviderController;
 use App\Http\Controllers\Maac\McpConnectorController;
 use App\Http\Controllers\Maac\ModelRoutingPolicyController;
+use App\Http\Controllers\Maac\PlatformAccessController;
 use App\Http\Controllers\Maac\PlaygroundRunController;
 use App\Http\Controllers\Maac\ProjectController;
 use App\Http\Controllers\Maac\QuotaLimitController;
@@ -155,6 +157,22 @@ Route::prefix('{current_team}')
         Route::resource('sso-connections', SsoConnectionController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['sso-connections' => 'ssoConnection']);
+
+        // MAAC console (Phase 8B — platform administration RBAC). Gated by the
+        // global platform permissions; a Super Admin passes via the Gate::before
+        // override since the spatie middleware checks go through the gate.
+        Route::get('access-control', [ConsoleController::class, 'accessControl'])
+            ->name('access-control')
+            ->middleware('permission:'.PlatformPermission::ViewUsers->value);
+        Route::post('access-control/grants', [PlatformAccessController::class, 'store'])
+            ->name('access-control.grants.store')
+            ->middleware('permission:'.PlatformPermission::AssignRoles->value);
+        Route::post('access-control/grants/{grant}/revoke', [PlatformAccessController::class, 'revoke'])
+            ->name('access-control.grants.revoke')
+            ->middleware('permission:'.PlatformPermission::AssignRoles->value);
+        Route::post('access-control/grants/{grant}/certify', [PlatformAccessController::class, 'certify'])
+            ->name('access-control.grants.certify')
+            ->middleware('permission:'.PlatformPermission::ReviewAccess->value);
     });
 
 Route::middleware(['auth'])->group(function () {
