@@ -1,8 +1,8 @@
 # MAAC SDK Integration Guide
 
-This guide is for **external application teams** connecting an application to the
-Milaha AI Agent Center (MAAC). You can follow it without reading any MAAC
-internals — everything here uses MAAC's public SDK/runtime APIs.
+This guide is for **external application teams** connecting an application to
+MAAC. You can follow it without reading any MAAC internals — everything here
+uses MAAC's public SDK/runtime APIs.
 
 If you just want working code to copy, see the reference consumers:
 
@@ -12,8 +12,11 @@ If you just want working code to copy, see the reference consumers:
 
 All three are thin wrappers over a reusable SDK client:
 
-- [`milaha/maac-sdk`](../packages/maac-sdk-php) — framework-agnostic PHP.
+- [`maac/sdk`](../packages/maac-sdk-php) — framework-agnostic PHP.
 - [`@maac/sdk`](../packages/maac-sdk-ts) — dependency-free TypeScript.
+
+For private package installation and release steps, see the
+[SDK Distribution Guide](MAAC_SDK_Distribution_Guide.md).
 
 ## The integration model in one paragraph
 
@@ -144,7 +147,7 @@ observable (and replayable) on the console **Webhooks** page.
 
 ## Handler registration pattern
 
-### PHP (`milaha/maac-sdk`)
+### PHP (`maac/sdk`)
 
 ```php
 use Maac\Sdk\{MaacClient, MaacConfig};
@@ -248,7 +251,7 @@ using them.
 
 | SDK / stack                         | Version | Status        | Notes |
 |-------------------------------------|---------|---------------|-------|
-| PHP SDK (`milaha/maac-sdk`)         | 0.2.0   | ✅ Supported  | PHP ≥ 8.2, ext-curl. Default cURL transport. |
+| PHP SDK (`maac/sdk`)                | 0.2.0   | ✅ Supported  | PHP ≥ 8.2, ext-curl. Default cURL transport. |
 | TypeScript SDK (`@maac/sdk`)        | 0.2.0   | ✅ Supported  | Node ≥ 18 (global `fetch`); zero dependencies. |
 | Laravel reference consumer          | —       | ✅ Supported  | Service provider + Artisan command. |
 | Plain-PHP CLI reference consumer    | —       | ✅ Supported  | No framework. Proves the PHP SDK is framework-agnostic. |

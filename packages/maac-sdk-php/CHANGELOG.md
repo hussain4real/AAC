@@ -1,4 +1,4 @@
-# Changelog — `milaha/maac-sdk`
+# Changelog — `maac/sdk`
 
 All notable changes to the PHP SDK are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and

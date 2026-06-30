@@ -182,9 +182,9 @@ return [
 
         'packages' => [
             'php' => [
-                'name' => 'milaha/maac-sdk',
+                'name' => 'maac/sdk',
                 'version' => '0.2.0',
-                'registry' => 'packagist',
+                'registry' => 'composer-vcs',
                 'status' => 'supported',
             ],
             'typescript' => [

@@ -31,6 +31,12 @@ test('the sdk endpoint describes the versioned contract and supported packages',
     expect($response->json('languages'))->not->toBeEmpty()
         ->and(collect($response->json('packages'))->pluck('language')->all())
         ->toContain('php', 'typescript')
+        ->and(collect($response->json('packages'))->firstWhere('language', 'php'))
+        ->toMatchArray([
+            'name' => 'maac/sdk',
+            'registry' => 'composer-vcs',
+            'status' => 'supported',
+        ])
         ->and($response->json('deprecations'))->toBe([]);
 });
 

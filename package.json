@@ -4,6 +4,7 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
+        "build:sdk": "npm --prefix packages/maac-sdk-ts run build",
         "build:ssr": "vite build && vite build --ssr",
         "dev": "vite",
         "format": "prettier --write resources/",
@@ -11,7 +12,7 @@
         "lint": "eslint . --fix",
         "lint:check": "eslint .",
         "types:check": "tsc --noEmit",
-        "types:check:sdk": "tsc -p packages/maac-sdk-ts/tsconfig.json && tsc -p reference-apps/node-consumer/tsconfig.json && tsc -p reference-apps/node-tool-client/tsconfig.json",
+        "types:check:sdk": "tsc -p packages/maac-sdk-ts/tsconfig.json && tsc -p reference-apps/node-consumer/tsconfig.json && tsc -p reference-apps/node-tool-client/tsconfig.json && npm run build:sdk",
         "test:sdk": "node --test packages/maac-sdk-ts/test/*.test.ts reference-apps/node-consumer/test/*.test.ts"
     },
     "devDependencies": {

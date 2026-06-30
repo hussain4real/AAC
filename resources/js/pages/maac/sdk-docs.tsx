@@ -30,7 +30,7 @@ import { useMaacData } from '@/maac/use-data';
 
 const INSTALL = {
     ts: `npm install @maac/sdk        # Node >= 18 (global fetch); zero dependencies`,
-    php: `composer require milaha/maac-sdk   # PHP >= 8.2, ext-curl, ext-json`,
+    php: `composer require maac/sdk   # PHP >= 8.2, ext-curl, ext-json`,
     py: `# Python: MAAC generates ready-to-paste handler stubs today
 # (see "Implementing a handler"); a packaged client is planned.
 # Track status in the compatibility matrix below.`,
@@ -343,7 +343,7 @@ const MATRIX: {
     notes: string;
 }[] = [
     {
-        name: 'PHP SDK (milaha/maac-sdk)',
+        name: 'PHP SDK (maac/sdk)',
         pkgKey: 'php',
         version: '0.2.0',
         status: 'Supported',
@@ -723,7 +723,7 @@ export default function SdkDocs() {
                                 <Badge tone="purple" icon="link">
                                     API contract v{platform.api_version}
                                 </Badge>
-                                <Badge tone="teal">milaha/maac-sdk (PHP)</Badge>
+                                <Badge tone="teal">maac/sdk (PHP)</Badge>
                                 <Badge tone="teal">
                                     @maac/sdk (TypeScript)
                                 </Badge>

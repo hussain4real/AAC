@@ -19,7 +19,7 @@ use Tests\Support\Sdk\KernelTransport;
  * Phase 6B: an external application drives the entire MAAC integration through
  * the public SDK only — exchanging a real client_credentials token, syncing the
  * manifest, reporting a local handler, invoking the agent, and servicing the
- * client-side tool pause/resume — using the framework-agnostic milaha/maac-sdk
+ * client-side tool pause/resume — using the framework-agnostic maac/sdk
  * against a seeded MAAC instance over the in-process kernel transport.
  */
 beforeEach(function () {

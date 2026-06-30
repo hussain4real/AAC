@@ -1065,10 +1065,10 @@ function SetupCheck({ label, done }: { label: string; done: boolean }) {
 
 function AppSDK({ app }: { app: Application }) {
     const install = `# Install the MAAC SDK
-npm install @milaha/maac-sdk`;
-    const init = `import { MAACClient } from "@milaha/maac-sdk";
+npm install @maac/sdk`;
+    const init = `import { MaacClient } from "@maac/sdk";
 
-const maac = new MAACClient({
+const maac = new MaacClient({
   projectId:     process.env.MAAC_PROJECT_ID,
   clientId:      process.env.MAAC_CLIENT_ID,
   clientSecret:  process.env.MAAC_CLIENT_SECRET,

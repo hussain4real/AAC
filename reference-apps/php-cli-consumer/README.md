@@ -1,7 +1,7 @@
 # MAAC plain-PHP CLI reference consumer
 
 A reference consumer with **no framework** — just PHP and the framework-agnostic
-[`milaha/maac-sdk`](../../packages/maac-sdk-php). It proves the MAAC integration
+[`maac/sdk`](../../packages/maac-sdk-php). It proves the MAAC integration
 contract does not depend on Laravel: the same token exchange, manifest sync,
 implementation reporting, and pause/resume run loop work from a bare PHP script.
 

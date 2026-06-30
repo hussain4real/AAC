@@ -28,12 +28,12 @@ test('it falls back to defaults when config values are missing or non-string', f
 
 test('it normalises the package registry and ignores malformed entries', function () {
     config()->set('maac.sdk.packages', [
-        'php' => ['name' => 'milaha/maac-sdk', 'version' => '0.0.1', 'status' => 'supported'],
+        'php' => ['name' => 'maac/sdk', 'version' => '0.0.1', 'registry' => 'composer-vcs', 'status' => 'supported'],
         'broken' => 'not-an-array',
     ]);
 
     expect($this->platform->packages())->toBe([
-        ['language' => 'php', 'name' => 'milaha/maac-sdk', 'version' => '0.0.1', 'status' => 'supported'],
+        ['language' => 'php', 'name' => 'maac/sdk', 'version' => '0.0.1', 'registry' => 'composer-vcs', 'status' => 'supported'],
     ]);
 });
 
