@@ -8,12 +8,7 @@
 export type Environment = 'Production' | 'Staging' | 'Development';
 export type Sensitivity = 'Public' | 'Internal' | 'Confidential' | 'Restricted';
 export type ExecMode =
-    | 'hosted'
-    | 'client'
-    | 'http'
-    | 'connector'
-    | 'knowledge'
-    | 'db';
+    'hosted' | 'client' | 'http' | 'connector' | 'knowledge' | 'db';
 export type ToolScope = 'Global' | 'Project' | 'Agent';
 export type ImplStatus =
     | 'ready'

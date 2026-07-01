@@ -26,13 +26,7 @@ import { Icon } from '@/maac/icons';
 
 /* ---------- tones ---------- */
 export type Tone =
-    | 'neutral'
-    | 'purple'
-    | 'teal'
-    | 'orange'
-    | 'red'
-    | 'amber'
-    | 'blue';
+    'neutral' | 'purple' | 'teal' | 'orange' | 'red' | 'amber' | 'blue';
 export const TONES: Record<Tone, { bg: string; fg: string; bd: string }> = {
     neutral: {
         bg: 'var(--surface-3)',
@@ -1132,12 +1126,7 @@ export function Avatar({
 
 /* ---------- Entity mark ---------- */
 export type EntityKind =
-    | 'application'
-    | 'project'
-    | 'agent'
-    | 'tool'
-    | 'connector'
-    | 'knowledge';
+    'application' | 'project' | 'agent' | 'tool' | 'connector' | 'knowledge';
 
 const ENTITY_ICON: Record<EntityKind, string> = {
     application: 'apps',

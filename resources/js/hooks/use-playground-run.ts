@@ -48,10 +48,7 @@ export interface PlaygroundRunResult {
 }
 
 export type PlaygroundEnvironment =
-    | 'development'
-    | 'sandbox'
-    | 'staging'
-    | 'production';
+    'development' | 'sandbox' | 'staging' | 'production';
 
 export interface UsePlaygroundRunReturn {
     run: PlaygroundRunResult | null;
