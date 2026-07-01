@@ -282,7 +282,7 @@ export function schemaJson(obj: Record<string, string>): string {
 
 /**
  * Generates a client-side tool handler stub in the requested language, using the
- * real `@maac/sdk` `ToolHandlerRegistry` API. The handler is keyed by the tool's
+ * real `@qatar-navigation-milaha/sdk` `ToolHandlerRegistry` API. The handler is keyed by the tool's
  * contract slug, takes `(args, ctx)`, and returns the tool's output schema shape;
  * authorization is the app's own concern (MAAC's `ctx` is just `{ run, toolCall }`).
  */
@@ -337,7 +337,7 @@ ${outList.map((o) => `        "${o}": result["${o}"],`).join('\n')}
     }`;
     }
 
-    return `import { ToolHandlerRegistry } from "@maac/sdk";
+    return `import { ToolHandlerRegistry } from "@qatar-navigation-milaha/sdk";
 
 // MAAC defines the contract; your app owns the execution (keyed by the tool slug).
 const registry = new ToolHandlerRegistry();

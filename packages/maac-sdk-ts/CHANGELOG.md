@@ -1,4 +1,4 @@
-# Changelog — `@maac/sdk`
+# Changelog — `@qatar-navigation-milaha/sdk`
 
 All notable changes to the TypeScript SDK are documented here. This project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and

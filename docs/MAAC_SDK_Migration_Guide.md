@@ -14,7 +14,7 @@ versions:
 | Version                     | What it describes                                          | Where you see it |
 |-----------------------------|------------------------------------------------------------|------------------|
 | **API contract version**    | The shape of the `/api/v1/*` envelopes + the manifest.     | `X-Maac-Api-Version` header on every response; `api_version` in the manifest and at `GET /api/v1/sdk`. |
-| **SDK package version**     | The installed client library (`maac/sdk`, `@maac/sdk`). | `MaacClient::VERSION` / `SDK_VERSION`; reported as `X-Maac-Sdk-Version` and `sdk_version`. |
+| **SDK package version**     | The installed client library (`maac/sdk`, `@qatar-navigation-milaha/sdk`). | `MaacClient::VERSION` / `SDK_VERSION`; reported as `X-Maac-Sdk-Version` and `sdk_version`. |
 | **Tool contract version**   | A single tool's input/output schema + semantic version.    | `version` + `schema_fingerprint` per tool in the manifest. |
 
 All three follow [Semantic Versioning](https://semver.org/). An SDK package's
@@ -113,7 +113,7 @@ $result = (new ToolTester)->test($tool, $handler, ['query' => 'today']);
 // $result->passes() — input + output satisfy the contract schema.
 ```
 ```ts
-import { findTool, ToolTester } from '@maac/sdk';
+import { findTool, ToolTester } from '@qatar-navigation-milaha/sdk';
 
 const tool = findTool(await client.manifest(), 'fetch-records');
 const result = await new ToolTester().test(tool!, handler, { query: 'today' });
@@ -122,7 +122,7 @@ const result = await new ToolTester().test(tool!, handler, { query: 'today' });
 
 ## Upgrading the SDK package
 
-1. Bump the dependency (`composer require maac/sdk:^2` / `npm i @maac/sdk@^2`).
+1. Bump the dependency (`composer require maac/sdk:^2` / `npm i @qatar-navigation-milaha/sdk@^2`).
 2. Read this CHANGELOG entry for the new MAJOR and follow any per-change steps.
 3. Run `client.compatibility()` against each target MAAC environment — it must
    return `compatible` (or `ahead`).

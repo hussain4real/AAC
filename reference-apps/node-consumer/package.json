@@ -2,7 +2,7 @@
     "name": "maac-node-consumer",
     "version": "0.1.0",
     "private": true,
-    "description": "Reference Node/TypeScript application that integrates with MAAC through the @maac/sdk client.",
+    "description": "Reference Node/TypeScript application that integrates with MAAC through the @qatar-navigation-milaha/sdk client.",
     "type": "module",
     "engines": {
         "node": ">=22.18"

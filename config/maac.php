@@ -188,7 +188,7 @@ return [
                 'status' => 'supported',
             ],
             'typescript' => [
-                'name' => '@maac/sdk',
+                'name' => '@qatar-navigation-milaha/sdk',
                 'version' => '0.2.0',
                 'registry' => 'npm',
                 'status' => 'supported',

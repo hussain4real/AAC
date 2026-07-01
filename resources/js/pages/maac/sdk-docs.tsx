@@ -29,14 +29,14 @@ import { useMaacData } from '@/maac/use-data';
 /* ── code samples ── */
 
 const INSTALL = {
-    ts: `npm install @maac/sdk        # Node >= 18 (global fetch); zero dependencies`,
+    ts: `npm install @qatar-navigation-milaha/sdk        # Node >= 18 (global fetch); zero dependencies`,
     php: `composer require maac/sdk   # PHP >= 8.2, ext-curl, ext-json`,
     py: `# Python: MAAC generates ready-to-paste handler stubs today
 # (see "Implementing a handler"); a packaged client is planned.
 # Track status in the compatibility matrix below.`,
 };
 
-const QUICKSTART_TS = `import { isCompleted, MaacClient, ToolHandlerRegistry } from '@maac/sdk';
+const QUICKSTART_TS = `import { isCompleted, MaacClient, ToolHandlerRegistry } from '@qatar-navigation-milaha/sdk';
 
 const client = new MaacClient({
   baseUrl: process.env.MAAC_BASE_URL!,
@@ -82,7 +82,7 @@ grant_type=client_credentials&client_id={MAAC_CLIENT_ID}&client_secret={MAAC_CLI
 # -> { "token_type": "Bearer", "expires_in": 3600, "access_token": "..." }
 # The SDK caches the token, refreshes before expiry, and retries once on a 401.`;
 
-const HANDLER_TS = `import { ToolHandlerRegistry } from '@maac/sdk';
+const HANDLER_TS = `import { ToolHandlerRegistry } from '@qatar-navigation-milaha/sdk';
 
 const registry = new ToolHandlerRegistry().register(
   'fetch-records',                 // the tool contract slug
@@ -130,7 +130,7 @@ def fetch_records(args: dict, ctx: dict) -> dict:
     # Result must satisfy the output schema: { records: list, total: int }
     return {"records": records, "total": len(records)}`;
 
-const COMPAT_TS = `import { isSdkCompatible } from '@maac/sdk';
+const COMPAT_TS = `import { isSdkCompatible } from '@qatar-navigation-milaha/sdk';
 
 const compatibility = await client.compatibility();
 
@@ -158,7 +158,7 @@ const queued = await client.startRun('ops-agent', 'Long job', undefined, 'async'
 const settled = await client.pollRun(queued.runId);
 
 // Receive signed webhooks — register once, then verify every delivery:
-import { verifyWebhook } from '@maac/sdk';
+import { verifyWebhook } from '@qatar-navigation-milaha/sdk';
 const endpoint = await client.registerWebhook('https://app.example.com/hooks', ['*']);
 // …inside your webhook route, reject anything that does not verify:
 const ok = verifyWebhook(
@@ -216,7 +216,7 @@ foreach ($manifest->agents as $agent) {
 
 // $agent->tools still lists only the client-side tools you must implement.`;
 
-const VALIDATE_TS = `import { findTool, ToolTester } from '@maac/sdk';
+const VALIDATE_TS = `import { findTool, ToolTester } from '@qatar-navigation-milaha/sdk';
 
 const tool = findTool(await client.manifest(), 'fetch-records');
 const result = await new ToolTester().test(tool!, handler, { query: 'today' });
@@ -351,7 +351,7 @@ const MATRIX: {
         notes: 'PHP ≥ 8.2, ext-curl. Default cURL transport.',
     },
     {
-        name: 'TypeScript SDK (@maac/sdk)',
+        name: 'TypeScript SDK (@qatar-navigation-milaha/sdk)',
         pkgKey: 'typescript',
         version: '0.2.0',
         status: 'Supported',
@@ -725,7 +725,7 @@ export default function SdkDocs() {
                                 </Badge>
                                 <Badge tone="teal">maac/sdk (PHP)</Badge>
                                 <Badge tone="teal">
-                                    @maac/sdk (TypeScript)
+                                    @qatar-navigation-milaha/sdk (TypeScript)
                                 </Badge>
                             </div>
                         </DocSection>
