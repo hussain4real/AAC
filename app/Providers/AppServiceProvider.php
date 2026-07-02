@@ -7,6 +7,7 @@ use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Secrets\DatabaseSecretVault;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
@@ -40,11 +41,19 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configurePassport();
         $this->configurePlatformAuthorization();
+        $this->configureAuthorization();
     }
 
     /**
-     * Send
+     * Send users(Hackers) to 404 insteead of 403 when they try to access a route that they don't have permission to access.
+     * This is to prevent hackers from knowing that a route exists and they don't have permission to access it. This is a security measure to prevent hackers from knowing that a route exists and they don't have permission to access it.
      */
+    protected function configureAuthorization(): void
+    {
+        Gate::defaultDenialResponse(
+            Response::denyAsNotFound('The requested resource was not found.'),
+        );
+    }
 
     /**
      * Grant the MAAC Super Admin platform role an unrestricted authorization
