@@ -43,6 +43,10 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Send
+     */
+
+    /**
      * Grant the MAAC Super Admin platform role an unrestricted authorization
      * override (Phase 8B). Returning null falls through to the normal policy and
      * permission checks, so only a Super Admin is short-circuited — every other
