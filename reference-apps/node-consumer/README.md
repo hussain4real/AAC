@@ -2,7 +2,7 @@
 
 A reference consumer in a **different language stack** (Node + TypeScript),
 proving the MAAC integration contract is not Laravel- or PHP-specific. It uses
-the dependency-free [`@maac/sdk`](../../packages/maac-sdk-ts) TypeScript client —
+the dependency-free [`@qatar-navigation-milaha/sdk`](../../packages/maac-sdk-ts) TypeScript client —
 the same token exchange, manifest sync, implementation reporting, and
 pause/resume run loop as the PHP consumers.
 

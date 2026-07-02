@@ -1065,8 +1065,8 @@ function SetupCheck({ label, done }: { label: string; done: boolean }) {
 
 function AppSDK({ app }: { app: Application }) {
     const install = `# Install the MAAC SDK
-npm install @maac/sdk`;
-    const init = `import { MaacClient } from "@maac/sdk";
+npm install @qatar-navigation-milaha/sdk`;
+    const init = `import { MaacClient } from "@qatar-navigation-milaha/sdk";
 
 const maac = new MaacClient({
   projectId:     process.env.MAAC_PROJECT_ID,
@@ -1077,7 +1077,7 @@ const maac = new MaacClient({
 
 // Discover agents available to this application
 const agents = await maac.listAgents();`;
-    const handler = `import { ToolHandlerRegistry } from "@maac/sdk";
+    const handler = `import { ToolHandlerRegistry } from "@qatar-navigation-milaha/sdk";
 
 // Register a local handler, keyed by the tool's contract slug.
 // MAAC defines the contract; this app owns the execution.

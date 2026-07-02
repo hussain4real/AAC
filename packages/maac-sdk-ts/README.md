@@ -1,4 +1,4 @@
-# `@maac/sdk` — MAAC TypeScript SDK
+# `@qatar-navigation-milaha/sdk` — MAAC TypeScript SDK
 
 A dependency-free TypeScript client for the MAAC SDK and runtime API: token
 exchange, manifest sync, implementation reporting, and pause/resume agent runs.
@@ -16,7 +16,7 @@ package setup, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 ## Install
 
 ```bash
-npm install @maac/sdk@^0.2
+npm install @qatar-navigation-milaha/sdk@^0.2
 ```
 
 Private pilot installs require GitHub Packages registry/auth configuration. See
@@ -25,7 +25,7 @@ the Distribution Guide before running this command in a consuming application.
 ## Quick start (simple mode)
 
 ```ts
-import { isCompleted, MaacClient, ToolHandlerRegistry } from '@maac/sdk';
+import { isCompleted, MaacClient, ToolHandlerRegistry } from '@qatar-navigation-milaha/sdk';
 
 const client = new MaacClient({
   baseUrl: process.env.MAAC_BASE_URL!,
@@ -52,7 +52,7 @@ validation, manual pause/resume, controlled missing-handler).
 ## Detect compatibility (Phase 6C)
 
 ```ts
-import { isSdkCompatible } from '@maac/sdk';
+import { isSdkCompatible } from '@qatar-navigation-milaha/sdk';
 
 const compatibility = await client.compatibility();
 
@@ -65,7 +65,7 @@ if (!isSdkCompatible(compatibility)) {
 ## Validate a handler before reporting it (Phase 6C)
 
 ```ts
-import { findTool, ToolTester } from '@maac/sdk';
+import { findTool, ToolTester } from '@qatar-navigation-milaha/sdk';
 
 const tool = findTool(await client.manifest(), 'fetch-records');
 const result = await new ToolTester().test(tool!, handler, { query: 'today' });

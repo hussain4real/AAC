@@ -24,7 +24,7 @@ test('the typescript stub registers a real handler with args, output and permiss
     $stub = $this->generator->generate($this->tool, SdkLanguage::TypeScript);
 
     expect($stub)
-        ->toContain('import { ToolHandlerRegistry } from "@maac/sdk"')
+        ->toContain('import { ToolHandlerRegistry } from "@qatar-navigation-milaha/sdk"')
         ->toContain('registry.register("getOperationalRecords"')
         ->toContain('getoperationalrecords:read')   // permission hint (app-owned authorization)
         ->toContain('from_date: args.from_date')    // argument shape

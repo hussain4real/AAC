@@ -13,7 +13,7 @@ If you just want working code to copy, see the reference consumers:
 All three are thin wrappers over a reusable SDK client:
 
 - [`maac/sdk`](../packages/maac-sdk-php) — framework-agnostic PHP.
-- [`@maac/sdk`](../packages/maac-sdk-ts) — dependency-free TypeScript.
+- [`@qatar-navigation-milaha/sdk`](../packages/maac-sdk-ts) — dependency-free TypeScript.
 
 For private package installation and release steps, see the
 [SDK Distribution Guide](MAAC_SDK_Distribution_Guide.md).
@@ -132,7 +132,7 @@ $events = $client->streamRun($run->runId, fn ($e) => printf("%s\n", $e->event));
 // TypeScript — equivalents:
 const run = await client.runAsync('ops-agent', 'Summarize today', registry, 'caller', { intervalMs: 2000 });
 
-import { verifyWebhook } from '@maac/sdk';
+import { verifyWebhook } from '@qatar-navigation-milaha/sdk';
 const endpoint = await client.registerWebhook('https://app.example.com/hooks', ['*']);
 const ok = verifyWebhook(rawBody, sigHeader, timestampHeader, signingSecret);
 
@@ -179,10 +179,10 @@ $run = $client->run('e2e-ops-agent', 'Summarize today', $registry);
 echo $run->isCompleted() ? $run->response : "Run {$run->status}: {$run->error}";
 ```
 
-### TypeScript (`@maac/sdk`)
+### TypeScript (`@qatar-navigation-milaha/sdk`)
 
 ```ts
-import { MaacClient, ToolHandlerRegistry, isCompleted } from '@maac/sdk';
+import { MaacClient, ToolHandlerRegistry, isCompleted } from '@qatar-navigation-milaha/sdk';
 
 const client = new MaacClient({
   baseUrl: process.env.MAAC_BASE_URL!,
@@ -252,7 +252,7 @@ using them.
 | SDK / stack                         | Version | Status        | Notes |
 |-------------------------------------|---------|---------------|-------|
 | PHP SDK (`maac/sdk`)                | 0.2.0   | ✅ Supported  | PHP ≥ 8.2, ext-curl. Default cURL transport. |
-| TypeScript SDK (`@maac/sdk`)        | 0.2.0   | ✅ Supported  | Node ≥ 18 (global `fetch`); zero dependencies. |
+| TypeScript SDK (`@qatar-navigation-milaha/sdk`) | 0.2.0 | ✅ Supported  | Node ≥ 18 (global `fetch`); zero dependencies. |
 | Laravel reference consumer          | —       | ✅ Supported  | Service provider + Artisan command. |
 | Plain-PHP CLI reference consumer    | —       | ✅ Supported  | No framework. Proves the PHP SDK is framework-agnostic. |
 | Node / TypeScript reference consumer| —       | ✅ Supported  | Proves the contract is not Laravel/PHP-only. |

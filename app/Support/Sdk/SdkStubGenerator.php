@@ -61,7 +61,7 @@ class SdkStubGenerator
         $returnArgs = $this->lines($tool->output_schema, fn (string $f): string => "    {$f}: result.{$f},");
 
         return <<<TS
-        import { ToolHandlerRegistry } from "@maac/sdk";
+        import { ToolHandlerRegistry } from "@qatar-navigation-milaha/sdk";
 
         // Handler for the "{$tool->slug}" client-side tool (contract v{$tool->version}).
         // Pass `registry` to client.run(agentSlug, input, registry) — MAAC pauses the run here.

@@ -1,5 +1,5 @@
 {
-    "name": "@maac/sdk",
+    "name": "@qatar-navigation-milaha/sdk",
     "version": "0.2.0",
     "description": "Dependency-free TypeScript client for the MAAC SDK and runtime API: token exchange, manifest sync, implementation reporting, and pause/resume agent runs.",
     "license": "MIT",
