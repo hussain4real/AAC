@@ -8,7 +8,7 @@ MAAC SDKs available to pilot application teams.
 | Language | Package | Version | Distribution |
 |----------|---------|---------|--------------|
 | PHP | `maac/sdk` | `0.2.0` | Private Composer VCS package repository |
-| TypeScript | `@maac/sdk` | `0.2.0` | GitHub Packages npm registry |
+| TypeScript | `@qatar-navigation-milaha/sdk` | `0.2.0` | GitHub Packages npm registry |
 
 The MAAC API contract remains `v0.0.1`. These package versions are client
 library versions and can move independently as long as the API contract remains
@@ -16,13 +16,18 @@ backward compatible.
 
 ## Important Composer Note
 
-GitHub Packages supports the npm registry used by `@maac/sdk`, but it does not
-provide a Composer package registry. For the manual pilot release, PHP consumers
-install `maac/sdk` from a private Composer-compatible source: either a split PHP
-SDK repository whose root `composer.json` is `maac/sdk`, or a package/artifact
-repository such as Private Packagist. Do not point Composer VCS at the MAAC
-monorepo root; Composer reads the root `composer.json` and will not discover the
-nested `packages/maac-sdk-php/composer.json` package.
+GitHub Packages supports the npm registry used by
+`@qatar-navigation-milaha/sdk`, but it does not provide a Composer package
+registry. For the manual pilot release, PHP consumers install `maac/sdk` from a
+private Composer-compatible source: either a split PHP SDK repository whose root
+`composer.json` is `maac/sdk`, or a package/artifact repository such as Private
+Packagist. Do not point Composer VCS at the MAAC monorepo root; Composer reads
+the root `composer.json` and will not discover the nested
+`packages/maac-sdk-php/composer.json` package.
+
+The TypeScript SDK is published under the Qatar Navigation Milaha GitHub
+organization scope because GitHub Packages requires the npm package scope to
+match an account or organization that the publisher can write to.
 
 ## Consumer Authentication
 
@@ -72,14 +77,14 @@ Create a local or CI-provided `.npmrc` for the consuming application. Do not
 commit a token value.
 
 ```ini
-@maac:registry=https://npm.pkg.github.com
+@qatar-navigation-milaha:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
 Install the package:
 
 ```bash
-npm install @maac/sdk@^0.2
+npm install @qatar-navigation-milaha/sdk@^0.2
 ```
 
 ## Required Consumer Environment
@@ -122,7 +127,7 @@ Record the release evidence:
 ## Manual Publish Steps
 
 1. Confirm both package metadata files report `0.2.0`.
-2. Confirm the SDK READMEs and integration docs use `maac/sdk` and `@maac/sdk`.
+2. Confirm the SDK READMEs and integration docs use `maac/sdk` and `@qatar-navigation-milaha/sdk`.
 3. Tag the coordinated SDK release:
 
    ```bash
@@ -152,8 +157,8 @@ php -r "require 'vendor/autoload.php'; echo Maac\\Sdk\\MaacClient::VERSION.PHP_E
 ```
 
 For TypeScript, create a temporary Node project with the `.npmrc` registry
-configuration, install `@maac/sdk@^0.2`, and verify imports:
+configuration, install `@qatar-navigation-milaha/sdk@^0.2`, and verify imports:
 
 ```bash
-node -e "import('@maac/sdk').then((sdk) => console.log(sdk.SDK_VERSION))"
+node -e "import('@qatar-navigation-milaha/sdk').then((sdk) => console.log(sdk.SDK_VERSION))"
 ```
