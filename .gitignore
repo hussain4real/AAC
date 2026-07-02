@@ -29,3 +29,6 @@ yarn-error.log
 /.zed
 
 /database/maac_reporting.sqlite
+
+# Compiled TypeScript SDK output — build artifact, rebuilt from src via `npm run build`.
+/packages/maac-sdk-ts/dist
