@@ -2,7 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Team;
+use App\Models\TeamInvitation;
 use App\Models\User;
+use App\Support\MaacConsoleData;
 use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Secrets\DatabaseSecretVault;
 use Carbon\CarbonImmutable;
@@ -11,6 +14,7 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -40,6 +44,34 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configurePassport();
         $this->configurePlatformAuthorization();
+        $this->configureConsoleCacheInvalidation();
+    }
+
+    /**
+     * Invalidate the shared console dataset cache ({@see MaacConsoleData}) on any
+     * write to a console-scoped model. The dataset is a shared Inertia prop built
+     * on every authenticated request, so it is cached and only rebuilt when the
+     * underlying data actually changes. Team membership and auth models are
+     * ignored because they do not appear in the console payload and would
+     * otherwise bust the cache on routine writes (e.g. login).
+     */
+    protected function configureConsoleCacheInvalidation(): void
+    {
+        $ignored = [User::class, Team::class, TeamInvitation::class];
+
+        Event::listen(['eloquent.saved: *', 'eloquent.deleted: *'], function (string $event, array $models) use ($ignored): void {
+            $model = $models[0] ?? null;
+
+            if (! $model instanceof Model || ! str_starts_with($model::class, 'App\\Models\\')) {
+                return;
+            }
+
+            if (in_array($model::class, $ignored, true)) {
+                return;
+            }
+
+            MaacConsoleData::invalidate();
+        });
     }
 
     /**
