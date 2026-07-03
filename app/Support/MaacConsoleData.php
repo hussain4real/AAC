@@ -27,6 +27,7 @@ use App\Models\WebhookEndpoint;
 use App\Support\Observability\OperationalMonitor;
 use App\Support\Observability\RunMetrics;
 use App\Support\Sdk\SdkCompatibilityReport;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Assembles the MAAC console dataset for a team as plain arrays matching the
@@ -37,11 +38,53 @@ use App\Support\Sdk\SdkCompatibilityReport;
 class MaacConsoleData
 {
     /**
-     * Build the full console dataset for the given team.
+     * Cache key holding the monotonic version stamp for the console dataset.
+     * Bumped by {@see self::invalidate()} on any console-scoped write so cached
+     * payloads are abandoned (a new key) rather than served stale.
+     */
+    private const VERSION_KEY = 'maac:console:version';
+
+    /**
+     * Backstop TTL (seconds). Writes bump the version immediately, so this only
+     * bounds worst-case staleness if an invalidation is ever missed.
+     */
+    private const CACHE_TTL = 300;
+
+    /**
+     * Return the console dataset for a team, served from cache and rebuilt only
+     * when a write has bumped the version. This runs on every authenticated
+     * request (shared Inertia prop), so caching it keeps navigation fast.
      *
      * @return array<string, mixed>
      */
     public static function forTeam(Team $team): array
+    {
+        $version = (int) Cache::get(self::VERSION_KEY, 1);
+
+        return Cache::remember(
+            "maac:console:v{$version}:team:{$team->getKey()}",
+            self::CACHE_TTL,
+            static fn (): array => self::build($team),
+        );
+    }
+
+    /**
+     * Bump the console cache version so every team's dataset is rebuilt on the
+     * next read. Invoked on any write to a console-scoped model, from web or the
+     * queue worker (they share the cache store), keeping the cache coherent.
+     */
+    public static function invalidate(): void
+    {
+        Cache::add(self::VERSION_KEY, 1);
+        Cache::increment(self::VERSION_KEY);
+    }
+
+    /**
+     * Build the full console dataset for the given team.
+     *
+     * @return array<string, mixed>
+     */
+    private static function build(Team $team): array
     {
         $applications = $team->applications()
             ->with('credentials')
