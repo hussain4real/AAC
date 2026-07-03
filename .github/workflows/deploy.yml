@@ -59,9 +59,9 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o ConnectTimeout=20 \
             "${DEPLOY_USER}@${DEPLOY_HOST}" deploy
 
-          echo "Verifying https://maac.techstus.com/up ..."
+          echo "Verifying https://maacc.app/up ..."
           for i in $(seq 1 6); do
-            code="$(curl -fsS -o /dev/null -w '%{http_code}' https://maac.techstus.com/up 2>/dev/null || echo 000)"
+            code="$(curl -fsS -o /dev/null -w '%{http_code}' https://maacc.app/up 2>/dev/null || echo 000)"
             if [ "$code" = "200" ]; then
               echo "Health check OK (HTTP $code)"
               exit 0
@@ -69,5 +69,5 @@ jobs:
             echo "attempt $i: HTTP $code — retrying in 5s"
             sleep 5
           done
-          echo "::error title=Health check failed::https://maac.techstus.com/up did not return 200 after deploy"
+          echo "::error title=Health check failed::https://maacc.app/up did not return 200 after deploy"
           exit 1
