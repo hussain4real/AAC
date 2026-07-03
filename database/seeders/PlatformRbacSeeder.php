@@ -29,6 +29,13 @@ class PlatformRbacSeeder extends Seeder
             Permission::findOrCreate($permission, 'web');
         }
 
+        // Flush the Spatie permission cache before syncing roles. DatabaseSeeder
+        // runs under WithoutModelEvents, which suppresses the model events that
+        // normally invalidate this cache, so the just-created permissions would
+        // otherwise be invisible to syncPermissions() (a QueryException/
+        // PermissionDoesNotExist on Postgres with a persistent cache store).
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+
         foreach (PlatformRole::cases() as $role) {
             Role::findOrCreate($role->value, 'web')->syncPermissions($role->permissionValues());
         }
