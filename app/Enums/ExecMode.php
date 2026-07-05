@@ -4,7 +4,7 @@ namespace App\Enums;
 
 /**
  * Execution mode for a tool contract. Raw values match the console contract's
- * `execModeLabel` keys (resources/js/maac/data.ts).
+ * `execModeLabel` keys (resources/js/maacc/data.ts).
  */
 enum ExecMode: string
 {
@@ -21,7 +21,7 @@ enum ExecMode: string
     public function label(): string
     {
         return match ($this) {
-            self::Hosted => 'MAAC-hosted',
+            self::Hosted => 'MAACC-hosted',
             self::Client => 'Client-side',
             self::Http => 'Remote HTTP',
             self::Connector => 'Connector server',

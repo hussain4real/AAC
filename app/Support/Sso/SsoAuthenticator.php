@@ -36,7 +36,7 @@ class SsoAuthenticator
      */
     public function exchange(SsoConnection $connection, string $code): SsoIdentityPayload
     {
-        $timeout = (int) config('maac.sso.http_timeout_seconds');
+        $timeout = (int) config('maacc.sso.http_timeout_seconds');
 
         $token = Http::asForm()->timeout($timeout)->post($connection->token_url, [
             'grant_type' => 'authorization_code',
@@ -72,7 +72,7 @@ class SsoAuthenticator
     }
 
     /**
-     * The redirect URI MAAC registered with the provider for this connection.
+     * The redirect URI MAACC registered with the provider for this connection.
      */
     public function redirectUri(SsoConnection $connection): string
     {

@@ -148,7 +148,7 @@ test('the run stream replays trace events and ends with the final state', functi
 });
 
 test('the run stream tails a still-running run up to its budget', function () {
-    config(['maac.runtime.stream.poll_interval_ms' => 5, 'maac.runtime.stream.max_seconds' => 0.01]);
+    config(['maacc.runtime.stream.poll_interval_ms' => 5, 'maacc.runtime.stream.max_seconds' => 0.01]);
 
     $run = AgentRun::factory()->for($this->agent)->for($this->application)->for($this->project)->create([
         'status' => RunStatus::Queued,
@@ -164,7 +164,7 @@ test('the run stream tails a still-running run up to its budget', function () {
 
 test('an application registers, lists, and deletes a webhook endpoint', function () {
     $register = test()->postJson('/api/v1/webhook-endpoints', [
-        'url' => 'https://app.example.com/hooks/maac',
+        'url' => 'https://app.example.com/hooks/maacc',
         'events' => [WebhookEventType::RunCompleted->value],
     ])->assertStatus(201);
 
@@ -206,8 +206,8 @@ test('a completed run delivers signed webhooks to subscribed endpoints', functio
         ->and($deliveries->every(fn (WebhookDelivery $d): bool => $d->status === WebhookDeliveryStatus::Delivered))->toBeTrue();
 
     Http::assertSent(function ($request) use ($endpoint) {
-        $timestamp = $request->header('X-Maac-Webhook-Timestamp')[0];
-        $signature = $request->header('X-Maac-Signature')[0];
+        $timestamp = $request->header('X-Maacc-Webhook-Timestamp')[0];
+        $signature = $request->header('X-Maacc-Signature')[0];
 
         return WebhookSigner::verify($request->body(), $signature, $timestamp, $endpoint->secret, 300, (int) $timestamp);
     });
@@ -233,7 +233,7 @@ test('a failing webhook is retried then marked failed and observable', function 
     $delivery->refresh();
 
     expect($delivery->status)->toBe(WebhookDeliveryStatus::Failed)
-        ->and($delivery->attempts)->toBe(config('maac.runtime.webhooks.max_attempts'))
+        ->and($delivery->attempts)->toBe(config('maacc.runtime.webhooks.max_attempts'))
         ->and($delivery->response_status)->toBe(500)
         ->and($delivery->error)->toContain('500');
 
@@ -264,7 +264,7 @@ test('the webhook signature verifies only within the tolerance window', function
 
 test('registering a webhook without events subscribes to all events', function () {
     $response = test()->postJson('/api/v1/webhook-endpoints', [
-        'url' => 'https://app.example.com/hooks/maac',
+        'url' => 'https://app.example.com/hooks/maacc',
     ])->assertStatus(201);
 
     expect($response->json('events'))->toBe(['*']);
@@ -277,7 +277,7 @@ test('a delivery records a connection failure', function () {
     $endpoint = webhookEndpoint();
     $run = AgentRun::factory()->for($this->agent)->for($this->application)->create(['environment' => Environment::Production]);
     $delivery = WebhookDelivery::factory()->for($endpoint, 'endpoint')->for($run)->create([
-        'attempts' => (int) config('maac.runtime.webhooks.max_attempts') - 1,
+        'attempts' => (int) config('maacc.runtime.webhooks.max_attempts') - 1,
     ]);
 
     (new DeliverWebhook($delivery))->handle();

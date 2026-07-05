@@ -32,7 +32,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'sdk.auth' => AuthenticateSdkClient::class,
-            // MAAC platform-admin authorization (Spatie). `permission`/`role`
+            // MAACC platform-admin authorization (Spatie). `permission`/`role`
             // gate routes on the global platform RBAC; both compose with the
             // Super Admin `Gate::before` override (their checks go through the
             // gate), so a Super Admin passes without holding the explicit ability.

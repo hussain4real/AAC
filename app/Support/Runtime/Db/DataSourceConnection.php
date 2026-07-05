@@ -15,10 +15,10 @@ use Throwable;
  *
  * The source references an approved, ops-provisioned connection by name (a
  * replica or reporting schema configured out-of-band in `config/database.php`) —
- * MAAC never stores a connection string or host. When the source binds a vault
+ * MAACC never stores a connection string or host. When the source binds a vault
  * secret, its credential is read from the vault and injected over the base
  * connection at query time, so a central rotation takes effect on the next query
- * without MAAC persisting the password. The referenced connection must exist; an
+ * without MAACC persisting the password. The referenced connection must exist; an
  * unconfigured name is a controlled misconfiguration.
  */
 class DataSourceConnection
@@ -50,7 +50,7 @@ class DataSourceConnection
         }
 
         // Inject the vault-resolved credential over the approved base connection
-        // and reconnect, so MAAC never persists the password and a rotation is
+        // and reconnect, so MAACC never persists the password and a rotation is
         // picked up on the next query.
         $name = $source->ephemeralConnectionName();
         Config::set("database.connections.{$name}", [...$base, 'password' => $credential]);

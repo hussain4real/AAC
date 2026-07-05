@@ -1,20 +1,20 @@
 <?php
 
-use App\Actions\Maac\CreateCredential;
+use App\Actions\Maacc\CreateCredential;
 use App\Models\Application;
 use App\Models\User;
-use Database\Seeders\MaacE2ESeeder;
+use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
-use Maac\Reference\Cli\CliConsumer;
-use Maac\Reference\Cli\FetchRecordsHandler;
-use Maac\Sdk\MaacClient;
-use Maac\Sdk\MaacConfig;
-use Maac\Sdk\Tools\ToolHandlerRegistry;
+use Maacc\Reference\Cli\CliConsumer;
+use Maacc\Reference\Cli\FetchRecordsHandler;
+use Maacc\Sdk\MaaccClient;
+use Maacc\Sdk\MaaccConfig;
+use Maacc\Sdk\Tools\ToolHandlerRegistry;
 use Tests\Support\Sdk\KernelTransport;
 
 /**
  * Phase 6B: the plain-PHP CLI reference consumer (no Laravel, no container)
- * completes a real agent run against a seeded MAAC instance, proving the
+ * completes a real agent run against a seeded MAACC instance, proving the
  * integration contract is reusable from a bare PHP runtime via the shared SDK.
  */
 beforeEach(function () {
@@ -22,34 +22,34 @@ beforeEach(function () {
         Artisan::call('passport:keys');
     }
 
-    $this->seed(MaacE2ESeeder::class);
-    $application = Application::firstWhere('slug', MaacE2ESeeder::APP_SLUG);
+    $this->seed(MaaccE2ESeeder::class);
+    $application = Application::firstWhere('slug', MaaccE2ESeeder::APP_SLUG);
 
     $issued = app(CreateCredential::class)->handle(
         $application,
-        User::firstWhere('email', MaacE2ESeeder::USER_EMAIL),
+        User::firstWhere('email', MaaccE2ESeeder::USER_EMAIL),
         ['environment' => 'production'],
     );
 
-    $client = new MaacClient(
-        new MaacConfig('', $issued->credential->client_id, $issued->plainSecret),
+    $client = new MaaccClient(
+        new MaaccConfig('', $issued->credential->client_id, $issued->plainSecret),
         new KernelTransport($this),
     );
 
-    $registry = (new ToolHandlerRegistry)->register(new FetchRecordsHandler(MaacE2ESeeder::TOOL_SLUG));
-    $this->consumer = new CliConsumer($client, $registry, MaacE2ESeeder::AGENT_SLUG);
+    $registry = (new ToolHandlerRegistry)->register(new FetchRecordsHandler(MaaccE2ESeeder::TOOL_SLUG));
+    $this->consumer = new CliConsumer($client, $registry, MaaccE2ESeeder::AGENT_SLUG);
 });
 
 it('syncs its plain-php handler as implemented', function () {
     $results = $this->consumer->syncImplementations();
 
-    expect($results[0]['tool'])->toBe(MaacE2ESeeder::TOOL_SLUG)
+    expect($results[0]['tool'])->toBe(MaaccE2ESeeder::TOOL_SLUG)
         ->and($results[0]['status'])->toBe('implemented');
 });
 
 it('completes an agent run with a client-side tool from plain php', function () {
     bindFakeRouter()
-        ->toolCallThen(MaacE2ESeeder::TOOL_SLUG, ['query' => 'berth'])
+        ->toolCallThen(MaaccE2ESeeder::TOOL_SLUG, ['query' => 'berth'])
         ->textThen('Operations nominal.');
 
     $run = $this->consumer->run('Summarize current operations');

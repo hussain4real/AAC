@@ -5,7 +5,7 @@ namespace App\Enums;
 use Illuminate\Support\Str;
 
 /**
- * How a MAAC platform-access grant was made (Phase 8B). A `standard` grant is a
+ * How a MAACC platform-access grant was made (Phase 8B). A `standard` grant is a
  * deliberate, certifiable role assignment; a `break_glass` grant is time-boxed
  * emergency access that auto-expires and must be reviewed.
  */

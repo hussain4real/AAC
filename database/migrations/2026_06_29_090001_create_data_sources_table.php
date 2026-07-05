@@ -5,9 +5,9 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * A governed read-only data source MAAC may query on behalf of a `db` tool. The
+ * A governed read-only data source MAACC may query on behalf of a `db` tool. The
  * source references an ops-provisioned, read-only Laravel connection by name
- * (never a plaintext connection string) and resolves any credential MAAC must
+ * (never a plaintext connection string) and resolves any credential MAACC must
  * inject from the secrets vault (`vault_secret_id`) at query time. It carries the
  * approved query surface (`allowed_relations`), result/timeout caps, a freshness
  * marker, an environment availability list, and a sensitivity classification. A
@@ -30,7 +30,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->string('connection_type');
             // The name of an approved, ops-provisioned read-only Laravel
-            // connection (a replica/reporting schema). MAAC stores only the
+            // connection (a replica/reporting schema). MAACC stores only the
             // reference — never a connection string, host, or credential.
             $table->string('connection');
             $table->string('driver')->nullable();

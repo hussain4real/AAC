@@ -8,7 +8,7 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 /**
- * Records MAAC audit events from model lifecycle events (created/updated/
+ * Records MAACC audit events from model lifecycle events (created/updated/
  * deleted), keeping audit logging on the model rather than in controllers.
  * Each consuming model resolves the owning team via {@see self::auditTeam()}.
  */

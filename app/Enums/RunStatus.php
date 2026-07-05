@@ -6,7 +6,7 @@ use Illuminate\Support\Str;
 
 /**
  * Lifecycle status of an agent run. Raw values match the console contract
- * (resources/js/maac/data.ts); `requires_approval` is included for the
+ * (resources/js/maacc/data.ts); `requires_approval` is included for the
  * Phase 4 runtime and is not yet produced by the seeded fixture.
  */
 enum RunStatus: string

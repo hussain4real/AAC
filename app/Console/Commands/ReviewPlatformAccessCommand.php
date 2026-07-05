@@ -7,7 +7,7 @@ use App\Support\Platform\PlatformAccessManager;
 use Illuminate\Console\Command;
 
 /**
- * Reviews MAAC platform access (Phase 8B): revokes every break-glass grant whose
+ * Reviews MAACC platform access (Phase 8B): revokes every break-glass grant whose
  * window has elapsed, then reports the standard grants that need re-certification
  * and the platform admins with no recent activity (stale accounts). Intended to
  * run on a schedule so emergency access never lingers and access certification
@@ -20,7 +20,7 @@ class ReviewPlatformAccessCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'maac:review-platform-access {--json : Output the review as JSON}';
+    protected $signature = 'maacc:review-platform-access {--json : Output the review as JSON}';
 
     /**
      * The console command description.

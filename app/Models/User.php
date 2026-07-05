@@ -3,7 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
-use App\Concerns\HasMaacAccess;
+use App\Concerns\HasMaaccAccess;
 use App\Concerns\HasPlatformAccess;
 use App\Concerns\HasTeams;
 use Database\Factories\UserFactory;
@@ -47,9 +47,9 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements OAuthenticatable, PasskeyUser
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasMaacAccess, HasPlatformAccess, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable,TwoFactorAuthenticatable {
+    use HasApiTokens, HasFactory, HasMaaccAccess, HasPlatformAccess, HasRoles, HasTeams, Notifiable, PasskeyAuthenticatable,TwoFactorAuthenticatable {
         // The app's tenant `teams` relation wins over Spatie's teams-feature
-        // helper (MAAC runs Spatie in non-teams mode — platform roles are global).
+        // helper (MAACC runs Spatie in non-teams mode — platform roles are global).
         HasTeams::teams insteadof HasRoles;
     }
 

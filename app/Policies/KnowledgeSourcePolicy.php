@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\KnowledgeSource;
 use App\Models\User;
 
@@ -36,7 +36,7 @@ class KnowledgeSourcePolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageTool);
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -44,8 +44,8 @@ class KnowledgeSourcePolicy
      */
     public function update(User $user, KnowledgeSource $source): bool
     {
-        return $user->isMaacPlatformAdmin($source->team)
-            || $user->hasMaacPermissionOnAnyProject($source->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($source->team)
+            || $user->hasMaaccPermissionOnAnyProject($source->team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -53,7 +53,7 @@ class KnowledgeSourcePolicy
      */
     public function delete(User $user, KnowledgeSource $source): bool
     {
-        return $user->isMaacPlatformAdmin($source->team)
-            || $user->hasMaacPermissionOnAnyProject($source->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($source->team)
+            || $user->hasMaaccPermissionOnAnyProject($source->team, MaaccPermission::ManageTool);
     }
 }

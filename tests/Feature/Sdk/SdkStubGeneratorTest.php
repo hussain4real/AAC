@@ -37,7 +37,7 @@ test('the php stub registers a real handler with args, output and permission hin
     $stub = $this->generator->generate($this->tool, SdkLanguage::Php);
 
     expect($stub)
-        ->toContain('use Maac\\Sdk\\Tools\\ToolHandlerRegistry;')
+        ->toContain('use Maacc\\Sdk\\Tools\\ToolHandlerRegistry;')
         ->toContain("registerCallable('getOperationalRecords'")
         ->toContain('getoperationalrecords:read')
         ->toContain("'from_date' => \$args['from_date'] ?? null")
@@ -49,7 +49,7 @@ test('the python stub registers a real handler with args, output and permission 
     $stub = $this->generator->generate($this->tool, SdkLanguage::Python);
 
     expect($stub)
-        ->toContain('from maac_sdk import ToolHandlerRegistry')
+        ->toContain('from maacc_sdk import ToolHandlerRegistry')
         ->toContain('@registry.register("getOperationalRecords")')
         ->toContain('def getOperationalRecords(')
         ->toContain('getoperationalrecords:read')

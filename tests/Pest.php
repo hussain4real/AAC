@@ -1,8 +1,8 @@
 <?php
 
-use App\Actions\Maac\CreateToolContract;
+use App\Actions\Maacc\CreateToolContract;
 use App\Enums\ExecMode;
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use App\Enums\Sensitivity;
 use App\Enums\TeamRole;
 use App\Enums\ToolScope;
@@ -65,7 +65,7 @@ function something()
 }
 
 /**
- * Build a team owner (MAAC Platform Admin) and their current team.
+ * Build a team owner (MAACC Platform Admin) and their current team.
  *
  * @return array{0: User, 1: Team}
  */
@@ -90,12 +90,12 @@ function teamMember(Team $team): User
 }
 
 /**
- * Add a plain team member and grant them a MAAC role on the given project.
+ * Add a plain team member and grant them a MAACC role on the given project.
  */
-function projectRoleUser(Team $team, Project $project, MaacRole $role): User
+function projectRoleUser(Team $team, Project $project, MaaccRole $role): User
 {
     $user = teamMember($team);
-    $project->members()->attach($user, ['maac_role' => $role->value]);
+    $project->members()->attach($user, ['maacc_role' => $role->value]);
 
     return $user;
 }
@@ -106,7 +106,7 @@ function projectRoleUser(Team $team, Project $project, MaacRole $role): User
  *
  * @param  array<string, mixed>  $attributes
  */
-function maacAgent(Team $team, array $attributes = []): Agent
+function maaccAgent(Team $team, array $attributes = []): Agent
 {
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
@@ -120,7 +120,7 @@ function maacAgent(Team $team, array $attributes = []): Agent
  *
  * @param  array<string, mixed>  $attributes
  */
-function maacRun(Agent $agent, array $attributes = []): AgentRun
+function maaccRun(Agent $agent, array $attributes = []): AgentRun
 {
     return AgentRun::factory()->create(array_merge([
         'agent_id' => $agent->id,

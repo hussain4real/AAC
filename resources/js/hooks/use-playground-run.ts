@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import {
     store,
     toolResult,
-} from '@/actions/App/Http/Controllers/Maac/PlaygroundRunController';
+} from '@/actions/App/Http/Controllers/Maacc/PlaygroundRunController';
 
 /**
  * One ordered trace event recorded during a run, as surfaced to the console.

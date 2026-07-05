@@ -7,7 +7,7 @@ use App\Support\Observability\OperationalMonitor;
 /**
  * Severity of an operational alert surfaced by the
  * {@see OperationalMonitor}. Raw values match the
- * console contract (resources/js/maac/data.ts alert `sev`).
+ * console contract (resources/js/maacc/data.ts alert `sev`).
  */
 enum AlertSeverity: string
 {

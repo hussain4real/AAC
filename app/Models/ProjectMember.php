@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
@@ -12,13 +12,13 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $project_id
  * @property int $user_id
- * @property MaacRole $maac_role
+ * @property MaaccRole $maacc_role
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Project $project
  * @property-read User $user
  */
-#[Fillable(['project_id', 'user_id', 'maac_role'])]
+#[Fillable(['project_id', 'user_id', 'maacc_role'])]
 class ProjectMember extends Pivot
 {
     /**
@@ -63,7 +63,7 @@ class ProjectMember extends Pivot
     protected function casts(): array
     {
         return [
-            'maac_role' => MaacRole::class,
+            'maacc_role' => MaaccRole::class,
         ];
     }
 }

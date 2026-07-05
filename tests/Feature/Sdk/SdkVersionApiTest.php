@@ -14,9 +14,9 @@ beforeEach(function () {
         'environment' => Environment::Production,
     ]);
 
-    config()->set('maac.sdk.api_version', '0.0.1');
-    config()->set('maac.sdk.minimum_client_version', '0.0.1');
-    config()->set('maac.sdk.current_client_version', '0.2.0');
+    config()->set('maacc.sdk.api_version', '0.0.1');
+    config()->set('maacc.sdk.minimum_client_version', '0.0.1');
+    config()->set('maacc.sdk.current_client_version', '0.2.0');
 
     Passport::actingAsClient($this->credential->oauthClient, [], 'api');
 });
@@ -33,7 +33,7 @@ test('the sdk endpoint describes the versioned contract and supported packages',
         ->toContain('php', 'typescript')
         ->and(collect($response->json('packages'))->firstWhere('language', 'php'))
         ->toMatchArray([
-            'name' => 'maac/sdk',
+            'name' => 'maacc/sdk',
             'registry' => 'composer-vcs',
             'status' => 'supported',
         ])
@@ -41,7 +41,7 @@ test('the sdk endpoint describes the versioned contract and supported packages',
 });
 
 test('it reports a reported client version as compatible via the header', function () {
-    $this->withHeaders(['X-Maac-Sdk-Version' => '0.1.0', 'X-Maac-Sdk-Language' => 'php'])
+    $this->withHeaders(['X-Maacc-Sdk-Version' => '0.1.0', 'X-Maacc-Sdk-Language' => 'php'])
         ->getJson('/api/v1/sdk')
         ->assertOk()
         ->assertJsonPath('compatibility.status', 'compatible')
@@ -51,7 +51,7 @@ test('it reports a reported client version as compatible via the header', functi
 });
 
 test('it flags an outdated client version as requiring an upgrade', function () {
-    $this->withHeaders(['X-Maac-Sdk-Version' => '0.0.0'])
+    $this->withHeaders(['X-Maacc-Sdk-Version' => '0.0.0'])
         ->getJson('/api/v1/sdk')
         ->assertOk()
         ->assertJsonPath('compatibility.status', 'upgrade_required')
@@ -77,11 +77,11 @@ test('an unreported client version is unknown', function () {
 test('every v1 response carries the api version header', function () {
     $this->getJson('/api/v1/sdk')
         ->assertOk()
-        ->assertHeader('X-Maac-Api-Version', '0.0.1');
+        ->assertHeader('X-Maacc-Api-Version', '0.0.1');
 
     $this->getJson('/api/v1/manifest')
         ->assertOk()
-        ->assertHeader('X-Maac-Api-Version', '0.0.1');
+        ->assertHeader('X-Maacc-Api-Version', '0.0.1');
 });
 
 test('the manifest embeds the versioned sdk contract block', function () {

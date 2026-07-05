@@ -12,11 +12,11 @@ use Laravel\Ai\Responses\Data\ToolCall;
 /**
  * The production LLM Router, backed by the Laravel AI SDK (`laravel/ai`).
  *
- * MAAC owns the orchestration loop so it can pause for client-side tools, which
+ * MAACC owns the orchestration loop so it can pause for client-side tools, which
  * the SDK's auto-executing agent loop cannot. The router therefore drives a
  * {@see RuntimeAgent} capped at a single step: it offers the agent's tools as
  * native provider function-calls (which models follow reliably) and surfaces any
- * tool the model requests back to MAAC un-executed, for MAAC to route by
+ * tool the model requests back to MAACC un-executed, for MAACC to route by
  * execution mode. A plain reply is returned as the final answer. A legacy
  * text-protocol envelope ({@see self::parse()}) is still honored as a fallback.
  */
@@ -59,7 +59,7 @@ class AiLlmRouter implements LlmRouter
     }
 
     /**
-     * Convert MAAC's provider-tool definition into the Laravel AI SDK tool.
+     * Convert MAACC's provider-tool definition into the Laravel AI SDK tool.
      */
     private function providerTool(LlmProviderToolDefinition $definition): ProviderTool
     {

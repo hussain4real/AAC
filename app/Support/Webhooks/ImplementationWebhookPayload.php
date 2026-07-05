@@ -9,7 +9,7 @@ use App\Models\ToolImplementation;
 use Illuminate\Support\Facades\Date;
 
 /**
- * Builds the JSON body MAAC posts for a tool-implementation webhook event, so a
+ * Builds the JSON body MAACC posts for a tool-implementation webhook event, so a
  * receiver learns which client-side tool was reported, in which environment, and
  * the resolved implementation status (implemented, outdated, or incompatible).
  */

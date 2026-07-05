@@ -5,11 +5,11 @@ namespace App\Enums;
 use Illuminate\Support\Str;
 
 /**
- * Granular MAAC platform-administration permissions (Phase 8B).
+ * Granular MAACC platform-administration permissions (Phase 8B).
  *
- * These are the Spatie permission names that gate MAAC's own internal
- * administration — the cross-tenant platform controls held by MAAC admins, as
- * distinct from the team/project-scoped {@see MaacPermission} that governs a
+ * These are the Spatie permission names that gate MAACC's own internal
+ * administration — the cross-tenant platform controls held by MAACC admins, as
+ * distinct from the team/project-scoped {@see MaaccPermission} that governs a
  * tenant user's own application workflows. A {@see PlatformRole} grants a subset
  * of these, and the seeder materializes them into the Spatie permission table.
  */

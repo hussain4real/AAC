@@ -1,24 +1,24 @@
 #!/usr/bin/env node
 
 /**
- * Standalone Node/TypeScript MAAC test client. Using ONLY the public SDK, it:
+ * Standalone Node/TypeScript MAACC test client. Using ONLY the public SDK, it:
  *   1. authenticates with client_credentials,
  *   2. syncs the manifest (the client-side tool starts as "required"),
- *   3. reports its local handler so MAAC REGISTERS the implementation,
+ *   3. reports its local handler so MAACC REGISTERS the implementation,
  *   4. re-syncs the manifest (the tool now reads "implemented"),
  *   5. runs a published agent — and when the model calls the client-side tool,
- *      MAAC pauses, the app runs its OWN handler locally, submits the result, and
- *      the run resumes. MAAC only ever sees the result, never the app's data.
+ *      MAACC pauses, the app runs its OWN handler locally, submits the result, and
+ *      the run resumes. MAACC only ever sees the result, never the app's data.
  *
- * Run against a live MAAC:
+ * Run against a live MAACC:
  *
- *   MAAC_BASE_URL=https://maac.test \
- *   MAAC_CLIENT_ID=… MAAC_CLIENT_SECRET=… \
- *   MAAC_AGENT_SLUG=node-port-ops MAAC_TOOL_SLUG=fetch_port_records \
+ *   MAACC_BASE_URL=https://maacc.test \
+ *   MAACC_CLIENT_ID=… MAACC_CLIENT_SECRET=… \
+ *   MAACC_AGENT_SLUG=node-port-ops MAACC_TOOL_SLUG=fetch_port_records \
  *   node reference-apps/node-tool-client/bin/run.ts "What's the current port status?"
  */
-import { MaacClient, ToolHandlerRegistry, isCompleted } from '../../../packages/maac-sdk-ts/src/index.ts';
-import type { Manifest } from '../../../packages/maac-sdk-ts/src/index.ts';
+import { MaaccClient, ToolHandlerRegistry, isCompleted } from '../../../packages/maacc-sdk-ts/src/index.ts';
+import type { Manifest } from '../../../packages/maacc-sdk-ts/src/index.ts';
 import { portOperationsHandler } from '../src/portOperationsTool.ts';
 
 function env(key: string): string {
@@ -39,15 +39,15 @@ function toolStatus(manifest: Manifest, slug: string): string {
   return manifest.tools.find((tool) => tool.name === slug)?.implementation.status ?? '(not in manifest)';
 }
 
-const baseUrl = env('MAAC_BASE_URL');
-const agentSlug = env('MAAC_AGENT_SLUG');
-const toolSlug = env('MAAC_TOOL_SLUG');
+const baseUrl = env('MAACC_BASE_URL');
+const agentSlug = env('MAACC_AGENT_SLUG');
+const toolSlug = env('MAACC_TOOL_SLUG');
 const prompt = process.argv[2] ?? 'What is the current port operations status? Flag anything congested or down.';
 
-const client = new MaacClient({
+const client = new MaaccClient({
   baseUrl,
-  clientId: env('MAAC_CLIENT_ID'),
-  clientSecret: env('MAAC_CLIENT_SECRET'),
+  clientId: env('MAACC_CLIENT_ID'),
+  clientSecret: env('MAACC_CLIENT_SECRET'),
 });
 
 // Pair the tool slug with the app's LOCAL handler. The wrapper narrates so the
@@ -55,9 +55,9 @@ const client = new MaacClient({
 const registry = new ToolHandlerRegistry().register(
   toolSlug,
   (args, context) => {
-    log(`     ⏸  MAAC paused run ${context.run.runId} for client tool "${context.toolCall.tool}" — args ${JSON.stringify(args)}`);
+    log(`     ⏸  MAACC paused run ${context.run.runId} for client tool "${context.toolCall.tool}" — args ${JSON.stringify(args)}`);
     const result = portOperationsHandler(args, context);
-    log(`        ↳ executed locally in the Node app (MAAC never sees this data) → ${JSON.stringify(result)}`);
+    log(`        ↳ executed locally in the Node app (MAACC never sees this data) → ${JSON.stringify(result)}`);
 
     return result;
   },
@@ -65,7 +65,7 @@ const registry = new ToolHandlerRegistry().register(
 );
 
 try {
-  log(`MAAC Node test client → ${baseUrl}\n`);
+  log(`MAACC Node test client → ${baseUrl}\n`);
 
   log('1) Authenticate (client_credentials)…');
   await client.authenticate();
@@ -75,9 +75,9 @@ try {
   const before = await client.manifest();
   log(`   tool "${toolSlug}" implementation status = ${toolStatus(before, toolSlug)}\n`);
 
-  log('3) Report the local handler → MAAC registers the implementation…');
+  log('3) Report the local handler → MAACC registers the implementation…');
   const results = await client.reportHandlers(before, registry, 'typescript');
-  log(`   ✓ MAAC accepted: ${JSON.stringify(results)}\n`);
+  log(`   ✓ MAACC accepted: ${JSON.stringify(results)}\n`);
 
   log('4) Manifest AFTER reporting:');
   const after = await client.manifest();
@@ -93,6 +93,6 @@ try {
   process.exit(isCompleted(run) ? 0 : 1);
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`MAAC integration failed: ${message}\n`);
+  process.stderr.write(`MAACC integration failed: ${message}\n`);
   process.exit(1);
 }

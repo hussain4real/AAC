@@ -5,10 +5,10 @@ namespace App\Support\Sdk;
 use App\Support\Webhooks\WebhookSigner;
 
 /**
- * Builds the canonical SDK contract fixture suite from MAAC's own logic (Phase
+ * Builds the canonical SDK contract fixture suite from MAACC's own logic (Phase
  * 6C). Each case's expected output is computed by the real server classes
  * ({@see ToolSchema}, {@see ToolCompatibility}, {@see SdkPlatform}), so the
- * committed `packages/sdk-fixtures/contract.json` IS MAAC's source of truth.
+ * committed `packages/sdk-fixtures/contract.json` IS MAACC's source of truth.
  *
  * Every supported SDK language runs the same file through its own port of these
  * rules; a server-side change to a schema/compatibility/negotiation rule (or an
@@ -71,7 +71,7 @@ class ContractFixtures
     }
 
     /**
-     * Schema-validation cases, with the valid flag + errors computed by MAAC's
+     * Schema-validation cases, with the valid flag + errors computed by MAACC's
      * real {@see ToolSchema::validatePayload()}.
      *
      * @return array<int, array<string, mixed>>
@@ -139,7 +139,7 @@ class ContractFixtures
     }
 
     /**
-     * Fingerprint cases, with the value computed by MAAC's real
+     * Fingerprint cases, with the value computed by MAACC's real
      * {@see ToolCompatibility::fingerprint()}.
      *
      * @return array<int, array<string, mixed>>
@@ -175,7 +175,7 @@ class ContractFixtures
     }
 
     /**
-     * Implementation-compatibility cases, with the status computed by MAAC's
+     * Implementation-compatibility cases, with the status computed by MAACC's
      * real {@see ToolCompatibility::status()}.
      *
      * @return array<int, array<string, mixed>>
@@ -203,7 +203,7 @@ class ContractFixtures
     }
 
     /**
-     * Version-negotiation cases, with the verdict computed by MAAC's real
+     * Version-negotiation cases, with the verdict computed by MAACC's real
      * {@see SdkPlatform::resolveCompatibility()}.
      *
      * @return array<int, array<string, mixed>>
@@ -236,7 +236,7 @@ class ContractFixtures
     }
 
     /**
-     * Webhook-signature cases, with the expected HMAC computed by MAAC's real
+     * Webhook-signature cases, with the expected HMAC computed by MAACC's real
      * {@see WebhookSigner::sign()}. Every SDK's signer (and a receiver verifying
      * a delivery) must produce the identical signature for the same inputs.
      *

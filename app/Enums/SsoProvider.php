@@ -5,7 +5,7 @@ namespace App\Enums;
 use App\Models\SsoConnection;
 
 /**
- * The protocol an enterprise {@see SsoConnection} speaks. MAAC implements the
+ * The protocol an enterprise {@see SsoConnection} speaks. MAACC implements the
  * OAuth 2.0 / OIDC authorization-code flow (authorize → token → userinfo) over
  * the HTTP client, so both providers drive the same flow against the connection's
  * configured endpoints; the distinction is metadata for the console.

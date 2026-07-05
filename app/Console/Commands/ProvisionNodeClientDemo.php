@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Actions\Maac\CreateCredential;
+use App\Actions\Maacc\CreateCredential;
 use App\Enums\AgentStatus;
 use App\Enums\AppStatus;
 use App\Enums\Environment;
@@ -29,7 +29,7 @@ use Illuminate\Console\Command;
  * call the tool, so a real run pauses for client-side execution — which is what
  * the Node app implements and resumes.
  *
- * Requires a vault-keyed model from {@see ProvisionOpenAiSmoke} (`maac:openai-smoke`).
+ * Requires a vault-keyed model from {@see ProvisionOpenAiSmoke} (`maacc:openai-smoke`).
  */
 class ProvisionNodeClientDemo extends Command
 {
@@ -38,7 +38,7 @@ class ProvisionNodeClientDemo extends Command
      *
      * @var string
      */
-    protected $signature = 'maac:node-client-demo
+    protected $signature = 'maacc:node-client-demo
         {--team= : Team slug (defaults to the first team)}
         {--model=gpt-5.4 : The OpenAI model code the agent runs on}
         {--environment=production : The environment for the app, agent, and credential}';
@@ -81,7 +81,7 @@ class ProvisionNodeClientDemo extends Command
             ->first();
 
         if (! $provider instanceof LlmProvider) {
-            $this->error("No vault-keyed [{$model}] model found for team [{$team->slug}]. Run: php artisan maac:openai-smoke --team={$team->slug} --key=… first.");
+            $this->error("No vault-keyed [{$model}] model found for team [{$team->slug}]. Run: php artisan maacc:openai-smoke --team={$team->slug} --key=… first.");
 
             return self::FAILURE;
         }
@@ -99,11 +99,11 @@ class ProvisionNodeClientDemo extends Command
 
         $this->newLine();
         $this->info('Provisioned the Node SDK test client for team ['.$team->slug.'].');
-        $this->line('  MAAC_BASE_URL      : '.rtrim((string) config('app.url'), '/'));
-        $this->line('  MAAC_CLIENT_ID     : '.$secret->credential->client_id);
-        $this->line('  MAAC_CLIENT_SECRET : '.$secret->plainSecret.'   (shown once)');
-        $this->line('  MAAC_AGENT_SLUG    : '.$agent->agent_slug);
-        $this->line('  MAAC_TOOL_SLUG     : '.$tool->slug.' (client-side, '.ImplStatus::Required->label().')');
+        $this->line('  MAACC_BASE_URL      : '.rtrim((string) config('app.url'), '/'));
+        $this->line('  MAACC_CLIENT_ID     : '.$secret->credential->client_id);
+        $this->line('  MAACC_CLIENT_SECRET : '.$secret->plainSecret.'   (shown once)');
+        $this->line('  MAACC_AGENT_SLUG    : '.$agent->agent_slug);
+        $this->line('  MAACC_TOOL_SLUG     : '.$tool->slug.' (client-side, '.ImplStatus::Required->label().')');
 
         return self::SUCCESS;
     }
@@ -138,7 +138,7 @@ class ProvisionNodeClientDemo extends Command
                 'environment' => $environment,
                 'status' => AppStatus::Active,
                 'stack' => 'Node.js · TypeScript',
-                'description' => 'External Node integration exercising the MAAC SDK and client-side tools.',
+                'description' => 'External Node integration exercising the MAACC SDK and client-side tools.',
                 'region' => 'Qatar — Doha DC',
             ],
         );

@@ -6,7 +6,7 @@ use App\Support\Runtime\Contracts\HostedTool;
 
 /**
  * Built-in hosted tool that adds a list of numbers and returns the exact total.
- * A model offloads arithmetic to this MAAC-hosted handler instead of computing
+ * A model offloads arithmetic to this MAACC-hosted handler instead of computing
  * it itself, which is exactly the kind of work a tool call exists for.
  *
  * Contract shape: input `{ "numbers": "array" }`, output `{ "total": "number" }`.

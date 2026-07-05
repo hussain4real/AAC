@@ -15,8 +15,8 @@ use App\Support\Runtime\Routing\ProviderHealth;
 
 test('with no routing policy the router selects the agent configured model', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
-    $run = maacRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Internal]);
+    $agent = maaccAgent($team);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Internal]);
 
     $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
 
@@ -27,9 +27,9 @@ test('with no routing policy the router selects the agent configured model', fun
 
 test('with no policy an unavailable model yields no selection', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
     $agent->llmProvider->update(['environments' => [Environment::Staging->value]]);
-    $run = maacRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Internal]);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Internal]);
 
     $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
 
@@ -39,7 +39,7 @@ test('with no policy an unavailable model yields no selection', function () {
 
 test('the cost-optimized strategy selects the cheapest eligible model', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
     $agent->llmProvider->update(['input_cost' => 5, 'output_cost' => 5]);
     $cheap = LlmProvider::factory()->for($team)->create(['input_cost' => 0.5, 'output_cost' => 0.5]);
     $mid = LlmProvider::factory()->for($team)->create(['input_cost' => 2, 'output_cost' => 2]);
@@ -48,7 +48,7 @@ test('the cost-optimized strategy selects the cheapest eligible model', function
         'fallback_provider_ids' => [$cheap->id, $mid->id],
     ]);
 
-    $run = maacRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
     $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
 
     expect($decision->provider->is($cheap))->toBeTrue()
@@ -58,7 +58,7 @@ test('the cost-optimized strategy selects the cheapest eligible model', function
 
 test('the router filters candidates by environment, sensitivity, and cost ceiling', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
     $agent->llmProvider->update(['sensitivity' => Sensitivity::Restricted, 'input_cost' => 1, 'output_cost' => 1]);
 
     $wrongEnv = LlmProvider::factory()->for($team)->create(['environments' => [Environment::Staging->value], 'sensitivity' => Sensitivity::Restricted]);
@@ -70,7 +70,7 @@ test('the router filters candidates by environment, sensitivity, and cost ceilin
         'max_cost_per_1k' => 10,
     ]);
 
-    $run = maacRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Restricted]);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Restricted]);
     $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
 
     expect($decision->provider->is($agent->llmProvider))->toBeTrue()
@@ -82,7 +82,7 @@ test('the router filters candidates by environment, sensitivity, and cost ceilin
 
 test('an unhealthy primary is filtered so a healthy fallback is chosen', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
     $primary = $agent->llmProvider;
     $fallback = LlmProvider::factory()->for($team)->create();
 
@@ -100,7 +100,7 @@ test('an unhealthy primary is filtered so a healthy fallback is chosen', functio
         'fallback_provider_ids' => [$fallback->id],
     ]);
 
-    $run = maacRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
     $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
 
     expect($decision->provider->is($fallback))->toBeTrue()
@@ -127,7 +127,7 @@ test('provider health reflects recent failures, latency, and an unknown provider
 
 test('the runtime fails over to the next model when a model call errors mid-run', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
     // Make the agent's model the cheapest so it is chosen first; failover then
     // moves to the costlier fallback.
     $agent->llmProvider->update(['input_cost' => 0.1, 'output_cost' => 0.1]);
@@ -149,7 +149,7 @@ test('the runtime fails over to the next model when a model call errors mid-run'
 
 test('the run fails when the routing chain is exhausted', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
 
     ModelRoutingPolicy::factory()->for($team)->for($agent)->create(['fallback_provider_ids' => []]);
 
@@ -164,7 +164,7 @@ test('the run fails when the routing chain is exhausted', function () {
 
 test('the run trace records the routing rationale and considered candidates', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
     $fallback = LlmProvider::factory()->for($team)->create();
     ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create(['fallback_provider_ids' => [$fallback->id]]);
 

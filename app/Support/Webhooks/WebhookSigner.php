@@ -3,11 +3,11 @@
 namespace App\Support\Webhooks;
 
 /**
- * Signs and verifies MAAC webhook payloads with an HMAC-SHA256 signature over
+ * Signs and verifies MAACC webhook payloads with an HMAC-SHA256 signature over
  * `{timestamp}.{body}`. Binding the timestamp into the signed material lets a
  * receiver reject replays outside a tolerance window. The same algorithm is
  * ported into the PHP and TypeScript SDKs (and pinned by the shared contract
- * fixtures) so a receiver can verify a delivery without MAAC internals.
+ * fixtures) so a receiver can verify a delivery without MAACC internals.
  */
 class WebhookSigner
 {
@@ -20,7 +20,7 @@ class WebhookSigner
     }
 
     /**
-     * Format the signature for the `X-Maac-Signature` header.
+     * Format the signature for the `X-Maacc-Signature` header.
      */
     public static function header(string $signature): string
     {
@@ -29,7 +29,7 @@ class WebhookSigner
 
     /**
      * Verify a received signature against the payload, timestamp, and secret,
-     * within the given clock-skew tolerance (in seconds). The `X-Maac-Signature`
+     * within the given clock-skew tolerance (in seconds). The `X-Maacc-Signature`
      * header value may include the `sha256=` prefix.
      */
     public static function verify(

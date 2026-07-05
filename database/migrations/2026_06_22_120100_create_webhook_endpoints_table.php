@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Application-registered webhook endpoints. MAAC posts run lifecycle events
+ * Application-registered webhook endpoints. MAACC posts run lifecycle events
  * (status changes, tool requests, completion, failure, expiry) to the `url`,
  * signed with the endpoint `secret`. The secret is encrypted at rest and shown
  * to the registrant only once; `last_four` is retained for display.

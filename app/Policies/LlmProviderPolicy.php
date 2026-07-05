@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\LlmProvider;
 use App\Models\User;
 
@@ -34,7 +34,7 @@ class LlmProviderPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermission($team, MaacPermission::ManagePlatform);
+        return $team !== null && $user->hasMaaccPermission($team, MaaccPermission::ManagePlatform);
     }
 
     /**
@@ -42,7 +42,7 @@ class LlmProviderPolicy
      */
     public function update(User $user, LlmProvider $llmProvider): bool
     {
-        return $user->hasMaacPermission($llmProvider->team, MaacPermission::ManagePlatform);
+        return $user->hasMaaccPermission($llmProvider->team, MaaccPermission::ManagePlatform);
     }
 
     /**
@@ -50,6 +50,6 @@ class LlmProviderPolicy
      */
     public function delete(User $user, LlmProvider $llmProvider): bool
     {
-        return $user->hasMaacPermission($llmProvider->team, MaacPermission::ManagePlatform);
+        return $user->hasMaaccPermission($llmProvider->team, MaaccPermission::ManagePlatform);
     }
 }

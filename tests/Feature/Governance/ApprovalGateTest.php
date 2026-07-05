@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Maac\ApproveApprovalRequest;
+use App\Actions\Maacc\ApproveApprovalRequest;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalType;
 use App\Enums\DataSourceStatus;

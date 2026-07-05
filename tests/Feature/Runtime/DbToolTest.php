@@ -201,7 +201,7 @@ it('rejects a query that does not read from an approved relation', function () {
 it('fails with a controlled code when the connection cannot be established', function () {
     config(['database.connections.broken_replica' => [
         'driver' => 'sqlite',
-        'database' => '/nonexistent-maac-dir/missing.sqlite',
+        'database' => '/nonexistent-maacc-dir/missing.sqlite',
         'foreign_key_constraints' => false,
     ]]);
     $this->source->update(['connection' => 'broken_replica']);
@@ -323,7 +323,7 @@ it('rejects a result that exceeds the size limit', function () {
 });
 
 it('resolves the connection credential from the secrets vault', function () {
-    $path = tempnam(sys_get_temp_dir(), 'maac_ds_').'.sqlite';
+    $path = tempnam(sys_get_temp_dir(), 'maacc_ds_').'.sqlite';
     touch($path);
     config(['database.connections.reporting_file' => ['driver' => 'sqlite', 'database' => $path, 'foreign_key_constraints' => false]]);
     DB::connection('reporting_file')->statement('create table reporting_metrics (id integer primary key, region text, vessel text, calls integer)');

@@ -7,34 +7,34 @@ use App\Models\Credential;
 use App\Support\Runtime\AiLlmRouter;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\DeterministicLlmRouter;
-use Database\Seeders\MaacE2ESeeder;
+use Database\Seeders\MaaccE2ESeeder;
 use Laravel\Passport\Passport;
 
 /**
  * Phase 6A fake-provider mode: the deterministic LLM router lets the validation
  * harness run the complete lifecycle with no external model spend or network
- * dependency, selected entirely by the `maac.runtime.driver` config flag.
+ * dependency, selected entirely by the `maacc.runtime.driver` config flag.
  */
 test('the default driver binds the production AI router', function () {
     expect(app(LlmRouter::class))->toBeInstanceOf(AiLlmRouter::class);
 });
 
 test('the fake driver binds the deterministic router', function () {
-    config(['maac.runtime.driver' => 'fake']);
+    config(['maacc.runtime.driver' => 'fake']);
     app()->forgetInstance(LlmRouter::class);
 
     expect(app(LlmRouter::class))->toBeInstanceOf(DeterministicLlmRouter::class);
 });
 
 test('the fake provider mode drives a full pause, resume, and completion with no scripted router', function () {
-    config(['maac.runtime.driver' => 'fake']);
+    config(['maacc.runtime.driver' => 'fake']);
 
-    $this->seed(MaacE2ESeeder::class);
-    $application = Application::firstWhere('slug', MaacE2ESeeder::APP_SLUG);
-    $agent = Agent::firstWhere('agent_slug', MaacE2ESeeder::AGENT_SLUG);
+    $this->seed(MaaccE2ESeeder::class);
+    $application = Application::firstWhere('slug', MaaccE2ESeeder::APP_SLUG);
+    $agent = Agent::firstWhere('agent_slug', MaaccE2ESeeder::AGENT_SLUG);
     $credential = Credential::query()
         ->where('application_id', $application->id)
-        ->where('label', MaacE2ESeeder::CREDENTIAL_LABEL)
+        ->where('label', MaaccE2ESeeder::CREDENTIAL_LABEL)
         ->first();
     Passport::actingAsClient($credential->oauthClient, [], 'api');
 
@@ -44,7 +44,7 @@ test('the fake provider mode drives a full pause, resume, and completion with no
         ->assertJsonPath('status', RunStatus::WaitingForClient->value);
 
     // The deterministic router synthesized a schema-valid payload from the tool.
-    expect($start->json('tool_call.tool'))->toBe(MaacE2ESeeder::TOOL_SLUG)
+    expect($start->json('tool_call.tool'))->toBe(MaaccE2ESeeder::TOOL_SLUG)
         ->and($start->json('tool_call.arguments'))->toBe(['query' => 'e2e']);
 
     $this->postJson("/api/v1/runs/{$start->json('run_id')}/tool-results", [

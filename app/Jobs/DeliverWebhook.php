@@ -65,11 +65,11 @@ class DeliverWebhook implements ShouldQueue
         try {
             $response = Http::timeout($this->timeout())
                 ->withHeaders([
-                    'X-Maac-Webhook-Event' => $delivery->event->value,
-                    'X-Maac-Webhook-Delivery' => $delivery->id,
-                    'X-Maac-Webhook-Timestamp' => $timestamp,
-                    'X-Maac-Signature' => WebhookSigner::header($signature),
-                    'User-Agent' => 'MAAC-Webhooks/1.0',
+                    'X-Maacc-Webhook-Event' => $delivery->event->value,
+                    'X-Maacc-Webhook-Delivery' => $delivery->id,
+                    'X-Maacc-Webhook-Timestamp' => $timestamp,
+                    'X-Maacc-Signature' => WebhookSigner::header($signature),
+                    'User-Agent' => 'MAACC-Webhooks/1.0',
                 ])
                 ->withBody($body, 'application/json')
                 ->post($endpoint->url);
@@ -139,7 +139,7 @@ class DeliverWebhook implements ShouldQueue
      */
     private function backoffFor(int $attempt): int
     {
-        $schedule = config('maac.runtime.webhooks.backoff');
+        $schedule = config('maacc.runtime.webhooks.backoff');
         $schedule = is_array($schedule) && $schedule !== [] ? array_values($schedule) : [10, 30, 60, 120];
 
         return (int) ($schedule[$attempt - 1] ?? $schedule[count($schedule) - 1]);
@@ -150,7 +150,7 @@ class DeliverWebhook implements ShouldQueue
      */
     private function maxAttempts(): int
     {
-        return max(1, (int) config('maac.runtime.webhooks.max_attempts', 5));
+        return max(1, (int) config('maacc.runtime.webhooks.max_attempts', 5));
     }
 
     /**
@@ -158,6 +158,6 @@ class DeliverWebhook implements ShouldQueue
      */
     private function timeout(): int
     {
-        return max(1, (int) config('maac.runtime.webhooks.timeout_seconds', 10));
+        return max(1, (int) config('maacc.runtime.webhooks.timeout_seconds', 10));
     }
 }

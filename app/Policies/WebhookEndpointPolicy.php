@@ -15,7 +15,7 @@ class WebhookEndpointPolicy
      */
     public function create(User $user): bool
     {
-        return $user->currentTeam !== null && $user->isMaacPlatformAdmin($user->currentTeam);
+        return $user->currentTeam !== null && $user->isMaaccPlatformAdmin($user->currentTeam);
     }
 
     /**
@@ -23,7 +23,7 @@ class WebhookEndpointPolicy
      */
     public function update(User $user, WebhookEndpoint $endpoint): bool
     {
-        return $user->isMaacPlatformAdmin($endpoint->application->team);
+        return $user->isMaaccPlatformAdmin($endpoint->application->team);
     }
 
     /**
@@ -31,7 +31,7 @@ class WebhookEndpointPolicy
      */
     public function delete(User $user, WebhookEndpoint $endpoint): bool
     {
-        return $user->isMaacPlatformAdmin($endpoint->application->team);
+        return $user->isMaaccPlatformAdmin($endpoint->application->team);
     }
 
     /**
@@ -39,6 +39,6 @@ class WebhookEndpointPolicy
      */
     public function rotate(User $user, WebhookEndpoint $endpoint): bool
     {
-        return $user->isMaacPlatformAdmin($endpoint->application->team);
+        return $user->isMaaccPlatformAdmin($endpoint->application->team);
     }
 }

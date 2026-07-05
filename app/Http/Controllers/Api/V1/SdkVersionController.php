@@ -8,12 +8,12 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * The SDK version-negotiation endpoint (Phase 6C). Returns MAAC's API contract
+ * The SDK version-negotiation endpoint (Phase 6C). Returns MAACC's API contract
  * version, the supported client-package window, the published-package registry,
  * and active deprecations — plus a `compatibility` verdict for the SDK version
- * the caller reports (via the `X-Maac-Sdk-Version` header or `client_version`
+ * the caller reports (via the `X-Maacc-Sdk-Version` header or `client_version`
  * query). Lets an SDK detect, before invoking anything, whether its installed
- * package is compatible with this MAAC instance.
+ * package is compatible with this MAACC instance.
  */
 class SdkVersionController extends Controller
 {
@@ -25,8 +25,8 @@ class SdkVersionController extends Controller
         return new JsonResponse([
             ...$platform->descriptor(),
             'compatibility' => $platform->compatibility(
-                $this->reportedValue($request, 'X-Maac-Sdk-Version', 'client_version'),
-                $this->reportedValue($request, 'X-Maac-Sdk-Language', 'language'),
+                $this->reportedValue($request, 'X-Maacc-Sdk-Version', 'client_version'),
+                $this->reportedValue($request, 'X-Maacc-Sdk-Language', 'language'),
             ),
         ]);
     }

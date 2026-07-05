@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Maac\Reference\Cli;
+namespace Maacc\Reference\Cli;
 
-use Maac\Sdk\Tools\ToolContext;
-use Maac\Sdk\Tools\ToolHandler;
+use Maacc\Sdk\Tools\ToolContext;
+use Maacc\Sdk\Tools\ToolHandler;
 
 /**
  * A client-side tool handler implemented in plain PHP — no framework, no ORM,
- * no container. It proves the MAAC integration contract is reusable from a bare
+ * no container. It proves the MAACC integration contract is reusable from a bare
  * PHP runtime: the only dependency is the framework-agnostic SDK.
  */
 final class FetchRecordsHandler implements ToolHandler

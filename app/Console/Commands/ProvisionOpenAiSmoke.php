@@ -25,7 +25,7 @@ use Illuminate\Console\Command;
 /**
  * Provisions a self-contained, idempotent setup for live runtime smoke testing
  * against a real OpenAI model: an approved OpenAI gpt-5.4 catalog entry, a
- * published no-tools agent, and a published agent wired to the MAAC-hosted `sum`
+ * published no-tools agent, and a published agent wired to the MAACC-hosted `sum`
  * tool. When an API key is supplied it is stored in the secrets vault and bound
  * to the model, so the runtime resolves the key from the vault on the next run.
  *
@@ -39,7 +39,7 @@ class ProvisionOpenAiSmoke extends Command
      *
      * @var string
      */
-    protected $signature = 'maac:openai-smoke
+    protected $signature = 'maacc:openai-smoke
         {--team= : Team slug (defaults to the first team)}
         {--key= : OpenAI API key to store in the vault and bind to the model}
         {--model=gpt-5.4 : The OpenAI model code the agents run on}
@@ -130,8 +130,8 @@ class ProvisionOpenAiSmoke extends Command
     private function ensureProvider(Team $team, Environment $environment, string $model): LlmProvider
     {
         // Seed the per-1M fallback rates from the central pricing catalog so the
-        // figures live in exactly one reviewed place (config/maac.php pricing).
-        $catalog = config('maac.pricing.models');
+        // figures live in exactly one reviewed place (config/maacc.php pricing).
+        $catalog = config('maacc.pricing.models');
         $rates = (is_array($catalog) ? ($catalog[$model] ?? null) : null) ?? ['input' => 0.0, 'output' => 0.0];
 
         return LlmProvider::query()->updateOrCreate(
@@ -194,7 +194,7 @@ class ProvisionOpenAiSmoke extends Command
     }
 
     /**
-     * Ensure the MAAC-hosted `vessel_status` tool contract exists. A real model
+     * Ensure the MAACC-hosted `vessel_status` tool contract exists. A real model
      * cannot know live vessel data, so it must call this tool — which makes it a
      * reliable demonstration of the tool-call protocol end-to-end.
      */

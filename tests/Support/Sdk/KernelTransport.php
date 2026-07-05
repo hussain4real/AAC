@@ -6,12 +6,12 @@ namespace Tests\Support\Sdk;
 
 use Illuminate\Foundation\Testing\TestCase;
 use Illuminate\Testing\TestResponse;
-use Maac\Sdk\Contracts\Transport;
-use Maac\Sdk\Http\HttpRequest;
-use Maac\Sdk\Http\HttpResponse;
+use Maacc\Sdk\Contracts\Transport;
+use Maacc\Sdk\Http\HttpRequest;
+use Maacc\Sdk\Http\HttpResponse;
 
 /**
- * A {@see Transport} that dispatches the SDK's requests through the MAAC
+ * A {@see Transport} that dispatches the SDK's requests through the MAACC
  * application's real HTTP kernel in-process, instead of over a socket. Because
  * it runs the full middleware stack (including Passport token validation and the
  * `sdk.auth` resolver) against a genuinely issued access token, the SDK is

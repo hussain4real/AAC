@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
- * A governed knowledge (RAG) source: an approved collection of documents MAAC
+ * A governed knowledge (RAG) source: an approved collection of documents MAACC
  * indexes and retrieves from for a knowledge-mode tool contract. The runtime
  * only retrieves from an active source available in the run's environment; a
  * sensitive source is gated behind an ingestion approval and stays a draft until

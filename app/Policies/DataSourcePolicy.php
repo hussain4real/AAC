@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\DataSource;
 use App\Models\User;
 
@@ -37,7 +37,7 @@ class DataSourcePolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageTool);
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -45,8 +45,8 @@ class DataSourcePolicy
      */
     public function update(User $user, DataSource $source): bool
     {
-        return $user->isMaacPlatformAdmin($source->team)
-            || $user->hasMaacPermissionOnAnyProject($source->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($source->team)
+            || $user->hasMaaccPermissionOnAnyProject($source->team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -54,7 +54,7 @@ class DataSourcePolicy
      */
     public function delete(User $user, DataSource $source): bool
     {
-        return $user->isMaacPlatformAdmin($source->team)
-            || $user->hasMaacPermissionOnAnyProject($source->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($source->team)
+            || $user->hasMaaccPermissionOnAnyProject($source->team, MaaccPermission::ManageTool);
     }
 }

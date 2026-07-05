@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Demo account for the MAAC console (Phase 1). The factory provisions a
+        // Demo account for the MAACC console (Phase 1). The factory provisions a
         // personal team and sets it as the current team, satisfying the
         // team-scoped console routes. Password: "password".
         $demo = User::factory()->create([
@@ -24,14 +24,14 @@ class DatabaseSeeder extends Seeder
             'email' => 'demo@milaha.com',
         ]);
 
-        // MAAC platform administration RBAC (Phase 8B): the platform roles +
+        // MAACC platform administration RBAC (Phase 8B): the platform roles +
         // permission catalogue. The demo operator is a Super Admin so the demo
         // environment can exercise the platform-admin console.
         $this->call(PlatformRbacSeeder::class);
         $demo->assignRole(PlatformRole::SuperAdmin->value);
 
-        // MAAC platform data (Phase 2): reproduces the Phase 1 console fixture
+        // MAACC platform data (Phase 2): reproduces the Phase 1 console fixture
         // as governed database records for the demo team.
-        $this->call(MaacDemoSeeder::class);
+        $this->call(MaaccDemoSeeder::class);
     }
 }

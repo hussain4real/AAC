@@ -7,10 +7,10 @@ use App\Enums\PlatformRole;
 use Spatie\Permission\Traits\HasRoles;
 
 /**
- * MAAC platform-administration access helpers (Phase 8B).
+ * MAACC platform-administration access helpers (Phase 8B).
  *
  * Layered on top of Spatie's {@see HasRoles}, these
- * give the global MAAC-operator roles ({@see PlatformRole}) MAAC-semantic
+ * give the global MAACC-operator roles ({@see PlatformRole}) MAACC-semantic
  * accessors. A user with no platform role is a pure tenant user; a platform role
  * grants cross-tenant administration, and {@see isPlatformSuperAdmin()} bypasses
  * every gate via the `Gate::before` override registered in the app provider.
@@ -29,7 +29,7 @@ trait HasPlatformAccess
     }
 
     /**
-     * Whether the user is a MAAC platform operator at all (holds any platform
+     * Whether the user is a MAACC platform operator at all (holds any platform
      * role) — as opposed to a pure tenant user.
      */
     public function isPlatformAdministrator(): bool
@@ -47,7 +47,7 @@ trait HasPlatformAccess
     }
 
     /**
-     * The user's assigned platform role names (only MAAC platform roles).
+     * The user's assigned platform role names (only MAACC platform roles).
      *
      * @return array<int, string>
      */

@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * A governed knowledge (RAG) source: an approved collection of documents MAAC
+ * A governed knowledge (RAG) source: an approved collection of documents MAACC
  * indexes and retrieves from on behalf of an agent's knowledge-retrieval tool.
  * A source carries a sensitivity classification, the environments it is
  * available in, and freshness metadata (document/chunk counts + last indexed

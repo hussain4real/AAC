@@ -2,23 +2,23 @@
 
 declare(strict_types=1);
 
-namespace Maac\Reference\Cli;
+namespace Maacc\Reference\Cli;
 
-use Maac\Sdk\Contracts\Transport;
-use Maac\Sdk\MaacClient;
-use Maac\Sdk\MaacConfig;
-use Maac\Sdk\Resources\Run;
-use Maac\Sdk\Tools\ToolHandlerRegistry;
+use Maacc\Sdk\Contracts\Transport;
+use Maacc\Sdk\MaaccClient;
+use Maacc\Sdk\MaaccConfig;
+use Maacc\Sdk\Resources\Run;
+use Maacc\Sdk\Tools\ToolHandlerRegistry;
 
 /**
- * Assembles the plain-PHP MAAC integration: an SDK client plus the local tool
+ * Assembles the plain-PHP MAACC integration: an SDK client plus the local tool
  * handler registry, with the two operations the CLI performs (sync local
  * implementations, run the agent).
  */
 final class CliConsumer
 {
     public function __construct(
-        private readonly MaacClient $client,
+        private readonly MaaccClient $client,
         private readonly ToolHandlerRegistry $registry,
         private readonly string $agentSlug,
     ) {}
@@ -26,7 +26,7 @@ final class CliConsumer
     /**
      * The underlying SDK client.
      */
-    public function client(): MaacClient
+    public function client(): MaaccClient
     {
         return $this->client;
     }
@@ -63,17 +63,17 @@ final class CliConsumer
     }
 
     /**
-     * Build the consumer from the documented MAAC_* environment variables.
+     * Build the consumer from the documented MAACC_* environment variables.
      */
     public static function fromEnvironment(?Transport $transport = null): self
     {
-        $config = MaacConfig::fromEnvironment();
+        $config = MaaccConfig::fromEnvironment();
 
-        $agentSlug = getenv('MAAC_AGENT_SLUG') ?: 'e2e-ops-agent';
-        $toolSlug = getenv('MAAC_TOOL_FETCH_RECORDS') ?: 'e2e-fetch-records';
+        $agentSlug = getenv('MAACC_AGENT_SLUG') ?: 'e2e-ops-agent';
+        $toolSlug = getenv('MAACC_TOOL_FETCH_RECORDS') ?: 'e2e-fetch-records';
 
         $registry = (new ToolHandlerRegistry)->register(new FetchRecordsHandler($toolSlug));
 
-        return new self(new MaacClient($config, $transport), $registry, $agentSlug);
+        return new self(new MaaccClient($config, $transport), $registry, $agentSlug);
     }
 }

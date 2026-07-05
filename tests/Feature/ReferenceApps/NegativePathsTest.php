@@ -1,18 +1,18 @@
 <?php
 
-use App\Actions\Maac\CreateCredential;
+use App\Actions\Maacc\CreateCredential;
 use App\Enums\AgentStatus;
 use App\Enums\CredentialStatus;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\User;
-use Database\Seeders\MaacE2ESeeder;
+use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
-use Maac\Sdk\Exceptions\MaacApiException;
-use Maac\Sdk\Exceptions\MissingToolHandlerException;
-use Maac\Sdk\MaacClient;
-use Maac\Sdk\MaacConfig;
-use Maac\Sdk\Tools\ToolHandlerRegistry;
+use Maacc\Sdk\Exceptions\MaaccApiException;
+use Maacc\Sdk\Exceptions\MissingToolHandlerException;
+use Maacc\Sdk\MaaccClient;
+use Maacc\Sdk\MaaccConfig;
+use Maacc\Sdk\Tools\ToolHandlerRegistry;
 use Tests\Support\Sdk\KernelTransport;
 
 /**
@@ -26,18 +26,18 @@ beforeEach(function () {
         Artisan::call('passport:keys');
     }
 
-    $this->seed(MaacE2ESeeder::class);
-    $this->application = Application::firstWhere('slug', MaacE2ESeeder::APP_SLUG);
+    $this->seed(MaaccE2ESeeder::class);
+    $this->application = Application::firstWhere('slug', MaaccE2ESeeder::APP_SLUG);
     $this->team = $this->application->team;
 
     $issued = app(CreateCredential::class)->handle(
         $this->application,
-        User::firstWhere('email', MaacE2ESeeder::USER_EMAIL),
+        User::firstWhere('email', MaaccE2ESeeder::USER_EMAIL),
         ['environment' => 'production'],
     );
     $this->credential = $issued->credential;
-    $this->client = new MaacClient(
-        new MaacConfig('', $issued->credential->client_id, $issued->plainSecret),
+    $this->client = new MaaccClient(
+        new MaaccConfig('', $issued->credential->client_id, $issued->plainSecret),
         new KernelTransport($this),
     );
 });
@@ -50,15 +50,15 @@ it('rejects a revoked credential with a typed error', function () {
 
     try {
         $this->client->manifest();
-        $this->fail('Expected a MaacApiException for the revoked credential.');
-    } catch (MaacApiException $exception) {
+        $this->fail('Expected a MaaccApiException for the revoked credential.');
+    } catch (MaaccApiException $exception) {
         expect($exception->errorCode)->toBe('credential_revoked')
             ->and($exception->status)->toBe(403);
     }
 });
 
 it('marks a stale implementation version as outdated', function () {
-    $tool = $this->client->manifest()->tool(MaacE2ESeeder::TOOL_SLUG);
+    $tool = $this->client->manifest()->tool(MaaccE2ESeeder::TOOL_SLUG);
 
     $results = $this->client->reportImplementations([[
         'tool' => $tool->name,
@@ -73,7 +73,7 @@ it('marks a stale implementation version as outdated', function () {
 });
 
 it('marks a mismatched schema fingerprint as incompatible', function () {
-    $tool = $this->client->manifest()->tool(MaacE2ESeeder::TOOL_SLUG);
+    $tool = $this->client->manifest()->tool(MaaccE2ESeeder::TOOL_SLUG);
 
     $results = $this->client->reportImplementations([[
         'tool' => $tool->name,
@@ -101,42 +101,42 @@ it('reports an unknown tool as not found without failing the batch', function ()
 it('cannot invoke an agent owned by another application', function () {
     // A published agent under a different application is invisible to this
     // credential — tenant isolation surfaces as agent_not_found, not a leak.
-    maacAgent($this->team, ['agent_slug' => 'foreign-agent', 'status' => AgentStatus::Published]);
+    maaccAgent($this->team, ['agent_slug' => 'foreign-agent', 'status' => AgentStatus::Published]);
 
     try {
         $this->client->startRun('foreign-agent', 'hello');
-        $this->fail('Expected a MaacApiException for the foreign agent.');
-    } catch (MaacApiException $exception) {
+        $this->fail('Expected a MaaccApiException for the foreign agent.');
+    } catch (MaaccApiException $exception) {
         expect($exception->errorCode)->toBe('agent_not_found')
             ->and($exception->status)->toBe(404);
     }
 });
 
 it('rejects invoking an unpublished agent', function () {
-    Agent::firstWhere('agent_slug', MaacE2ESeeder::AGENT_SLUG)->update([
+    Agent::firstWhere('agent_slug', MaaccE2ESeeder::AGENT_SLUG)->update([
         'status' => AgentStatus::Draft,
     ]);
 
     try {
-        $this->client->startRun(MaacE2ESeeder::AGENT_SLUG, 'hello');
-        $this->fail('Expected a MaacApiException for the unpublished agent.');
-    } catch (MaacApiException $exception) {
+        $this->client->startRun(MaaccE2ESeeder::AGENT_SLUG, 'hello');
+        $this->fail('Expected a MaaccApiException for the unpublished agent.');
+    } catch (MaaccApiException $exception) {
         expect($exception->errorCode)->toBe('agent_not_published')
             ->and($exception->status)->toBe(409);
     }
 });
 
-it('raises a missing-handler error when MAAC pauses for an unregistered tool', function () {
-    bindFakeRouter()->toolCallThen(MaacE2ESeeder::TOOL_SLUG, ['query' => 'today']);
+it('raises a missing-handler error when MAACC pauses for an unregistered tool', function () {
+    bindFakeRouter()->toolCallThen(MaaccE2ESeeder::TOOL_SLUG, ['query' => 'today']);
 
-    expect(fn () => $this->client->run(MaacE2ESeeder::AGENT_SLUG, 'Summarize', new ToolHandlerRegistry))
-        ->toThrow(MissingToolHandlerException::class, MaacE2ESeeder::TOOL_SLUG);
+    expect(fn () => $this->client->run(MaaccE2ESeeder::AGENT_SLUG, 'Summarize', new ToolHandlerRegistry))
+        ->toThrow(MissingToolHandlerException::class, MaaccE2ESeeder::TOOL_SLUG);
 });
 
 it('keeps a paused run resumable after an oversized tool result is rejected', function () {
-    bindFakeRouter()->toolCallThen(MaacE2ESeeder::TOOL_SLUG, ['query' => 'today']);
+    bindFakeRouter()->toolCallThen(MaaccE2ESeeder::TOOL_SLUG, ['query' => 'today']);
 
-    $paused = $this->client->startRun(MaacE2ESeeder::AGENT_SLUG, 'Summarize');
+    $paused = $this->client->startRun(MaaccE2ESeeder::AGENT_SLUG, 'Summarize');
 
     // The seeded tool caps results at 256 KB.
     try {
@@ -145,7 +145,7 @@ it('keeps a paused run resumable after an oversized tool result is rejected', fu
             'total' => 1,
         ]);
         $this->fail('Expected a payload_too_large error.');
-    } catch (MaacApiException $exception) {
+    } catch (MaaccApiException $exception) {
         expect($exception->errorCode)->toBe('payload_too_large')
             ->and($exception->status)->toBe(413);
     }

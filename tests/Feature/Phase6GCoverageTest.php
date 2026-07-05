@@ -2,7 +2,7 @@
 
 use App\Enums\AgentStatus;
 use App\Enums\Environment;
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use App\Enums\RoutingStrategy;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
@@ -46,8 +46,8 @@ test('routing and incident policies honor the manage-agent and security-review p
     [$owner, $team] = ownerAndTeam();
     $member = teamMember($team);
     $project = Project::factory()->for(Application::factory()->for($team))->create();
-    $developer = projectRoleUser($team, $project, MaacRole::Developer);
-    $reviewer = projectRoleUser($team, $project, MaacRole::SecurityReviewer);
+    $developer = projectRoleUser($team, $project, MaaccRole::Developer);
+    $reviewer = projectRoleUser($team, $project, MaaccRole::SecurityReviewer);
     $policy = ModelRoutingPolicy::factory()->for($team)->create();
 
     expect($owner->can('viewAny', ModelRoutingPolicy::class))->toBeTrue()
@@ -61,8 +61,8 @@ test('routing and incident policies honor the manage-agent and security-review p
 
 test('approving or denying a runtime decision on a settled run is a safe no-op', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['status' => AgentStatus::Published]);
-    $run = maacRun($agent, ['status' => RunStatus::Completed]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published]);
+    $run = maaccRun($agent, ['status' => RunStatus::Completed]);
 
     $runner = app(AgentRunner::class);
     $runner->approveRuntime($run);
@@ -85,10 +85,10 @@ test('the incident guard rejects a run against a frozen application', function (
 
 test('a tool result submitted to a frozen application is rejected', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['status' => AgentStatus::Published]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published]);
     $application = $agent->project->application;
     $application->update(['runtime_frozen_at' => now()]);
-    $run = maacRun($agent, ['status' => RunStatus::WaitingForClient, 'environment' => Environment::Production]);
+    $run = maaccRun($agent, ['status' => RunStatus::WaitingForClient, 'environment' => Environment::Production]);
 
     expect(fn () => app(AgentRunner::class)->acceptToolResult($run, 'tc', []))
         ->toThrow(RuntimeRequestException::class);
@@ -96,7 +96,7 @@ test('a tool result submitted to a frozen application is rejected', function () 
 
 test('failover gives up when the run has no routing chain or the model is gone', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
 
     $base = [
         'status' => RunStatus::Running,
@@ -105,12 +105,12 @@ test('failover gives up when the run has no routing chain or the model is gone',
     ];
 
     // No routing chain in state.
-    $noChain = maacRun($agent, [...$base, 'state' => ['messages' => [['role' => 'user', 'content' => 'hi']], 'steps' => 0]]);
+    $noChain = maaccRun($agent, [...$base, 'state' => ['messages' => [['role' => 'user', 'content' => 'hi']], 'steps' => 0]]);
     bindFakeRouter()->throwThen('down');
     expect(app(AgentRunner::class)->drive($noChain)->failure_reason)->toBe('model_error');
 
     // Chain references a model that no longer exists.
-    $goneModel = maacRun($agent, [...$base, 'state' => [
+    $goneModel = maaccRun($agent, [...$base, 'state' => [
         'messages' => [['role' => 'user', 'content' => 'hi']],
         'steps' => 0,
         'routing' => ['chain' => ['00000000-0000-0000-0000-000000000000'], 'tried' => []],
@@ -121,7 +121,7 @@ test('failover gives up when the run has no routing chain or the model is gone',
 
 test('the router reports no eligible model when every candidate exceeds the latency target', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
     AgentRun::factory()->count(5)->create([
         'llm_provider_id' => $agent->llm_provider_id,
         'environment' => Environment::Production,
@@ -131,7 +131,7 @@ test('the router reports no eligible model when every candidate exceeds the late
         'started_at' => now(),
     ]);
     ModelRoutingPolicy::factory()->for($team)->for($agent)->create(['max_latency_ms' => 1000, 'fallback_provider_ids' => []]);
-    $run = maacRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
 
     $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
 
@@ -142,7 +142,7 @@ test('the router reports no eligible model when every candidate exceeds the late
 
 test('the latency-optimized strategy selects the fastest eligible model', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
     $fast = LlmProvider::factory()->for($team)->create();
 
     foreach ([[$agent->llm_provider_id, 5000], [$fast->id, 200]] as [$providerId, $latency]) {
@@ -160,7 +160,7 @@ test('the latency-optimized strategy selects the fastest eligible model', functi
         'strategy' => RoutingStrategy::LatencyOptimized,
         'fallback_provider_ids' => [$fast->id],
     ]);
-    $run = maacRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
 
     $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
 

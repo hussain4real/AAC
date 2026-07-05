@@ -20,7 +20,7 @@ class VaultSecretPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->isMaacPlatformAdmin($team);
+        return $team !== null && $user->isMaaccPlatformAdmin($team);
     }
 
     /**
@@ -30,7 +30,7 @@ class VaultSecretPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->isMaacPlatformAdmin($team);
+        return $team !== null && $user->isMaaccPlatformAdmin($team);
     }
 
     /**
@@ -38,7 +38,7 @@ class VaultSecretPolicy
      */
     public function update(User $user, VaultSecret $vaultSecret): bool
     {
-        return $user->isMaacPlatformAdmin($vaultSecret->team);
+        return $user->isMaaccPlatformAdmin($vaultSecret->team);
     }
 
     /**
@@ -46,6 +46,6 @@ class VaultSecretPolicy
      */
     public function delete(User $user, VaultSecret $vaultSecret): bool
     {
-        return $user->isMaacPlatformAdmin($vaultSecret->team);
+        return $user->isMaaccPlatformAdmin($vaultSecret->team);
     }
 }

@@ -215,7 +215,7 @@ class RemoteHttpToolExecutor
      */
     private function allowedHosts(): array
     {
-        return (array) config('maac.runtime.remote_http.allowed_hosts', []);
+        return (array) config('maacc.runtime.remote_http.allowed_hosts', []);
     }
 
     /**
@@ -225,7 +225,7 @@ class RemoteHttpToolExecutor
      */
     private function blockedHosts(): array
     {
-        return (array) config('maac.runtime.remote_http.blocked_hosts', []);
+        return (array) config('maacc.runtime.remote_http.blocked_hosts', []);
     }
 
     /**
@@ -237,7 +237,7 @@ class RemoteHttpToolExecutor
     {
         $retry = is_array($config['retry'] ?? null) ? $config['retry'] : [];
         $requested = max(1, (int) ($retry['max_attempts'] ?? 1));
-        $max = max(1, (int) config('maac.runtime.remote_http.max_attempts', 3));
+        $max = max(1, (int) config('maacc.runtime.remote_http.max_attempts', 3));
 
         return min($requested, $max);
     }
@@ -259,6 +259,6 @@ class RemoteHttpToolExecutor
      */
     private function connectTimeout(): int
     {
-        return max(1, (int) config('maac.runtime.remote_http.connect_timeout_seconds', 5));
+        return max(1, (int) config('maacc.runtime.remote_http.connect_timeout_seconds', 5));
     }
 }

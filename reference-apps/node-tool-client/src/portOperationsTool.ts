@@ -1,4 +1,4 @@
-import type { ToolHandler } from '../../../packages/maac-sdk-ts/src/index.ts';
+import type { ToolHandler } from '../../../packages/maacc-sdk-ts/src/index.ts';
 
 interface PortRecord {
   area: string;
@@ -8,8 +8,8 @@ interface PortRecord {
 
 /**
  * The Node app's OWN operational data — it lives only here, inside the consuming
- * application. MAAC never sees it: the model can only obtain it by asking the app
- * to run the client-side `fetch_port_records` tool, and MAAC receives just the
+ * application. MAACC never sees it: the model can only obtain it by asking the app
+ * to run the client-side `fetch_port_records` tool, and MAACC receives just the
  * returned result, shaped to the tool contract's output schema.
  */
 const RECORDS: ReadonlyArray<PortRecord> = [

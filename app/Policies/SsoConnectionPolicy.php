@@ -18,7 +18,7 @@ class SsoConnectionPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->isMaacPlatformAdmin($team);
+        return $team !== null && $user->isMaaccPlatformAdmin($team);
     }
 
     /**
@@ -28,7 +28,7 @@ class SsoConnectionPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->isMaacPlatformAdmin($team);
+        return $team !== null && $user->isMaaccPlatformAdmin($team);
     }
 
     /**
@@ -36,7 +36,7 @@ class SsoConnectionPolicy
      */
     public function update(User $user, SsoConnection $ssoConnection): bool
     {
-        return $user->isMaacPlatformAdmin($ssoConnection->team);
+        return $user->isMaaccPlatformAdmin($ssoConnection->team);
     }
 
     /**
@@ -44,6 +44,6 @@ class SsoConnectionPolicy
      */
     public function delete(User $user, SsoConnection $ssoConnection): bool
     {
-        return $user->isMaacPlatformAdmin($ssoConnection->team);
+        return $user->isMaaccPlatformAdmin($ssoConnection->team);
     }
 }

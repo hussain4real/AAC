@@ -7,7 +7,7 @@ use Illuminate\Support\Str;
 /**
  * Whether a registered webhook endpoint currently receives deliveries. A
  * disabled endpoint is retained (with its delivery history) but skipped when
- * MAAC emits run events.
+ * MAACC emits run events.
  */
 enum WebhookEndpointStatus: string
 {

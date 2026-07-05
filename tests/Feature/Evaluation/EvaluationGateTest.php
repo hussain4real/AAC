@@ -11,7 +11,7 @@ use Illuminate\Support\Carbon;
 
 beforeEach(function () {
     [$this->owner, $this->team] = ownerAndTeam();
-    $this->agent = maacAgent($this->team);
+    $this->agent = maaccAgent($this->team);
     $this->dataset = EvaluationDataset::factory()->for($this->team)->create();
 });
 

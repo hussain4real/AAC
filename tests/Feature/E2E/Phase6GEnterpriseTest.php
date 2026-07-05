@@ -60,7 +60,7 @@ test('the enterprise hardening surfaces work together end to end', function () {
 
     // 2. Vault-backed secret rotation: bind the agent's model key to the vault and
     //    prove the runtime resolves it — then rotate and prove the new value wins.
-    $agent = maacAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
     $vault = app(SecretVault::class);
     $secret = $vault->store($team, VaultSecretKind::LlmKey->reference($agent->llmProvider->slug), 'Model key', VaultSecretKind::LlmKey, 'sk-original', $admin);
     $agent->llmProvider->update(['vault_secret_id' => $secret->id]);

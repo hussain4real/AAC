@@ -8,7 +8,7 @@ use App\Support\Runtime\RunPayload;
 use Illuminate\Support\Facades\Date;
 
 /**
- * Builds the JSON body MAAC posts to a webhook endpoint for a run event. It
+ * Builds the JSON body MAACC posts to a webhook endpoint for a run event. It
  * wraps the same {@see RunPayload} envelope the SDK/runtime API returns, so a
  * webhook receiver sees an identical run shape to a polled response.
  */

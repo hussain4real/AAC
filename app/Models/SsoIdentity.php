@@ -12,7 +12,7 @@ use Illuminate\Support\Carbon;
 
 /**
  * A user's external identity from an SSO connection, keyed by the provider's
- * stable subject claim. Recording it lets MAAC recognize a returning user and
+ * stable subject claim. Recording it lets MAACC recognize a returning user and
  * lets a security reviewer trace which external identity a user signed in with.
  *
  * @property string $id

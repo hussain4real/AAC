@@ -6,13 +6,13 @@ use App\Enums\WebhookEventType;
 use App\Jobs\DeliverWebhook;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
-use App\Support\MaacConsoleData;
+use App\Support\MaaccConsoleData;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia;
 
 beforeEach(function () {
     [$this->owner, $this->team] = ownerAndTeam();
-    $this->agent = maacAgent($this->team);
+    $this->agent = maaccAgent($this->team);
     $this->application = $this->agent->project->application;
 });
 
@@ -20,7 +20,7 @@ test('the webhooks console page renders', function () {
     $this->actingAs($this->owner)
         ->get(route('webhooks', ['current_team' => $this->team->slug]))
         ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page->component('maac/webhooks'));
+        ->assertInertia(fn (AssertableInertia $page) => $page->component('maacc/webhooks'));
 });
 
 test('a platform admin registers a webhook endpoint and sees the one-time secret', function () {
@@ -28,7 +28,7 @@ test('a platform admin registers a webhook endpoint and sees the one-time secret
         ->post(route('webhooks.store', ['current_team' => $this->team->slug]), [
             'application_id' => $this->application->id,
             'environment' => 'production',
-            'url' => 'https://app.example.com/webhooks/maac',
+            'url' => 'https://app.example.com/webhooks/maacc',
             'events' => [WebhookEventType::RunCompleted->value],
         ]);
 
@@ -49,7 +49,7 @@ test('registering without events defaults to all events', function () {
         ->post(route('webhooks.store', ['current_team' => $this->team->slug]), [
             'application_id' => $this->application->id,
             'environment' => 'production',
-            'url' => 'https://app.example.com/webhooks/maac',
+            'url' => 'https://app.example.com/webhooks/maacc',
         ])
         ->assertRedirect()
         ->assertSessionHasNoErrors();
@@ -132,7 +132,7 @@ test('a non-admin team member cannot manage webhooks', function () {
         ->post(route('webhooks.store', ['current_team' => $this->team->slug]), [
             'application_id' => $this->application->id,
             'environment' => 'production',
-            'url' => 'https://app.example.com/webhooks/maac',
+            'url' => 'https://app.example.com/webhooks/maacc',
         ])
         ->assertForbidden();
 });
@@ -143,7 +143,7 @@ test('the console dataset includes webhook endpoints with their recent deliverie
         'event' => WebhookEventType::RunCompleted,
     ]);
 
-    $data = MaacConsoleData::forTeam($this->team);
+    $data = MaaccConsoleData::forTeam($this->team);
 
     expect($data['webhooks'])->toHaveCount(1)
         ->and($data['webhooks'][0]['url'])->toBe($endpoint->url)

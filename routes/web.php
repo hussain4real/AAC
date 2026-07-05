@@ -2,33 +2,33 @@
 
 use App\Enums\PlatformPermission;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\Maac\AgentController;
-use App\Http\Controllers\Maac\ApplicationController;
-use App\Http\Controllers\Maac\ApprovalRequestController;
-use App\Http\Controllers\Maac\AuditExportController;
-use App\Http\Controllers\Maac\ConsoleController;
-use App\Http\Controllers\Maac\CredentialController;
-use App\Http\Controllers\Maac\DataSourceController;
-use App\Http\Controllers\Maac\EvaluationCaseController;
-use App\Http\Controllers\Maac\EvaluationController;
-use App\Http\Controllers\Maac\EvaluationDatasetController;
-use App\Http\Controllers\Maac\GovernanceSettingController;
-use App\Http\Controllers\Maac\IncidentController;
-use App\Http\Controllers\Maac\KnowledgeDocumentController;
-use App\Http\Controllers\Maac\KnowledgeSourceController;
-use App\Http\Controllers\Maac\LlmProviderController;
-use App\Http\Controllers\Maac\McpConnectorController;
-use App\Http\Controllers\Maac\ModelRoutingPolicyController;
-use App\Http\Controllers\Maac\PlatformAccessController;
-use App\Http\Controllers\Maac\PlaygroundRunController;
-use App\Http\Controllers\Maac\ProjectController;
-use App\Http\Controllers\Maac\QuotaLimitController;
-use App\Http\Controllers\Maac\SsoConnectionController;
-use App\Http\Controllers\Maac\ToolContractController;
-use App\Http\Controllers\Maac\VaultSecretController;
-use App\Http\Controllers\Maac\VersionJourneyExportController;
-use App\Http\Controllers\Maac\WebhookDeliveryController;
-use App\Http\Controllers\Maac\WebhookEndpointController;
+use App\Http\Controllers\Maacc\AgentController;
+use App\Http\Controllers\Maacc\ApplicationController;
+use App\Http\Controllers\Maacc\ApprovalRequestController;
+use App\Http\Controllers\Maacc\AuditExportController;
+use App\Http\Controllers\Maacc\ConsoleController;
+use App\Http\Controllers\Maacc\CredentialController;
+use App\Http\Controllers\Maacc\DataSourceController;
+use App\Http\Controllers\Maacc\EvaluationCaseController;
+use App\Http\Controllers\Maacc\EvaluationController;
+use App\Http\Controllers\Maacc\EvaluationDatasetController;
+use App\Http\Controllers\Maacc\GovernanceSettingController;
+use App\Http\Controllers\Maacc\IncidentController;
+use App\Http\Controllers\Maacc\KnowledgeDocumentController;
+use App\Http\Controllers\Maacc\KnowledgeSourceController;
+use App\Http\Controllers\Maacc\LlmProviderController;
+use App\Http\Controllers\Maacc\McpConnectorController;
+use App\Http\Controllers\Maacc\ModelRoutingPolicyController;
+use App\Http\Controllers\Maacc\PlatformAccessController;
+use App\Http\Controllers\Maacc\PlaygroundRunController;
+use App\Http\Controllers\Maacc\ProjectController;
+use App\Http\Controllers\Maacc\QuotaLimitController;
+use App\Http\Controllers\Maacc\SsoConnectionController;
+use App\Http\Controllers\Maacc\ToolContractController;
+use App\Http\Controllers\Maacc\VaultSecretController;
+use App\Http\Controllers\Maacc\VersionJourneyExportController;
+use App\Http\Controllers\Maacc\WebhookDeliveryController;
+use App\Http\Controllers\Maacc\WebhookEndpointController;
 use App\Http\Controllers\SsoController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureTeamMembership;
@@ -45,7 +45,7 @@ Route::prefix('{current_team}')
     ->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
-        // MAAC console (Phase 1 — mock-backed)
+        // MAACC console (Phase 1 — mock-backed)
         Route::get('applications', [ConsoleController::class, 'applications'])->name('applications');
         Route::get('applications/{application}', [ConsoleController::class, 'application'])->name('applications.show');
         Route::get('projects', [ConsoleController::class, 'projects'])->name('projects');
@@ -74,14 +74,14 @@ Route::prefix('{current_team}')
         Route::get('incidents', [ConsoleController::class, 'incidents'])->name('incidents');
         Route::get('platform-settings', [ConsoleController::class, 'settings'])->name('platform-settings');
 
-        // MAAC console (Phase 2 — database-backed writes)
+        // MAACC console (Phase 2 — database-backed writes)
         Route::post('applications/{application}/credentials', [CredentialController::class, 'store'])->name('applications.credentials.store');
         Route::post('credentials/{credential}/rotate', [CredentialController::class, 'rotate'])->name('credentials.rotate');
         Route::post('credentials/{credential}/revoke', [CredentialController::class, 'revoke'])->name('credentials.revoke');
 
         Route::post('agents/{agent}/publish', [AgentController::class, 'publish'])->name('agents.publish');
 
-        // MAAC console (Phase 7+ — real playground runtime: invoke a published
+        // MAACC console (Phase 7+ — real playground runtime: invoke a published
         // agent from the console via the same AgentRunner the SDK uses).
         Route::post('playground/agents/{agent}/runs', [PlaygroundRunController::class, 'store'])->name('playground.runs.store');
         Route::post('playground/runs/{run}/tool-result', [PlaygroundRunController::class, 'toolResult'])->name('playground.runs.tool-result');
@@ -94,13 +94,13 @@ Route::prefix('{current_team}')
             ->only(['store', 'update', 'destroy'])
             ->parameters(['llm-providers' => 'llmProvider']);
 
-        // MAAC console (Phase 6E — MCP connectors for connector-backed tools)
+        // MAACC console (Phase 6E — MCP connectors for connector-backed tools)
         Route::resource('connectors', McpConnectorController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['connectors' => 'mcpConnector']);
         Route::post('connectors/{mcpConnector}/discover', [McpConnectorController::class, 'discover'])->name('connectors.discover');
 
-        // MAAC console (Phase 6F — knowledge retrieval/RAG sources)
+        // MAACC console (Phase 6F — knowledge retrieval/RAG sources)
         Route::resource('knowledge-sources', KnowledgeSourceController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['knowledge-sources' => 'knowledgeSource']);
@@ -108,13 +108,13 @@ Route::prefix('{current_team}')
         Route::post('knowledge-sources/{knowledgeSource}/documents', [KnowledgeDocumentController::class, 'store'])->name('knowledge-sources.documents.store');
         Route::delete('knowledge-documents/{knowledgeDocument}', [KnowledgeDocumentController::class, 'destroy'])->name('knowledge-documents.destroy');
 
-        // MAAC console (Phase 8A — governed read-only database data sources)
+        // MAACC console (Phase 8A — governed read-only database data sources)
         Route::resource('data-sources', DataSourceController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['data-sources' => 'dataSource']);
         Route::post('data-sources/{dataSource}/refresh', [DataSourceController::class, 'refresh'])->name('data-sources.refresh');
 
-        // MAAC console (Phase 6F — evaluation lab)
+        // MAACC console (Phase 6F — evaluation lab)
         Route::resource('evaluation-datasets', EvaluationDatasetController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['evaluation-datasets' => 'evaluationDataset']);
@@ -125,7 +125,7 @@ Route::prefix('{current_team}')
             ->only(['store', 'destroy'])
             ->parameters(['evaluations' => 'evaluation']);
 
-        // MAAC console (Phase 5 — governance & security hardening)
+        // MAACC console (Phase 5 — governance & security hardening)
         Route::post('approvals', [ApprovalRequestController::class, 'store'])->name('approvals.store');
         Route::post('approvals/{approvalRequest}/approve', [ApprovalRequestController::class, 'approve'])->name('approvals.approve');
         Route::post('approvals/{approvalRequest}/reject', [ApprovalRequestController::class, 'reject'])->name('approvals.reject');
@@ -135,14 +135,14 @@ Route::prefix('{current_team}')
             ->only(['store', 'update', 'destroy'])
             ->parameters(['quotas' => 'quotaLimit']);
 
-        // MAAC console (Phase 6D — webhook endpoints & delivery observability)
+        // MAACC console (Phase 6D — webhook endpoints & delivery observability)
         Route::resource('webhooks', WebhookEndpointController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['webhooks' => 'webhookEndpoint']);
         Route::post('webhooks/{webhookEndpoint}/rotate', [WebhookEndpointController::class, 'rotate'])->name('webhooks.rotate');
         Route::post('webhook-deliveries/{webhookDelivery}/replay', [WebhookDeliveryController::class, 'replay'])->name('webhook-deliveries.replay');
 
-        // MAAC console (Phase 6G — enterprise identity, secrets & advanced governance)
+        // MAACC console (Phase 6G — enterprise identity, secrets & advanced governance)
         Route::resource('vault-secrets', VaultSecretController::class)
             ->only(['store', 'destroy'])
             ->parameters(['vault-secrets' => 'vaultSecret']);
@@ -158,7 +158,7 @@ Route::prefix('{current_team}')
             ->only(['store', 'update', 'destroy'])
             ->parameters(['sso-connections' => 'ssoConnection']);
 
-        // MAAC console (Phase 8B — platform administration RBAC). Gated by the
+        // MAACC console (Phase 8B — platform administration RBAC). Gated by the
         // global platform permissions; a Super Admin passes via the Gate::before
         // override since the spatie middleware checks go through the gate.
         Route::get('access-control', [ConsoleController::class, 'accessControl'])

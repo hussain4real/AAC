@@ -4,7 +4,7 @@ name: deploy
 # main is branch-protected and requires the lint + tests checks to pass before
 # merge, so anything that reaches main has already been validated.
 #
-# The VM pins the deploy SSH key to a forced command (/usr/local/bin/maac-deploy.sh),
+# The VM pins the deploy SSH key to a forced command (/usr/local/bin/maacc-deploy.sh),
 # so this job only needs to open an SSH connection to trigger a deploy — the key
 # cannot be used for anything else. Requires these repository secrets:
 #   DEPLOY_SSH_KEY    - private key whose public half is in the VM authorized_keys

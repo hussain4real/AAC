@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Actions\Maac\ReportToolImplementation;
+use App\Actions\Maacc\ReportToolImplementation;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\ReportImplementationRequest;
 use App\Support\Sdk\SdkContext;
@@ -10,7 +10,7 @@ use Illuminate\Http\JsonResponse;
 
 /**
  * Receives SDK implementation-status reports: an application reports the local
- * handlers it has implemented for its client-side tools, and MAAC reconciles
+ * handlers it has implemented for its client-side tools, and MAACC reconciles
  * each against the current contract version, returning the resolved statuses.
  */
 class ToolImplementationController extends Controller

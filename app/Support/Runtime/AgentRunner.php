@@ -39,9 +39,9 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Drives the MAAC agent run lifecycle: it creates the run, calls the LLM Router
+ * Drives the MAACC agent run lifecycle: it creates the run, calls the LLM Router
  * one turn at a time, routes any requested tool by execution mode (executing
- * MAAC-hosted tools inline and pausing for client-side tools), validates every
+ * MAACC-hosted tools inline and pausing for client-side tools), validates every
  * payload at the boundary, and records a trace event for each milestone. The
  * runtime owns this loop precisely so it can pause and resume across requests.
  */
@@ -455,7 +455,7 @@ class AgentRunner
     }
 
     /**
-     * Split MAAC-executed tools from hosted tools implemented by the AI provider.
+     * Split MAACC-executed tools from hosted tools implemented by the AI provider.
      *
      * @return array{runtime: array<int, LlmToolDefinition>, provider: array<int, LlmProviderToolDefinition>}
      */
@@ -529,7 +529,7 @@ class AgentRunner
     }
 
     /**
-     * Execute a MAAC-hosted tool inline and continue the loop (null) on success.
+     * Execute a MAACC-hosted tool inline and continue the loop (null) on success.
      *
      * @param  array<string, mixed>  $arguments
      */
@@ -1006,7 +1006,7 @@ class AgentRunner
      */
     private function maxSteps(): int
     {
-        return (int) config('maac.runtime.max_steps');
+        return (int) config('maacc.runtime.max_steps');
     }
 
     /**
@@ -1014,7 +1014,7 @@ class AgentRunner
      */
     private function timeout(): int
     {
-        return (int) config('maac.runtime.default_timeout_seconds');
+        return (int) config('maacc.runtime.default_timeout_seconds');
     }
 
     /**
@@ -1022,6 +1022,6 @@ class AgentRunner
      */
     private function turnTimeout(): int
     {
-        return (int) config('maac.runtime.per_turn_timeout_seconds');
+        return (int) config('maacc.runtime.per_turn_timeout_seconds');
     }
 }

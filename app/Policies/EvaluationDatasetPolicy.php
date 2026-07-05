@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\EvaluationDataset;
 use App\Models\User;
 
@@ -35,7 +35,7 @@ class EvaluationDatasetPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageAgent);
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageAgent);
     }
 
     /**
@@ -43,8 +43,8 @@ class EvaluationDatasetPolicy
      */
     public function update(User $user, EvaluationDataset $dataset): bool
     {
-        return $user->isMaacPlatformAdmin($dataset->team)
-            || $user->hasMaacPermissionOnAnyProject($dataset->team, MaacPermission::ManageAgent);
+        return $user->isMaaccPlatformAdmin($dataset->team)
+            || $user->hasMaaccPermissionOnAnyProject($dataset->team, MaaccPermission::ManageAgent);
     }
 
     /**
@@ -52,7 +52,7 @@ class EvaluationDatasetPolicy
      */
     public function delete(User $user, EvaluationDataset $dataset): bool
     {
-        return $user->isMaacPlatformAdmin($dataset->team)
-            || $user->hasMaacPermissionOnAnyProject($dataset->team, MaacPermission::ManageAgent);
+        return $user->isMaaccPlatformAdmin($dataset->team)
+            || $user->hasMaaccPermissionOnAnyProject($dataset->team, MaaccPermission::ManageAgent);
     }
 }

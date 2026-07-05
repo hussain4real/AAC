@@ -8,11 +8,11 @@ use App\Enums\SdkLanguage;
 use App\Enums\WebhookEventType;
 
 /**
- * The versioned identity of MAAC's SDK/runtime integration surface (Phase 6C).
+ * The versioned identity of MAACC's SDK/runtime integration surface (Phase 6C).
  *
  * It exposes the API contract version, the supported client-package version
  * window, the published-package registry, and active deprecations — and it
- * resolves whether a reported SDK client version is compatible with this MAAC
+ * resolves whether a reported SDK client version is compatible with this MAACC
  * instance. This is the single source of truth behind the `GET /api/v1/sdk`
  * negotiation endpoint, the manifest's embedded `sdk` block, and the console's
  * compatibility dashboard.
@@ -36,7 +36,7 @@ class SdkPlatform
     }
 
     /**
-     * The oldest SDK client package version this MAAC instance still supports.
+     * The oldest SDK client package version this MAACC instance still supports.
      */
     public function minimumClientVersion(): string
     {
@@ -59,7 +59,7 @@ class SdkPlatform
      */
     public function packages(): array
     {
-        $packages = config('maac.sdk.packages');
+        $packages = config('maacc.sdk.packages');
         $normalized = [];
 
         if (is_array($packages)) {
@@ -80,7 +80,7 @@ class SdkPlatform
      */
     public function deprecations(): array
     {
-        $deprecations = config('maac.sdk.deprecations');
+        $deprecations = config('maacc.sdk.deprecations');
         $normalized = [];
 
         if (is_array($deprecations)) {
@@ -95,7 +95,7 @@ class SdkPlatform
     }
 
     /**
-     * The runtime/integration capabilities this MAAC instance supports, so an
+     * The runtime/integration capabilities this MAACC instance supports, so an
      * SDK can detect — from a single descriptor fetch — whether asynchronous
      * runs, polling, streaming, and webhook delivery are available without
      * probing each surface. Derived from the enums so the advertised set never
@@ -112,7 +112,7 @@ class SdkPlatform
             'webhooks' => true,
             'webhook_events' => WebhookEventType::values(),
             // Which tool execution modes the runtime supports, split by who runs
-            // them: the calling application via the SDK (client-side) versus MAAC
+            // them: the calling application via the SDK (client-side) versus MAACC
             // itself (hosted utilities, remote HTTP, MCP connectors,
             // knowledge-retrieval (RAG) sources, and read-only database queries).
             'tool_execution_modes' => [
@@ -144,7 +144,7 @@ class SdkPlatform
 
     /**
      * Resolve whether a reported SDK client version is compatible with this
-     * MAAC instance: compatible, requires an upgrade, is ahead of the server,
+     * MAACC instance: compatible, requires an upgrade, is ahead of the server,
      * or could not be determined.
      *
      * @return array{client_version: string|null, language: string|null, api_version: string, minimum_client_version: string, current_client_version: string, status: string, compatible: bool, upgrade_required: bool}
@@ -205,11 +205,11 @@ class SdkPlatform
     }
 
     /**
-     * Read a string config value under the `maac.sdk` namespace.
+     * Read a string config value under the `maacc.sdk` namespace.
      */
     private function string(string $key, string $default): string
     {
-        $value = config("maac.sdk.{$key}");
+        $value = config("maacc.sdk.{$key}");
 
         return is_string($value) && $value !== '' ? $value : $default;
     }

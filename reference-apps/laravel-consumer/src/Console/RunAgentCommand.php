@@ -2,22 +2,22 @@
 
 declare(strict_types=1);
 
-namespace Maac\Reference\Laravel\Console;
+namespace Maacc\Reference\Laravel\Console;
 
 use Illuminate\Console\Command;
-use Maac\Reference\Laravel\LaravelConsumer;
-use Maac\Sdk\Exceptions\MaacException;
+use Maacc\Reference\Laravel\LaravelConsumer;
+use Maacc\Sdk\Exceptions\MaaccException;
 
 /**
- * Demonstrates the end-to-end MAAC integration from the Laravel app's console:
+ * Demonstrates the end-to-end MAACC integration from the Laravel app's console:
  * sync local tool implementations, invoke the agent, service the client-side
  * tool, and report the final run — using only the public SDK.
  */
 final class RunAgentCommand extends Command
 {
-    protected $signature = 'maac:run-agent {prompt : The prompt to send to the configured MAAC agent}';
+    protected $signature = 'maacc:run-agent {prompt : The prompt to send to the configured MAACC agent}';
 
-    protected $description = 'Invoke the configured MAAC agent, servicing client-side tools from local handlers.';
+    protected $description = 'Invoke the configured MAACC agent, servicing client-side tools from local handlers.';
 
     public function handle(LaravelConsumer $consumer): int
     {
@@ -25,13 +25,13 @@ final class RunAgentCommand extends Command
         $prompt = is_string($prompt) ? $prompt : '';
 
         try {
-            $this->info('Syncing tool implementations with MAAC…');
+            $this->info('Syncing tool implementations with MAACC…');
             $consumer->syncImplementations();
 
             $this->info('Invoking agent…');
             $run = $consumer->summarize($prompt, 'laravel-reference-cli');
-        } catch (MaacException $exception) {
-            $this->error('MAAC integration failed: '.$exception->getMessage());
+        } catch (MaaccException $exception) {
+            $this->error('MAACC integration failed: '.$exception->getMessage());
 
             return self::FAILURE;
         }

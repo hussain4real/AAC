@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
  * be a single read-only SELECT/CTE, must contain no write/DDL/transaction
  * keywords, and may only reference the data source's allowlisted relations. The
  * model never writes raw SQL — the query template is authored and approved in
- * MAAC — but these guards are defence-in-depth so an unsafe template, or one
+ * MAACC — but these guards are defence-in-depth so an unsafe template, or one
  * referencing a relation outside the approved surface, fails before execution.
  * Values are always bound as parameters; the guards never permit interpolation.
  */

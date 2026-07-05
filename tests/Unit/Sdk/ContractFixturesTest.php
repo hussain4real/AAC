@@ -1,16 +1,16 @@
 <?php
 
-use Maac\Sdk\Exceptions\MaacApiException;
-use Maac\Sdk\Http\HttpResponse;
-use Maac\Sdk\Testing\Compatibility;
-use Maac\Sdk\Testing\SchemaValidator;
-use Maac\Sdk\Webhooks\WebhookSignature;
+use Maacc\Sdk\Exceptions\MaaccApiException;
+use Maacc\Sdk\Http\HttpResponse;
+use Maacc\Sdk\Testing\Compatibility;
+use Maacc\Sdk\Testing\SchemaValidator;
+use Maacc\Sdk\Webhooks\WebhookSignature;
 
 /**
  * Proves the PHP SDK decides schema validity, implementation compatibility, and
- * error parsing identically to MAAC, by running the shared contract fixture
+ * error parsing identically to MAACC, by running the shared contract fixture
  * suite (packages/sdk-fixtures) — the same file every supported SDK language
- * must pass. If a MAAC rule change regenerates the fixtures, this test fails
+ * must pass. If a MAACC rule change regenerates the fixtures, this test fails
  * until the SDK is updated to match.
  *
  * @return array<string, mixed>
@@ -43,14 +43,14 @@ function fixtureCases(string $section): array
     return $cases;
 }
 
-it('decides schema validity exactly like MAAC', function (array $case) {
+it('decides schema validity exactly like MAACC', function (array $case) {
     $result = SchemaValidator::validate($case['schema'], $case['payload']);
 
     expect($result->passes())->toBe($case['valid'])
         ->and($result->errors)->toBe($case['errors']);
 })->with(fn () => fixtureCases('schema_validation'));
 
-it('decides implementation compatibility exactly like MAAC', function (array $case) {
+it('decides implementation compatibility exactly like MAACC', function (array $case) {
     $status = Compatibility::status(
         $case['reported_version'],
         $case['current_version'],
@@ -61,7 +61,7 @@ it('decides implementation compatibility exactly like MAAC', function (array $ca
     expect($status)->toBe($case['status']);
 })->with(fn () => fixtureCases('compatibility'));
 
-it('signs webhooks exactly like MAAC', function (array $case) {
+it('signs webhooks exactly like MAACC', function (array $case) {
     expect(WebhookSignature::sign($case['payload'], $case['timestamp'], $case['secret']))->toBe($case['signature']);
 })->with(fn () => fixtureCases('webhook_signature'));
 
@@ -71,7 +71,7 @@ it('parses every controlled error envelope', function (array $case) {
         (string) json_encode(['error' => $case['code'], 'message' => 'Controlled failure.']),
     );
 
-    $exception = MaacApiException::fromResponse($response);
+    $exception = MaaccApiException::fromResponse($response);
 
     expect($exception->errorCode)->toBe($case['code'])
         ->and($exception->status)->toBe($case['status']);

@@ -14,7 +14,7 @@ use App\Models\ToolImplementation;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
- * The Tool Registry is MAAC's source of truth for which tool contracts apply to
+ * The Tool Registry is MAACC's source of truth for which tool contracts apply to
  * an application and which client-side handlers that application must implement.
  *
  * It resolves the effective contract set (global, project, and agent scopes
@@ -96,7 +96,7 @@ class ToolRegistry
                         ->pluck('slug')
                         ->values()
                         ->all(),
-                    // Tools MAAC executes itself (hosted/remote HTTP/MCP connector) —
+                    // Tools MAACC executes itself (hosted/remote HTTP/MCP connector) —
                     // surfaced so the application can distinguish them from the
                     // client-side handlers it owns, without implementing anything.
                     'server_tools' => $agent->tools

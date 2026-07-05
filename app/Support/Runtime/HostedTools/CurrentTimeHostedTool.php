@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Date;
 
 /**
  * Built-in hosted tool that returns the current server time. Demonstrates a
- * MAAC-hosted utility that needs no arguments and no external dependencies.
+ * MAACC-hosted utility that needs no arguments and no external dependencies.
  *
  * Contract shape: input `{}`, output `{ "iso": "string" }`.
  */

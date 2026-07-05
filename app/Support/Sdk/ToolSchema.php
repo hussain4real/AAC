@@ -3,7 +3,7 @@
 namespace App\Support\Sdk;
 
 /**
- * Validates MAAC tool contract schemas and the payloads exchanged against them.
+ * Validates MAACC tool contract schemas and the payloads exchanged against them.
  *
  * A schema is the prototype's compact field map: an associative array of
  * `field name => type definition`, where a type definition is

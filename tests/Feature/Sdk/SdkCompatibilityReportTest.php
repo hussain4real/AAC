@@ -10,9 +10,9 @@ use App\Models\ToolImplementation;
 use App\Support\Sdk\SdkCompatibilityReport;
 
 beforeEach(function () {
-    config()->set('maac.sdk.api_version', '0.0.1');
-    config()->set('maac.sdk.minimum_client_version', '0.0.1');
-    config()->set('maac.sdk.current_client_version', '0.2.0');
+    config()->set('maacc.sdk.api_version', '0.0.1');
+    config()->set('maacc.sdk.minimum_client_version', '0.0.1');
+    config()->set('maacc.sdk.current_client_version', '0.2.0');
 
     [, $this->team] = ownerAndTeam();
     $this->application = Application::factory()->for($this->team)->create([

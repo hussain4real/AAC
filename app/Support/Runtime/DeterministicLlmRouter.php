@@ -17,7 +17,7 @@ use App\Support\Sdk\ToolSchema;
  * payload synthesized from that tool's input schema (so the runtime's boundary
  * validation passes); with no tools at all it answers immediately.
  *
- * Enabled by setting `maac.runtime.driver` to `fake` (env `MAAC_LLM_DRIVER`),
+ * Enabled by setting `maacc.runtime.driver` to `fake` (env `MAACC_LLM_DRIVER`),
  * which {@see RuntimeServiceProvider} binds in place of the
  * production {@see AiLlmRouter}.
  */

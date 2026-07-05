@@ -8,7 +8,7 @@ use App\Models\LlmProvider;
  * Estimates the US-dollar cost of model usage. There is no authoritative source
  * of per-request cost — providers return token *usage* through their API, never
  * a dollar amount — so cost is always usage multiplied by a maintained price
- * table. The reviewed `maac.pricing` catalog (per 1,000,000 tokens) is the
+ * table. The reviewed `maacc.pricing` catalog (per 1,000,000 tokens) is the
  * source of truth for known model codes; an unknown model falls back to the
  * per-1M rates stored on its catalog row, so custom/on-prem models still price.
  */
@@ -21,7 +21,7 @@ class ModelPricing
      */
     public function ratesFor(LlmProvider $provider): array
     {
-        $catalog = config('maac.pricing.models');
+        $catalog = config('maacc.pricing.models');
         $entry = is_array($catalog) ? ($catalog[$provider->code] ?? null) : null;
 
         if (is_array($entry)) {

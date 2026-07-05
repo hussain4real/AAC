@@ -205,7 +205,7 @@ class ToolContract extends Model
     }
 
     /**
-     * Determine whether MAAC executes the tool itself (hosted, remote HTTP,
+     * Determine whether MAACC executes the tool itself (hosted, remote HTTP,
      * MCP-backed, knowledge retrieval, or read-only database) rather than the
      * calling application via the SDK.
      */

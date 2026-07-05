@@ -1,13 +1,13 @@
 <?php
 
-use App\Actions\Maac\CreateCredential;
+use App\Actions\Maacc\CreateCredential;
 use App\Enums\RunStatus;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\Credential;
 use App\Models\ToolContract;
 use App\Models\User;
-use Database\Seeders\MaacE2ESeeder;
+use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Passport;
@@ -22,13 +22,13 @@ beforeEach(function () {
         Artisan::call('passport:keys');
     }
 
-    $this->seed(MaacE2ESeeder::class);
-    $this->application = Application::firstWhere('slug', MaacE2ESeeder::APP_SLUG);
-    $this->agent = Agent::firstWhere('agent_slug', MaacE2ESeeder::AGENT_SLUG);
-    $this->tool = ToolContract::firstWhere('slug', MaacE2ESeeder::TOOL_SLUG);
+    $this->seed(MaaccE2ESeeder::class);
+    $this->application = Application::firstWhere('slug', MaaccE2ESeeder::APP_SLUG);
+    $this->agent = Agent::firstWhere('agent_slug', MaaccE2ESeeder::AGENT_SLUG);
+    $this->tool = ToolContract::firstWhere('slug', MaaccE2ESeeder::TOOL_SLUG);
     $this->credential = Credential::query()
         ->where('application_id', $this->application->id)
-        ->where('label', MaacE2ESeeder::CREDENTIAL_LABEL)
+        ->where('label', MaaccE2ESeeder::CREDENTIAL_LABEL)
         ->first();
 });
 
@@ -51,7 +51,7 @@ function invokeSeededAgent(array $payload = ['input' => 'Summarize today']): Tes
 }
 
 test('the oauth token endpoint returns the documented token envelope', function () {
-    $creator = User::firstWhere('email', MaacE2ESeeder::USER_EMAIL);
+    $creator = User::firstWhere('email', MaaccE2ESeeder::USER_EMAIL);
     $issued = app(CreateCredential::class)
         ->handle($this->application, $creator, ['environment' => 'production']);
 

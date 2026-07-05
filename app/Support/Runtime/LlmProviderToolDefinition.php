@@ -4,7 +4,7 @@ namespace App\Support\Runtime;
 
 /**
  * A provider-hosted tool exposed to the model through the underlying AI
- * provider instead of MAAC's local tool execution loop.
+ * provider instead of MAACC's local tool execution loop.
  */
 final readonly class LlmProviderToolDefinition
 {

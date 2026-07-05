@@ -2,7 +2,7 @@
 
 namespace App\Support\Runtime;
 
-use App\Http\Resources\Maac\TraceEventResource;
+use App\Http\Resources\Maacc\TraceEventResource;
 use App\Models\AgentRun;
 
 /**

@@ -37,7 +37,7 @@ class RegisterWebhookEndpointRequest extends FormRequest
     }
 
     /**
-     * The destination URL MAAC will post run events to.
+     * The destination URL MAACC will post run events to.
      */
     public function webhookUrl(): string
     {

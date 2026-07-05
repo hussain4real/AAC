@@ -3,7 +3,7 @@
 use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalType;
 use App\Enums\DataSourceStatus;
-use App\Http\Resources\Maac\ApprovalRequestResource;
+use App\Http\Resources\Maacc\ApprovalRequestResource;
 use App\Models\ApprovalRequest;
 use App\Models\DataSource;
 use App\Models\ToolContract;

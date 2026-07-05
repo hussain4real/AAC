@@ -1,5 +1,5 @@
 /* ============================================================
-   MAAC — Dashboard (role/scope aware operations overview)
+   MAACC — Dashboard (role/scope aware operations overview)
    ============================================================ */
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
@@ -9,8 +9,8 @@ import {
     DonutLegend,
     HBars,
     StatCard,
-} from '@/components/maac/charts';
-import { ScopeBanner } from '@/components/maac/common';
+} from '@/components/maacc/charts';
+import { ScopeBanner } from '@/components/maacc/common';
 import {
     Badge,
     Btn,
@@ -23,25 +23,25 @@ import {
     Table,
     Td,
     Tr,
-} from '@/components/maac/ui';
+} from '@/components/maacc/ui';
 import PendingInvitationsModal from '@/components/pending-invitations-modal';
-import { Icon } from '@/maac/icons';
-import { useMaacNav } from '@/maac/nav';
-import type { RouteName } from '@/maac/nav';
-import { navAllowed } from '@/maac/personas';
-import { useMaacData } from '@/maac/use-data';
+import { Icon } from '@/maacc/icons';
+import { useMaaccNav } from '@/maacc/nav';
+import type { RouteName } from '@/maacc/nav';
+import { navAllowed } from '@/maacc/personas';
+import { useMaaccData } from '@/maacc/use-data';
 import type { DashboardInvitation } from '@/types';
 
 type Props = { pendingInvitations?: DashboardInvitation[] };
 
 export default function Dashboard({ pendingInvitations = [] }: Props) {
-    const MAAC = useMaacData();
+    const MAACC = useMaaccData();
     const [showInvitations, setShowInvitations] = useState(
         pendingInvitations.length > 0,
     );
-    const { go, scope } = useMaacNav();
+    const { go, scope } = useMaaccNav();
     const isAll = scope.isAll;
-    const D = MAAC.dashboard;
+    const D = MAACC.dashboard;
     const gstat = D.stats;
 
     const activeApps = scope.apps.filter((a) => a.status === 'Active').length;
@@ -130,7 +130,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
     const failRate =
         stat.runsToday > 0 ? (stat.failed / stat.runsToday) * 100 : 0;
 
-    const recentRuns = (isAll ? MAAC.runs : scope.runs).slice(0, 6);
+    const recentRuns = (isAll ? MAACC.runs : scope.runs).slice(0, 6);
     const topAgents = [...scope.agents]
         .sort((a, b) => b.runs7d - a.runs7d)
         .slice(0, 5)
@@ -141,7 +141,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
 
     const llmData = (() => {
         if (isAll) {
-            return MAAC.llms
+            return MAACC.llms
                 .filter((l) => l.usagePct > 0)
                 .slice(0, 5)
                 .map((l) => ({ label: l.name, value: l.usagePct }));
@@ -156,7 +156,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
             .sort((a, b) => b[1] - a[1])
             .slice(0, 5)
             .map(([id, v]) => ({
-                label: MAAC.llmById(id)?.name ?? id,
+                label: MAACC.llmById(id)?.name ?? id,
                 value: v,
             }));
     })();
@@ -580,7 +580,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                                 ]}
                             >
                                 {recentRuns.map((r) => {
-                                    const ag = MAAC.agentById(r.agentId);
+                                    const ag = MAACC.agentById(r.agentId);
 
                                     return (
                                         <Tr
@@ -755,7 +755,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                                             </Badge>
                                         </Td>
                                         <Td>
-                                            {MAAC.agentById(
+                                            {MAACC.agentById(
                                                 t.usedBy[0],
                                             )?.name.replace(' Agent', '')}
                                         </Td>
@@ -796,7 +796,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                                 .map((a, i) => (
                                     <div
                                         key={i}
-                                        className="maac-row"
+                                        className="maacc-row"
                                         onClick={() =>
                                             go(canGov ? 'governance' : 'sdk')
                                         }

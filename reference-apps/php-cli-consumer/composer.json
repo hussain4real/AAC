@@ -1,25 +1,25 @@
 {
-    "name": "maac/php-cli-consumer",
-    "description": "Reference plain-PHP CLI application (no framework) that integrates with MAAC through maac/sdk.",
+    "name": "maacc/php-cli-consumer",
+    "description": "Reference plain-PHP CLI application (no framework) that integrates with MAACC through maacc/sdk.",
     "type": "project",
     "license": "MIT",
     "require": {
         "php": ">=8.2",
-        "maac/sdk": "*"
+        "maacc/sdk": "*"
     },
     "autoload": {
         "psr-4": {
-            "Maac\\Reference\\Cli\\": "src/"
+            "Maacc\\Reference\\Cli\\": "src/"
         }
     },
     "repositories": [
         {
             "type": "path",
-            "url": "../../packages/maac-sdk-php"
+            "url": "../../packages/maacc-sdk-php"
         }
     ],
     "bin": [
-        "bin/maac-run"
+        "bin/maacc-run"
     ],
     "minimum-stability": "stable",
     "prefer-stable": true

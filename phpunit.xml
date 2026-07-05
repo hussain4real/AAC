@@ -29,8 +29,8 @@
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
-        <env name="MAAC_RUNTIME_STREAM_INTERVAL" value="50"/>
-        <env name="MAAC_RUNTIME_STREAM_MAX_SECONDS" value="2"/>
+        <env name="MAACC_RUNTIME_STREAM_INTERVAL" value="50"/>
+        <env name="MAACC_RUNTIME_STREAM_MAX_SECONDS" value="2"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>

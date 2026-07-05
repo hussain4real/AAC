@@ -1,12 +1,12 @@
 <?php
 
-use App\Actions\Maac\ApproveApprovalRequest;
+use App\Actions\Maacc\ApproveApprovalRequest;
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalType;
 use App\Enums\Environment;
 use App\Enums\LlmStatus;
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use App\Models\Application;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
@@ -19,7 +19,7 @@ test('a developer can request approval for a tool contract', function () {
     [, $team] = ownerAndTeam();
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
-    $developer = projectRoleUser($team, $project, MaacRole::Developer);
+    $developer = projectRoleUser($team, $project, MaaccRole::Developer);
     $tool = ToolContract::factory()->for($team)->create(['application_id' => $application->id]);
 
     $this->actingAs($developer)
@@ -38,7 +38,7 @@ test('a developer can request approval for a tool contract', function () {
 
 test('approving an agent publication request publishes the agent', function () {
     [$owner, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['status' => AgentStatus::Draft, 'version' => 'v1']);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Draft, 'version' => 'v1']);
 
     $this->actingAs($owner)->post(route('approvals.store', ['current_team' => $team->slug]), [
         'type' => ApprovalType::AgentPublication->value,
@@ -147,7 +147,7 @@ test('a viewer cannot decide an approval request', function () {
     [, $team] = ownerAndTeam();
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
-    $viewer = projectRoleUser($team, $project, MaacRole::Viewer);
+    $viewer = projectRoleUser($team, $project, MaaccRole::Viewer);
     $request = ApprovalRequest::factory()->for($team)->create();
 
     $this->actingAs($viewer)
@@ -159,7 +159,7 @@ test('a security reviewer can decide an approval request', function () {
     [, $team] = ownerAndTeam();
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
-    $reviewer = projectRoleUser($team, $project, MaacRole::SecurityReviewer);
+    $reviewer = projectRoleUser($team, $project, MaaccRole::SecurityReviewer);
     $request = ApprovalRequest::factory()->for($team)->create();
 
     $this->actingAs($reviewer)

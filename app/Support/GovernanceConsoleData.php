@@ -2,11 +2,11 @@
 
 namespace App\Support;
 
-use App\Enums\MaacPermission;
-use App\Enums\MaacRole;
+use App\Enums\MaaccPermission;
+use App\Enums\MaaccRole;
 use App\Enums\TeamRole;
-use App\Http\Resources\Maac\ApprovalRequestResource;
-use App\Http\Resources\Maac\AuditEventResource;
+use App\Http\Resources\Maacc\ApprovalRequestResource;
+use App\Http\Resources\Maacc\AuditEventResource;
 use App\Models\GovernanceSetting;
 use App\Models\Project;
 use App\Models\ProjectMember;
@@ -17,13 +17,13 @@ use Illuminate\Support\Str;
 /**
  * Assembles the governance console dataset for a team — approval queues, audit
  * log, role matrix, security policies, retention/masking settings, and quotas —
- * as plain arrays matching the console contract (resources/js/maac/data.ts).
+ * as plain arrays matching the console contract (resources/js/maacc/data.ts).
  * Replaces the Phase 1/2 fixture rollups with real records.
  */
 class GovernanceConsoleData
 {
     /**
-     * Short descriptions for each MAAC role shown on the governance role cards.
+     * Short descriptions for each MAACC role shown on the governance role cards.
      *
      * @var array<string, string>
      */
@@ -95,7 +95,7 @@ class GovernanceConsoleData
     }
 
     /**
-     * Build the role matrix with real user counts per MAAC role.
+     * Build the role matrix with real user counts per MAACC role.
      *
      * @return array<int, array<string, mixed>>
      */
@@ -108,22 +108,22 @@ class GovernanceConsoleData
         $counts = ProjectMember::query()
             ->whereIn('project_id', $projectIds)
             ->get()
-            ->groupBy(fn (ProjectMember $member): string => $member->maac_role->value)
+            ->groupBy(fn (ProjectMember $member): string => $member->maacc_role->value)
             ->map(fn ($group) => $group->pluck('user_id')->unique()->count());
 
         $platformAdmins = $team->members()
             ->wherePivotIn('role', [TeamRole::Owner->value, TeamRole::Admin->value])
             ->count();
 
-        return array_map(fn (MaacRole $role): array => [
+        return array_map(fn (MaaccRole $role): array => [
             'name' => $role->label(),
-            'users' => $role === MaacRole::PlatformAdmin ? $platformAdmins : ($counts[$role->value] ?? 0),
+            'users' => $role === MaaccRole::PlatformAdmin ? $platformAdmins : ($counts[$role->value] ?? 0),
             'desc' => self::ROLE_DESCRIPTIONS[$role->value],
             'perms' => array_map(
-                fn (MaacPermission $permission): string => Str::headline($permission->name),
+                fn (MaaccPermission $permission): string => Str::headline($permission->name),
                 $role->permissions(),
             ),
-        ], MaacRole::cases());
+        ], MaaccRole::cases());
     }
 
     /**
@@ -134,7 +134,7 @@ class GovernanceConsoleData
     private static function policies(GovernanceSetting $settings): array
     {
         return [
-            ['name' => 'Client-side data isolation', 'on' => true, 'desc' => 'MAAC never holds credentials for or directly queries application production databases.'],
+            ['name' => 'Client-side data isolation', 'on' => true, 'desc' => 'MAACC never holds credentials for or directly queries application production databases.'],
             ['name' => 'Tool result masking', 'on' => $settings->mask_sensitive_inputs || $settings->mask_sensitive_outputs, 'desc' => 'Confidential tool arguments and results are masked before being written to logs.'],
             ['name' => 'Restricted logging blocked', 'on' => $settings->block_restricted_logging, 'desc' => 'Restricted tool payloads are blocked from raw logging entirely.'],
             ['name' => 'Approval before production', 'on' => true, 'desc' => 'Sensitive tools, agent publication, and model promotion require owner approval.'],

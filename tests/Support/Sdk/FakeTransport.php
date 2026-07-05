@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Tests\Support\Sdk;
 
-use Maac\Sdk\Contracts\Transport;
-use Maac\Sdk\Http\HttpRequest;
-use Maac\Sdk\Http\HttpResponse;
+use Maacc\Sdk\Contracts\Transport;
+use Maacc\Sdk\Http\HttpRequest;
+use Maacc\Sdk\Http\HttpResponse;
 use RuntimeException;
 
 /**
  * A scripted in-memory {@see Transport} for fast, dependency-free SDK unit
- * tests: queue the responses MAAC should return, then assert on the captured
+ * tests: queue the responses MAACC should return, then assert on the captured
  * requests the SDK made.
  */
 final class FakeTransport implements Transport

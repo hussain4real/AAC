@@ -1,13 +1,13 @@
 <?php
 
-use Maac\Sdk\Exceptions\MaacApiException;
-use Maac\Sdk\Exceptions\RunNotResolvedException;
-use Maac\Sdk\MaacClient;
-use Maac\Sdk\MaacConfig;
-use Maac\Sdk\Resources\Run;
-use Maac\Sdk\Resources\WebhookEndpoint;
-use Maac\Sdk\Tools\ToolHandlerRegistry;
-use Maac\Sdk\Webhooks\WebhookSignature;
+use Maacc\Sdk\Exceptions\MaaccApiException;
+use Maacc\Sdk\Exceptions\RunNotResolvedException;
+use Maacc\Sdk\MaaccClient;
+use Maacc\Sdk\MaaccConfig;
+use Maacc\Sdk\Resources\Run;
+use Maacc\Sdk\Resources\WebhookEndpoint;
+use Maacc\Sdk\Tools\ToolHandlerRegistry;
+use Maacc\Sdk\Webhooks\WebhookSignature;
 use Tests\Support\Sdk\FakeTransport;
 
 /**
@@ -34,9 +34,9 @@ function asyncToken(): array
     return ['token_type' => 'Bearer', 'expires_in' => 3600, 'access_token' => 'tok'];
 }
 
-function asyncSdkClient(FakeTransport $transport): MaacClient
+function asyncSdkClient(FakeTransport $transport): MaaccClient
 {
-    return new MaacClient(new MaacConfig('https://maac.test', 'cid', 'secret'), $transport);
+    return new MaaccClient(new MaaccConfig('https://maacc.test', 'cid', 'secret'), $transport);
 }
 
 it('sends the requested mode when starting a run', function () {
@@ -44,7 +44,7 @@ it('sends the requested mode when starting a run', function () {
         ->push(200, asyncToken())
         ->push(202, runStatus('queued'));
 
-    $run = asyncSdkClient($transport)->startRun('ops', 'go', mode: MaacClient::MODE_ASYNC);
+    $run = asyncSdkClient($transport)->startRun('ops', 'go', mode: MaaccClient::MODE_ASYNC);
 
     expect($run->status)->toBe('queued');
     $body = json_decode((string) $transport->request(1)->body, true);
@@ -121,7 +121,7 @@ it('surfaces a controlled error when deleting an unknown endpoint', function () 
         ->push(404, ['error' => 'webhook_endpoint_not_found', 'message' => 'missing']);
 
     expect(fn () => asyncSdkClient($transport)->deleteWebhook('missing'))
-        ->toThrow(MaacApiException::class);
+        ->toThrow(MaaccApiException::class);
 });
 
 it('parses a run stream into events, skipping the sentinel', function () {

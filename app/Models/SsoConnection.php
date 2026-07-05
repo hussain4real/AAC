@@ -23,7 +23,7 @@ use Illuminate\Support\Str;
 /**
  * An enterprise identity provider connection for a team. Web users authenticate
  * through it with the OAuth 2.0 / OIDC authorization-code flow; the connection's
- * claim mapping and group→role rules map the external identity onto MAAC team and
+ * claim mapping and group→role rules map the external identity onto MAACC team and
  * project roles. The client secret is encrypted at rest and never serialized.
  *
  * @property string $id
@@ -125,8 +125,8 @@ class SsoConnection extends Model
     }
 
     /**
-     * Resolve the project MaacRole assignments mapped from a set of external
-     * groups: a list of [project_slug, maac_role] pairs.
+     * Resolve the project MaaccRole assignments mapped from a set of external
+     * groups: a list of [project_slug, maacc_role] pairs.
      *
      * @param  array<int, string>  $groups
      * @return array<int, array{project: string, role: string}>
@@ -135,14 +135,14 @@ class SsoConnection extends Model
     {
         return collect($this->group_role_mappings ?? [])
             ->filter(fn (array $mapping): bool => in_array($mapping['group'] ?? null, $groups, true)
-                && ! empty($mapping['project_slug']) && ! empty($mapping['maac_role']))
-            ->map(fn (array $mapping): array => ['project' => (string) $mapping['project_slug'], 'role' => (string) $mapping['maac_role']])
+                && ! empty($mapping['project_slug']) && ! empty($mapping['maacc_role']))
+            ->map(fn (array $mapping): array => ['project' => (string) $mapping['project_slug'], 'role' => (string) $mapping['maacc_role']])
             ->values()
             ->all();
     }
 
     /**
-     * Resolve the MAAC platform roles ({@see PlatformRole}) mapped from a set of
+     * Resolve the MAACC platform roles ({@see PlatformRole}) mapped from a set of
      * external groups. A tenant user gets no platform role unless an IdP group is
      * explicitly mapped to one, so platform-admin access is never granted by
      * default (Phase 8B).

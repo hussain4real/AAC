@@ -6,7 +6,7 @@ use App\Models\ToolContract;
 
 /**
  * The contract metadata the LLM Router exposes to the model so it can decide
- * whether (and how) to request a tool. Derived from a MAAC {@see ToolContract}.
+ * whether (and how) to request a tool. Derived from a MAACC {@see ToolContract}.
  */
 final readonly class LlmToolDefinition
 {
@@ -20,7 +20,7 @@ final readonly class LlmToolDefinition
     ) {}
 
     /**
-     * Build a tool definition from a MAAC tool contract.
+     * Build a tool definition from a MAACC tool contract.
      */
     public static function fromContract(ToolContract $contract): self
     {

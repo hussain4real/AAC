@@ -32,7 +32,23 @@
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+        <link rel="manifest" href="/site.webmanifest">
+        <meta name="theme-color" content="#6a18a0">
+
+        <meta name="description" content="MAACC — Multi Agent AI Control Centre. Orchestrate, monitor, and govern multi-agent AI workflows.">
+
+        {{-- Open Graph / social sharing --}}
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="MAACC">
+        <meta property="og:title" content="MAACC — Multi Agent AI Control Centre">
+        <meta property="og:description" content="Orchestrate, monitor, and govern multi-agent AI workflows.">
+        <meta property="og:image" content="/og-image.png">
+        <meta property="og:url" content="{{ url()->current() }}">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="MAACC — Multi Agent AI Control Centre">
+        <meta name="twitter:description" content="Orchestrate, monitor, and govern multi-agent AI workflows.">
+        <meta name="twitter:image" content="/og-image.png">
 
         @fonts
 
