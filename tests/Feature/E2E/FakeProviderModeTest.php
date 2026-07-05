@@ -8,6 +8,7 @@ use App\Support\Runtime\AiLlmRouter;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\DeterministicLlmRouter;
 use Database\Seeders\MaaccE2ESeeder;
+use Illuminate\Support\Facades\Log;
 use Laravel\Passport\Passport;
 
 /**
@@ -24,6 +25,20 @@ test('the fake driver binds the deterministic router', function () {
     app()->forgetInstance(LlmRouter::class);
 
     expect(app(LlmRouter::class))->toBeInstanceOf(DeterministicLlmRouter::class);
+});
+
+test('a stray fake driver self-heals to the AI router in production', function () {
+    Log::spy();
+    config(['maacc.runtime.driver' => 'fake']);
+    app()->detectEnvironment(fn (): string => 'production');
+    app()->forgetInstance(LlmRouter::class);
+
+    expect(app()->isProduction())->toBeTrue()
+        ->and(app(LlmRouter::class))->toBeInstanceOf(AiLlmRouter::class);
+
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message): bool => str_contains($message, 'MAACC_LLM_DRIVER=fake'))
+        ->once();
 });
 
 test('the fake provider mode drives a full pause, resume, and completion with no scripted router', function () {
