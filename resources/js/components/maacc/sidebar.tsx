@@ -51,7 +51,7 @@ function Logo({ compact = false }: { compact?: boolean }) {
                             letterSpacing: 0.3,
                         }}
                     >
-                        Milaha
+                        MAACC
                     </div>
                     <div
                         style={{
@@ -63,7 +63,7 @@ function Logo({ compact = false }: { compact?: boolean }) {
                             textTransform: 'uppercase',
                         }}
                     >
-                        AI Agent Center
+                        Multi Agent AI Control Centre
                     </div>
                 </div>
             )}
