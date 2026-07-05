@@ -32,7 +32,14 @@ function Logo({ compact = false }: { compact?: boolean }) {
                 }}
             >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <circle cx="12" cy="12" r="7.5" stroke="#fff" strokeWidth="1.5" fill="none" />
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="7.5"
+                        stroke="#fff"
+                        strokeWidth="1.5"
+                        fill="none"
+                    />
                     <circle cx="12" cy="4.5" r="1.85" fill="#fff" />
                     <circle cx="5.5" cy="15.75" r="1.85" fill="#fff" />
                     <circle cx="18.5" cy="15.75" r="1.85" fill="#fff" />
