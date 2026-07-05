@@ -6,7 +6,7 @@ use Database\Seeders\PlatformRbacSeeder;
 use Inertia\Testing\AssertableInertia;
 
 /**
- * Phase 8B — the user's MAAC platform access is shared to Inertia so the console
+ * Phase 8B — the user's MAACC platform access is shared to Inertia so the console
  * can gate platform-admin nav and controls on the real global RBAC.
  */
 beforeEach(function () {

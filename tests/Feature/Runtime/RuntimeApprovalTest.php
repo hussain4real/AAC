@@ -21,7 +21,7 @@ use Inertia\Testing\AssertableInertia as Assert;
  */
 function gatedRun(Team $team): array
 {
-    $agent = maacAgent($team, [
+    $agent = maaccAgent($team, [
         'status' => AgentStatus::Published,
         'sensitivity' => Sensitivity::Internal,
         'requires_runtime_approval' => true,
@@ -52,7 +52,7 @@ test('a run at or above the team sensitivity threshold requires approval', funct
     [, $team] = ownerAndTeam();
     GovernanceSetting::create(['team_id' => $team->id, 'runtime_approval_sensitivity' => Sensitivity::Restricted->value]);
 
-    $agent = maacAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Restricted]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Restricted]);
     bindFakeRouter()->textThen('done');
 
     $run = app(AgentRunner::class)->start($agent->fresh(), $agent->project->application, Environment::Production, 'go', null);
@@ -65,7 +65,7 @@ test('a run below the threshold and without a flag runs normally', function () {
     [, $team] = ownerAndTeam();
     GovernanceSetting::create(['team_id' => $team->id, 'runtime_approval_sensitivity' => Sensitivity::Restricted->value]);
 
-    $agent = maacAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Internal]);
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Internal]);
     bindFakeRouter()->textThen('all done');
 
     $run = app(AgentRunner::class)->start($agent->fresh(), $agent->project->application, Environment::Production, 'go', null);
@@ -122,7 +122,7 @@ test('the console approvals dataset surfaces the runtime queue with run detail',
         ->get(route('applications', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('maac.approvals.runtime', 1)
-            ->where('maac.approvals.runtime.0.subject.kind', 'Run')
-            ->where('maac.approvals.runtime.0.subject.description', $run->input));
+            ->has('maacc.approvals.runtime', 1)
+            ->where('maacc.approvals.runtime.0.subject.kind', 'Run')
+            ->where('maacc.approvals.runtime.0.subject.description', $run->input));
 });

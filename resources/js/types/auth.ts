@@ -10,7 +10,7 @@ export type User = {
     [key: string]: unknown;
 };
 
-/** The current user's MAAC platform-administration access (Phase 8B). */
+/** The current user's MAACC platform-administration access (Phase 8B). */
 export type PlatformAccess = {
     roles: string[];
     permissions: string[];

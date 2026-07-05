@@ -2,7 +2,7 @@
 
 namespace App\Support\Governance;
 
-use App\Actions\Maac\RevokeCredential;
+use App\Actions\Maacc\RevokeCredential;
 use App\Enums\Environment;
 use App\Enums\IncidentActionType;
 use App\Enums\LlmStatus;

@@ -94,7 +94,7 @@ test('the manifest only lists published agents', function () {
         ->assertJsonCount(1, 'agents');
 });
 
-test('the manifest distinguishes client-side tools from server-side tools MAAC executes', function () {
+test('the manifest distinguishes client-side tools from server-side tools MAACC executes', function () {
     $hosted = ToolContract::factory()->for($this->team)->for($this->application)->create([
         'slug' => 'current_time',
         'name' => 'current_time',
@@ -118,13 +118,13 @@ test('the manifest distinguishes client-side tools from server-side tools MAAC e
     // Client tools the app must implement stay in `tools` + agent.tools.
     expect($response->json('agents.0.tools'))->toBe(['getOperationalRecords']);
 
-    // Server-side tools MAAC runs are surfaced separately, tagged with their mode.
+    // Server-side tools MAACC runs are surfaced separately, tagged with their mode.
     $serverTools = collect($response->json('agents.0.server_tools'));
     expect($serverTools->pluck('execution_mode')->sort()->values()->all())
         ->toBe(['connector', 'hosted', 'http'])
         ->and($serverTools->firstWhere('name', 'fleet_status')['execution_mode'])->toBe('http');
 
-    // Capabilities advertise which modes are client- vs MAAC-executed.
+    // Capabilities advertise which modes are client- vs MAACC-executed.
     expect($response->json('sdk.capabilities.tool_execution_modes.client_side'))->toBe(['client'])
         ->and($response->json('sdk.capabilities.tool_execution_modes.server_side'))
         ->toBe(['hosted', 'http', 'connector', 'knowledge', 'db']);

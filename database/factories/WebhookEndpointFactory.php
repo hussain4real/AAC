@@ -32,7 +32,7 @@ class WebhookEndpointFactory extends Factory
         return [
             'application_id' => Application::factory(),
             'environment' => Environment::Production,
-            'url' => 'https://'.fake()->domainName().'/webhooks/maac',
+            'url' => 'https://'.fake()->domainName().'/webhooks/maacc',
             'secret' => $secret,
             'last_four' => substr($secret, -6),
             'events' => ['*'],

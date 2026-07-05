@@ -45,7 +45,7 @@ class SsoUserResolver
             $provisioned = $existing === null;
 
             if ($provisioned && ! $connection->auto_provision) {
-                throw new SsoException('no MAAC account is provisioned for this identity');
+                throw new SsoException('no MAACC account is provisioned for this identity');
             }
 
             $user = $existing ?? User::create([
@@ -70,7 +70,7 @@ class SsoUserResolver
                 $this->syncProjectRole($connection->team, $user, $assignment['project'], $assignment['role']);
             }
 
-            // Map IdP group claims onto MAAC platform-admin roles (Phase 8B). A
+            // Map IdP group claims onto MAACC platform-admin roles (Phase 8B). A
             // tenant user gets none unless a group is explicitly mapped, so SSO
             // never grants platform-admin access by default.
             foreach ($connection->resolvePlatformRoles($payload->groups) as $platformRole) {
@@ -99,9 +99,9 @@ class SsoUserResolver
     }
 
     /**
-     * Attach or update the user's MAAC role on a mapped project.
+     * Attach or update the user's MAACC role on a mapped project.
      */
-    private function syncProjectRole(Team $team, User $user, string $projectSlug, string $maacRole): void
+    private function syncProjectRole(Team $team, User $user, string $projectSlug, string $maaccRole): void
     {
         $project = Project::query()
             ->whereHas('application', fn ($query) => $query->where('team_id', $team->id))
@@ -113,12 +113,12 @@ class SsoUserResolver
         }
 
         if ($project->members()->whereKey($user->id)->exists()) {
-            $project->members()->updateExistingPivot($user->id, ['maac_role' => $maacRole]);
+            $project->members()->updateExistingPivot($user->id, ['maacc_role' => $maaccRole]);
 
             return;
         }
 
-        $project->members()->attach($user->id, ['maac_role' => $maacRole]);
+        $project->members()->attach($user->id, ['maacc_role' => $maaccRole]);
     }
 
     /**

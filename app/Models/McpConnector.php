@@ -19,7 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 
 /**
- * A registered external MCP server MAAC connects to as a client. Tool contracts
+ * A registered external MCP server MAACC connects to as a client. Tool contracts
  * with execution_mode = connector reference a connector and a remote tool name;
  * the runtime discovers the connector's capabilities and invokes the mapped tool
  * through the Laravel MCP client.

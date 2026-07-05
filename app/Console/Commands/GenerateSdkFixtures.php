@@ -8,10 +8,10 @@ use Illuminate\Support\Facades\File;
 
 /**
  * Generates (or, with --check, verifies) the shared SDK contract fixture suite
- * at packages/sdk-fixtures/contract.json from MAAC's own logic (Phase 6C).
+ * at packages/sdk-fixtures/contract.json from MAACC's own logic (Phase 6C).
  *
  * `--check` is the CI tripwire: it fails when the committed fixtures drift from
- * what MAAC currently produces, so a server-side response-shape or rule change
+ * what MAACC currently produces, so a server-side response-shape or rule change
  * cannot land without regenerating the fixtures — which then fails any SDK
  * language that has not been updated to match.
  */
@@ -22,7 +22,7 @@ class GenerateSdkFixtures extends Command
      *
      * @var string
      */
-    protected $signature = 'maac:sdk-fixtures {--check : Fail if the committed fixtures are out of date instead of writing them}';
+    protected $signature = 'maacc:sdk-fixtures {--check : Fail if the committed fixtures are out of date instead of writing them}';
 
     /**
      * The console command description.
@@ -48,7 +48,7 @@ class GenerateSdkFixtures extends Command
                 return self::SUCCESS;
             }
 
-            $this->error('SDK contract fixtures are out of date. Run `php artisan maac:sdk-fixtures` and commit the result.');
+            $this->error('SDK contract fixtures are out of date. Run `php artisan maacc:sdk-fixtures` and commit the result.');
 
             return self::FAILURE;
         }

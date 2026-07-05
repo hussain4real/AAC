@@ -1,9 +1,9 @@
 <?php
 
-use Maac\Sdk\Resources\ManifestTool;
-use Maac\Sdk\Testing\SchemaValidator;
-use Maac\Sdk\Testing\ToolTester;
-use Maac\Sdk\Tools\CallableToolHandler;
+use Maacc\Sdk\Resources\ManifestTool;
+use Maacc\Sdk\Testing\SchemaValidator;
+use Maacc\Sdk\Testing\ToolTester;
+use Maacc\Sdk\Tools\CallableToolHandler;
 
 /**
  * Unit coverage for the SDK pre-flight test helpers — schema validation and the

@@ -255,7 +255,7 @@ it('reindexes a source and rebuilds its chunks', function () {
 });
 
 it('splits a long paragraph into word windows', function () {
-    config(['maac.runtime.knowledge.chunk_size' => 5]);
+    config(['maacc.runtime.knowledge.chunk_size' => 5]);
     $source = KnowledgeSource::factory()->for($this->team)->create(['application_id' => null]);
 
     app(KnowledgeIndexer::class)->ingestDocument($source, [

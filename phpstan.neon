@@ -9,8 +9,8 @@ parameters:
         - config/
         - database/
         - routes/
-        - packages/maac-sdk-php/src
-        - packages/maac-sdk-php/examples
+        - packages/maacc-sdk-php/src
+        - packages/maacc-sdk-php/examples
         - reference-apps/laravel-consumer/src
         - reference-apps/php-cli-consumer/src
 

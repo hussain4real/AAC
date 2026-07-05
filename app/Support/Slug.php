@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Generates unique, URL-safe slugs used as MAAC route keys.
+ * Generates unique, URL-safe slugs used as MAACC route keys.
  */
 class Slug
 {

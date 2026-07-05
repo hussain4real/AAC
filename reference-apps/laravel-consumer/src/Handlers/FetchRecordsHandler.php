@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Maac\Reference\Laravel\Handlers;
+namespace Maacc\Reference\Laravel\Handlers;
 
-use Maac\Reference\Laravel\Support\CargoRepository;
-use Maac\Sdk\Tools\ToolContext;
-use Maac\Sdk\Tools\ToolHandler;
+use Maacc\Reference\Laravel\Support\CargoRepository;
+use Maacc\Sdk\Tools\ToolContext;
+use Maacc\Sdk\Tools\ToolHandler;
 
 /**
  * The Laravel app's local implementation of the client-side "fetch records"

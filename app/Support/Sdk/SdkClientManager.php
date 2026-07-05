@@ -6,10 +6,10 @@ use App\Models\Credential;
 use Laravel\Passport\ClientRepository;
 
 /**
- * Manages the Passport client_credentials client that backs a MAAC credential
+ * Manages the Passport client_credentials client that backs a MAACC credential
  * for SDK/API token issuance.
  *
- * Each credential maps 1:1 to a Passport client: MAAC stores its own bcrypt
+ * Each credential maps 1:1 to a Passport client: MAACC stores its own bcrypt
  * hash of the plaintext for display metadata, while Passport owns the secret
  * used to validate `client_credentials` token requests at `/oauth/token`.
  */

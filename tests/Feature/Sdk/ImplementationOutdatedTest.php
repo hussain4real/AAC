@@ -1,6 +1,6 @@
 <?php
 
-use App\Actions\Maac\UpdateToolContract;
+use App\Actions\Maacc\UpdateToolContract;
 use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\ImplStatus;

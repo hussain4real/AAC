@@ -2,12 +2,12 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\Application;
 use App\Models\User;
 
 /**
- * Applications are team-level records managed by MAAC Platform Admins.
+ * Applications are team-level records managed by MAACC Platform Admins.
  */
 class ApplicationPolicy
 {
@@ -34,7 +34,7 @@ class ApplicationPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermission($team, MaacPermission::ManageApplication);
+        return $team !== null && $user->hasMaaccPermission($team, MaaccPermission::ManageApplication);
     }
 
     /**
@@ -42,7 +42,7 @@ class ApplicationPolicy
      */
     public function update(User $user, Application $application): bool
     {
-        return $user->hasMaacPermission($application->team, MaacPermission::ManageApplication);
+        return $user->hasMaaccPermission($application->team, MaaccPermission::ManageApplication);
     }
 
     /**
@@ -50,6 +50,6 @@ class ApplicationPolicy
      */
     public function delete(User $user, Application $application): bool
     {
-        return $user->hasMaacPermission($application->team, MaacPermission::ManageApplication);
+        return $user->hasMaaccPermission($application->team, MaaccPermission::ManageApplication);
     }
 }

@@ -13,7 +13,7 @@ use Throwable;
  * Discovers a connector's capabilities by listing the remote MCP server's tools
  * and persists a normalized descriptor set on the connector (name, title,
  * description, input schema). This backs the console's capability view and the
- * permission mapping from a remote tool to a MAAC tool contract.
+ * permission mapping from a remote tool to a MAACC tool contract.
  */
 class McpCapabilityDiscoverer
 {

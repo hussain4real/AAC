@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use App\Models\Application;
 use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
@@ -13,15 +13,15 @@ use App\Models\User;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Build a user holding the given MAAC role and return them with their team.
+ * Build a user holding the given MAACC role and return them with their team.
  *
  * @return array{0: User, 1: Team}
  */
-function userWithRole(MaacRole $role): array
+function userWithRole(MaaccRole $role): array
 {
     [$owner, $team] = ownerAndTeam();
 
-    if ($role === MaacRole::PlatformAdmin) {
+    if ($role === MaaccRole::PlatformAdmin) {
         return [$owner, $team];
     }
 
@@ -31,8 +31,8 @@ function userWithRole(MaacRole $role): array
     return [projectRoleUser($team, $project, $role), $team];
 }
 
-test('governance authorization matrix holds for every MAAC role', function (
-    MaacRole $role,
+test('governance authorization matrix holds for every MAACC role', function (
+    MaaccRole $role,
     bool $canManageSettings,
     bool $canManageQuota,
     bool $canDecide,
@@ -51,12 +51,12 @@ test('governance authorization matrix holds for every MAAC role', function (
         ->and($gate->allows('viewAny', AuditEvent::class))->toBe($canAudit);
 })->with([
     //                       role,                      settings, quota, decide, request, audit
-    'platform admin' => [MaacRole::PlatformAdmin, true, true, true, true, true],
-    'project owner' => [MaacRole::ProjectOwner, false, false, true, true, false],
-    'developer' => [MaacRole::Developer, false, false, false, true, false],
-    'viewer' => [MaacRole::Viewer, false, false, false, false, false],
-    'auditor' => [MaacRole::Auditor, false, false, false, false, true],
-    'security reviewer' => [MaacRole::SecurityReviewer, false, false, true, false, true],
+    'platform admin' => [MaaccRole::PlatformAdmin, true, true, true, true, true],
+    'project owner' => [MaaccRole::ProjectOwner, false, false, true, true, false],
+    'developer' => [MaaccRole::Developer, false, false, false, true, false],
+    'viewer' => [MaaccRole::Viewer, false, false, false, false, false],
+    'auditor' => [MaaccRole::Auditor, false, false, false, false, true],
+    'security reviewer' => [MaaccRole::SecurityReviewer, false, false, true, false, true],
 ]);
 
 test('approval queue visibility requires a team and team-less users cannot request', function () {

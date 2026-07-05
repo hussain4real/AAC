@@ -1,32 +1,32 @@
-import { MaacClient, MaacError, ToolHandlerRegistry } from '../../../packages/maac-sdk-ts/src/index.ts';
-import type { AsyncRunOptions, ImplementationResult, MaacConfig, Run, Transport } from '../../../packages/maac-sdk-ts/src/index.ts';
+import { MaaccClient, MaaccError, ToolHandlerRegistry } from '../../../packages/maacc-sdk-ts/src/index.ts';
+import type { AsyncRunOptions, ImplementationResult, MaaccConfig, Run, Transport } from '../../../packages/maacc-sdk-ts/src/index.ts';
 import { fetchRecordsHandler } from './fetchRecordsHandler.ts';
 
 export interface NodeConsumerOptions {
-  config: MaacConfig;
+  config: MaaccConfig;
   agentSlug: string;
   toolSlug: string;
   transport?: Transport;
 }
 
 /**
- * Assembles the Node/TypeScript MAAC integration: a configured SDK client plus
+ * Assembles the Node/TypeScript MAACC integration: a configured SDK client plus
  * the local tool handler registry, exposing the two operations a consuming app
  * performs — sync its implementations, and run the agent.
  */
 export class NodeConsumer {
-  private readonly client: MaacClient;
+  private readonly client: MaaccClient;
   private readonly registry: ToolHandlerRegistry;
   private readonly agentSlug: string;
 
   constructor(options: NodeConsumerOptions) {
-    this.client = new MaacClient(options.config, options.transport);
+    this.client = new MaaccClient(options.config, options.transport);
     this.registry = new ToolHandlerRegistry().register(options.toolSlug, fetchRecordsHandler, 'fetchRecordsHandler');
     this.agentSlug = options.agentSlug;
   }
 
   /** The underlying SDK client. */
-  maac(): MaacClient {
+  maacc(): MaaccClient {
     return this.client;
   }
 
@@ -49,16 +49,16 @@ export class NodeConsumer {
     return this.client.runAsync(this.agentSlug, prompt, this.registry, caller, options);
   }
 
-  /** Build the consumer from the documented MAAC_* environment variables. */
+  /** Build the consumer from the documented MAACC_* environment variables. */
   static fromEnvironment(transport?: Transport): NodeConsumer {
     return new NodeConsumer({
       config: {
-        baseUrl: requireEnv('MAAC_BASE_URL'),
-        clientId: requireEnv('MAAC_CLIENT_ID'),
-        clientSecret: requireEnv('MAAC_CLIENT_SECRET'),
+        baseUrl: requireEnv('MAACC_BASE_URL'),
+        clientId: requireEnv('MAACC_CLIENT_ID'),
+        clientSecret: requireEnv('MAACC_CLIENT_SECRET'),
       },
-      agentSlug: process.env.MAAC_AGENT_SLUG ?? 'e2e-ops-agent',
-      toolSlug: process.env.MAAC_TOOL_FETCH_RECORDS ?? 'e2e-fetch-records',
+      agentSlug: process.env.MAACC_AGENT_SLUG ?? 'e2e-ops-agent',
+      toolSlug: process.env.MAACC_TOOL_FETCH_RECORDS ?? 'e2e-fetch-records',
       transport,
     });
   }
@@ -68,7 +68,7 @@ function requireEnv(key: string): string {
   const value = process.env[key];
 
   if (value === undefined || value === '') {
-    throw new MaacError(`Missing required environment variable: ${key}.`);
+    throw new MaaccError(`Missing required environment variable: ${key}.`);
   }
 
   return value;

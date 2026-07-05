@@ -54,8 +54,8 @@ class KnowledgeToolExecutor
         }
 
         $config = $tool->knowledgeConfig();
-        $topK = max(1, (int) ($config['top_k'] ?? config('maac.runtime.knowledge.default_top_k', 5)));
-        $minScore = (float) ($config['min_score'] ?? config('maac.runtime.knowledge.default_min_score', 0.1));
+        $topK = max(1, (int) ($config['top_k'] ?? config('maacc.runtime.knowledge.default_top_k', 5)));
+        $minScore = (float) ($config['min_score'] ?? config('maacc.runtime.knowledge.default_min_score', 0.1));
 
         $matches = $this->retriever->retrieve($source, $query, $topK, $minScore);
 

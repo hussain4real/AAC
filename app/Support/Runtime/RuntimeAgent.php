@@ -13,7 +13,7 @@ use Laravel\Ai\Providers\Tools\ProviderTool;
  * The single-turn `laravel/ai` agent the runtime drives one step at a time.
  *
  * Capped at one step (`#[MaxSteps(1)]`) so the SDK returns any native tool call
- * to MAAC un-executed: MAAC owns the orchestration loop, so it routes each call
+ * to MAACC un-executed: MAACC owns the orchestration loop, so it routes each call
  * by execution mode and can pause for client-side tools, which the SDK's
  * auto-executing loop cannot do.
  */
@@ -39,7 +39,7 @@ class RuntimeAgent implements Agent, Conversational, HasTools
     }
 
     /**
-     * The conversation history. MAAC renders the full history into the prompt
+     * The conversation history. MAACC renders the full history into the prompt
      * itself, so the agent carries none of its own.
      *
      * @return array<int, never>

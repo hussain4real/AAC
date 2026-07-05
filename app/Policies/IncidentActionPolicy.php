@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\User;
 
 /**
@@ -21,8 +21,8 @@ class IncidentActionPolicy
         $team = $user->currentTeam;
 
         return $team !== null && (
-            $user->isMaacPlatformAdmin($team)
-            || $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ReviewSecurity)
+            $user->isMaaccPlatformAdmin($team)
+            || $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ReviewSecurity)
         );
     }
 
@@ -34,8 +34,8 @@ class IncidentActionPolicy
         $team = $user->currentTeam;
 
         return $team !== null && (
-            $user->isMaacPlatformAdmin($team)
-            || $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ReviewSecurity)
+            $user->isMaaccPlatformAdmin($team)
+            || $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ReviewSecurity)
         );
     }
 }

@@ -24,6 +24,6 @@ class GovernanceSettingPolicy
      */
     public function update(User $user, GovernanceSetting $governanceSetting): bool
     {
-        return $user->isMaacPlatformAdmin($governanceSetting->team);
+        return $user->isMaaccPlatformAdmin($governanceSetting->team);
     }
 }

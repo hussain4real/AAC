@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\Evaluation;
 use App\Models\User;
 
@@ -35,7 +35,7 @@ class EvaluationPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageAgent);
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageAgent);
     }
 
     /**
@@ -43,7 +43,7 @@ class EvaluationPolicy
      */
     public function delete(User $user, Evaluation $evaluation): bool
     {
-        return $user->isMaacPlatformAdmin($evaluation->team)
-            || $user->hasMaacPermissionOnAnyProject($evaluation->team, MaacPermission::ManageAgent);
+        return $user->isMaaccPlatformAdmin($evaluation->team)
+            || $user->hasMaaccPermissionOnAnyProject($evaluation->team, MaaccPermission::ManageAgent);
     }
 }

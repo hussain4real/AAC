@@ -1,4 +1,4 @@
-import type { ToolHandler } from '../../../packages/maac-sdk-ts/src/index.ts';
+import type { ToolHandler } from '../../../packages/maacc-sdk-ts/src/index.ts';
 
 const RECORDS: ReadonlyArray<string> = [
   'Gate 2 — 14 trucks queued',
@@ -9,7 +9,7 @@ const RECORDS: ReadonlyArray<string> = [
 
 /**
  * The Node app's local implementation of the client-side "fetch records" tool.
- * MAAC never sees this data — only the result, shaped to the contract's output
+ * MAACC never sees this data — only the result, shaped to the contract's output
  * schema (`records`, `total`).
  */
 export const fetchRecordsHandler: ToolHandler = (args) => {

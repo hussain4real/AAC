@@ -7,9 +7,9 @@ beforeEach(function () {
 });
 
 test('it exposes the configured api and client versions', function () {
-    config()->set('maac.sdk.api_version', '1.2.3');
-    config()->set('maac.sdk.minimum_client_version', '1.1.0');
-    config()->set('maac.sdk.current_client_version', '1.4.0');
+    config()->set('maacc.sdk.api_version', '1.2.3');
+    config()->set('maacc.sdk.minimum_client_version', '1.1.0');
+    config()->set('maacc.sdk.current_client_version', '1.4.0');
 
     expect($this->platform->apiVersion())->toBe('1.2.3')
         ->and($this->platform->minimumClientVersion())->toBe('1.1.0')
@@ -17,9 +17,9 @@ test('it exposes the configured api and client versions', function () {
 });
 
 test('it falls back to defaults when config values are missing or non-string', function () {
-    config()->set('maac.sdk.api_version', null);
-    config()->set('maac.sdk.minimum_client_version', ['not', 'a', 'string']);
-    config()->set('maac.sdk.current_client_version', '');
+    config()->set('maacc.sdk.api_version', null);
+    config()->set('maacc.sdk.minimum_client_version', ['not', 'a', 'string']);
+    config()->set('maacc.sdk.current_client_version', '');
 
     expect($this->platform->apiVersion())->toBe('0.0.1')
         ->and($this->platform->minimumClientVersion())->toBe('0.0.1')
@@ -27,24 +27,24 @@ test('it falls back to defaults when config values are missing or non-string', f
 });
 
 test('it normalises the package registry and ignores malformed entries', function () {
-    config()->set('maac.sdk.packages', [
-        'php' => ['name' => 'maac/sdk', 'version' => '0.0.1', 'registry' => 'composer-vcs', 'status' => 'supported'],
+    config()->set('maacc.sdk.packages', [
+        'php' => ['name' => 'maacc/sdk', 'version' => '0.0.1', 'registry' => 'composer-vcs', 'status' => 'supported'],
         'broken' => 'not-an-array',
     ]);
 
     expect($this->platform->packages())->toBe([
-        ['language' => 'php', 'name' => 'maac/sdk', 'version' => '0.0.1', 'registry' => 'composer-vcs', 'status' => 'supported'],
+        ['language' => 'php', 'name' => 'maacc/sdk', 'version' => '0.0.1', 'registry' => 'composer-vcs', 'status' => 'supported'],
     ]);
 });
 
 test('packages is empty when the config is not an array', function () {
-    config()->set('maac.sdk.packages', 'nope');
+    config()->set('maacc.sdk.packages', 'nope');
 
     expect($this->platform->packages())->toBe([]);
 });
 
 test('it normalises deprecations and ignores malformed entries', function () {
-    config()->set('maac.sdk.deprecations', [
+    config()->set('maacc.sdk.deprecations', [
         ['id' => 'legacy-shape', 'removed_in' => '2.0.0'],
         'not-an-array',
     ]);
@@ -55,13 +55,13 @@ test('it normalises deprecations and ignores malformed entries', function () {
 });
 
 test('deprecations is empty when the config is not an array', function () {
-    config()->set('maac.sdk.deprecations', null);
+    config()->set('maacc.sdk.deprecations', null);
 
     expect($this->platform->deprecations())->toBe([]);
 });
 
 test('the descriptor carries the full versioned contract', function () {
-    config()->set('maac.sdk.api_version', '0.0.1');
+    config()->set('maacc.sdk.api_version', '0.0.1');
 
     $descriptor = $this->platform->descriptor();
 
@@ -77,8 +77,8 @@ test('the descriptor carries the full versioned contract', function () {
 });
 
 test('a client within the supported window is compatible', function () {
-    config()->set('maac.sdk.minimum_client_version', '0.0.1');
-    config()->set('maac.sdk.current_client_version', '0.2.0');
+    config()->set('maacc.sdk.minimum_client_version', '0.0.1');
+    config()->set('maacc.sdk.current_client_version', '0.2.0');
 
     $result = $this->platform->compatibility('0.1.0', 'php');
 
@@ -90,8 +90,8 @@ test('a client within the supported window is compatible', function () {
 });
 
 test('a client older than the minimum requires an upgrade', function () {
-    config()->set('maac.sdk.minimum_client_version', '0.1.0');
-    config()->set('maac.sdk.current_client_version', '0.2.0');
+    config()->set('maacc.sdk.minimum_client_version', '0.1.0');
+    config()->set('maacc.sdk.current_client_version', '0.2.0');
 
     $result = $this->platform->compatibility('0.0.1');
 
@@ -101,8 +101,8 @@ test('a client older than the minimum requires an upgrade', function () {
 });
 
 test('a client ahead of the current version is compatible but flagged', function () {
-    config()->set('maac.sdk.minimum_client_version', '0.0.1');
-    config()->set('maac.sdk.current_client_version', '0.2.0');
+    config()->set('maacc.sdk.minimum_client_version', '0.0.1');
+    config()->set('maacc.sdk.current_client_version', '0.2.0');
 
     $result = $this->platform->compatibility('2.0.0');
 

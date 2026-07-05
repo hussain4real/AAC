@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\Application;
 use App\Models\Credential;
 use App\Models\User;
@@ -25,7 +25,7 @@ class CredentialPolicy
      */
     public function create(User $user, Application $application): bool
     {
-        return $user->hasMaacPermission($application->team, MaacPermission::ManageCredential);
+        return $user->hasMaaccPermission($application->team, MaaccPermission::ManageCredential);
     }
 
     /**
@@ -33,7 +33,7 @@ class CredentialPolicy
      */
     public function rotate(User $user, Credential $credential): bool
     {
-        return $user->hasMaacPermission($credential->application->team, MaacPermission::ManageCredential);
+        return $user->hasMaaccPermission($credential->application->team, MaaccPermission::ManageCredential);
     }
 
     /**
@@ -41,6 +41,6 @@ class CredentialPolicy
      */
     public function revoke(User $user, Credential $credential): bool
     {
-        return $user->hasMaacPermission($credential->application->team, MaacPermission::ManageCredential);
+        return $user->hasMaaccPermission($credential->application->team, MaaccPermission::ManageCredential);
     }
 }

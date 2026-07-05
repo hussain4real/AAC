@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Stamps every SDK/runtime API response with the `X-Maac-Api-Version` header so
+ * Stamps every SDK/runtime API response with the `X-Maacc-Api-Version` header so
  * a client can always see which contract shape produced the response and detect
  * a server-side contract change (Phase 6C).
  */
@@ -25,7 +25,7 @@ class AddApiVersionHeader
     {
         $response = $next($request);
 
-        $response->headers->set('X-Maac-Api-Version', $this->platform->apiVersion());
+        $response->headers->set('X-Maacc-Api-Version', $this->platform->apiVersion());
 
         return $response;
     }

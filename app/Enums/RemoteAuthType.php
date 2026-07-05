@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * How MAAC authenticates outbound calls to a remote HTTP endpoint or MCP
+ * How MAACC authenticates outbound calls to a remote HTTP endpoint or MCP
  * connector. The credential material itself is stored encrypted at rest and is
  * never returned to the console or the SDK.
  */

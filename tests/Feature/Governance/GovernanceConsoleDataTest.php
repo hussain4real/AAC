@@ -2,13 +2,13 @@
 
 use App\Enums\ApprovalType;
 use App\Enums\Environment;
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use App\Enums\QuotaScope;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
-use App\Http\Resources\Maac\AgentRunResource;
-use App\Http\Resources\Maac\ApprovalRequestResource;
-use App\Http\Resources\Maac\AuditEventResource;
+use App\Http\Resources\Maacc\AgentRunResource;
+use App\Http\Resources\Maacc\ApprovalRequestResource;
+use App\Http\Resources\Maacc\AuditEventResource;
 use App\Models\Application;
 use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
@@ -21,14 +21,14 @@ use App\Models\ToolAssignment;
 use App\Models\ToolContract;
 use App\Support\Governance\ApprovalManager;
 use App\Support\GovernanceConsoleData;
-use App\Support\MaacConsoleData;
+use App\Support\MaaccConsoleData;
 
 test('the governance console dataset assembles approvals, roles, policies, quotas, and audit', function () {
     [$owner, $team] = ownerAndTeam();
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
-    projectRoleUser($team, $project, MaacRole::Developer);
-    projectRoleUser($team, $project, MaacRole::Viewer);
+    projectRoleUser($team, $project, MaaccRole::Developer);
+    projectRoleUser($team, $project, MaaccRole::Viewer);
 
     $tool = ToolContract::factory()->for($team)->create(['application_id' => $application->id]);
     $model = LlmProvider::factory()->for($team)->create();
@@ -72,11 +72,11 @@ test('policies reflect the team governance settings', function () {
         ->and($policies->firstWhere('name', 'Daily run quota')['on'])->toBeTrue();
 });
 
-test('the maac console prop carries the observability and governance rollups', function () {
+test('the maacc console prop carries the observability and governance rollups', function () {
     [, $team] = ownerAndTeam();
-    maacAgent($team);
+    maaccAgent($team);
 
-    $data = MaacConsoleData::forTeam($team);
+    $data = MaaccConsoleData::forTeam($team);
 
     expect($data)->toHaveKeys(['apps', 'runs', 'dashboard', 'operational', 'approvals', 'auditEvents', 'roles', 'policies', 'governanceSettings', 'quotas'])
         ->and($data['dashboard'])->toHaveKeys(['stats', 'runStatus', 'runsOverTime', 'topAgents', 'alerts'])
@@ -101,8 +101,8 @@ test('the audit event resource describes the actor, target, and action', functio
 
 test('the agent run resource exposes sensitivity, masking, and failure reason', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
-    $run = maacRun($agent, [
+    $agent = maaccAgent($team);
+    $run = maaccRun($agent, [
         'sensitivity' => Sensitivity::Confidential,
         'masked' => true,
         'status' => RunStatus::Failed,
@@ -159,7 +159,7 @@ test('the approval resource builds a 360 subject view for each type', function (
         ->and($toolView['outputSchema'])->toBe(['results' => 'array'])
         ->and(collect($toolView['fields'])->pluck('k'))->toContain('Execution mode', 'Timeout');
 
-    $agent = maacAgent($team, ['system_prompt' => 'You assist operators.']);
+    $agent = maaccAgent($team, ['system_prompt' => 'You assist operators.']);
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
     $agentView = (new ApprovalRequestResource(
         $manager->requestAgentPublication($agent, $owner, Environment::Production)->load('subject')

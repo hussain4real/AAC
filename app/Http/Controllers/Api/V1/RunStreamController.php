@@ -45,8 +45,8 @@ class RunStreamController extends Controller
      */
     private function events(AgentRun $run): Generator
     {
-        $interval = max(1, (int) config('maac.runtime.stream.poll_interval_ms', 500));
-        $maxTicks = max(1, (int) ceil(((float) config('maac.runtime.stream.max_seconds', 60) * 1000) / $interval));
+        $interval = max(1, (int) config('maacc.runtime.stream.poll_interval_ms', 500));
+        $maxTicks = max(1, (int) ceil(((float) config('maacc.runtime.stream.max_seconds', 60) * 1000) / $interval));
         $cursor = -1;
         $tick = 0;
 

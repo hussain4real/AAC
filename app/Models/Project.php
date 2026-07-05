@@ -77,7 +77,7 @@ class Project extends Model
     }
 
     /**
-     * Get the project's member records (with their MAAC role).
+     * Get the project's member records (with their MAACC role).
      *
      * @return HasMany<ProjectMember, $this>
      */
@@ -105,7 +105,7 @@ class Project extends Model
     {
         return $this->belongsToMany(User::class, 'project_members')
             ->using(ProjectMember::class)
-            ->withPivot(['maac_role'])
+            ->withPivot(['maacc_role'])
             ->withTimestamps();
     }
 

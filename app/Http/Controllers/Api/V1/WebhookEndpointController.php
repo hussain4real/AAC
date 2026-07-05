@@ -14,7 +14,7 @@ use Illuminate\Http\Response;
 
 /**
  * The webhook self-service API: a registered application registers, lists, and
- * removes the endpoints MAAC posts run lifecycle events to. Every endpoint is
+ * removes the endpoints MAACC posts run lifecycle events to. Every endpoint is
  * scoped to the caller's application and credential environment; the signing
  * secret is returned once, on registration, and never again.
  */

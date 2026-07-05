@@ -33,7 +33,7 @@ test('grant assigns the role and records a certified, audited grant', function (
 });
 
 test('break-glass grants time-boxed access and clamps the TTL to the maximum', function () {
-    config()->set('maac.platform.break_glass.max_ttl_minutes', 120);
+    config()->set('maacc.platform.break_glass.max_ttl_minutes', 120);
     $target = User::factory()->create();
 
     $clamped = $this->manager->breakGlass($target, PlatformRole::PlatformAdmin, $this->actor, 'incident', 999);
@@ -43,7 +43,7 @@ test('break-glass grants time-boxed access and clamps the TTL to the maximum', f
         ->and($target->fresh()->hasRole(PlatformRole::PlatformAdmin->value))->toBeTrue();
 
     // A null TTL falls back to the configured default.
-    config()->set('maac.platform.break_glass.default_ttl_minutes', 45);
+    config()->set('maacc.platform.break_glass.default_ttl_minutes', 45);
     $defaulted = $this->manager->breakGlass(User::factory()->create(), PlatformRole::Auditor, $this->actor, 'incident');
     expect(round(now()->diffInMinutes($defaulted->expires_at)))->toBe(45.0);
 });

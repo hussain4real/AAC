@@ -114,8 +114,8 @@ class ToolConfigInput
     private static function knowledgeConfig(array $submitted): array
     {
         return [
-            'top_k' => max(1, (int) ($submitted['top_k'] ?? config('maac.runtime.knowledge.default_top_k', 5))),
-            'min_score' => round((float) ($submitted['min_score'] ?? config('maac.runtime.knowledge.default_min_score', 0.1)), 4),
+            'top_k' => max(1, (int) ($submitted['top_k'] ?? config('maacc.runtime.knowledge.default_top_k', 5))),
+            'min_score' => round((float) ($submitted['min_score'] ?? config('maacc.runtime.knowledge.default_min_score', 0.1)), 4),
         ];
     }
 
@@ -134,7 +134,7 @@ class ToolConfigInput
             'query' => trim((string) ($submitted['query'] ?? '')),
             'bindings' => self::stringList($submitted['bindings'] ?? []),
             'columns' => self::stringList($submitted['columns'] ?? []),
-            'row_limit' => max(1, (int) ($submitted['row_limit'] ?? config('maac.runtime.db.default_row_limit', 50))),
+            'row_limit' => max(1, (int) ($submitted['row_limit'] ?? config('maacc.runtime.db.default_row_limit', 50))),
             'max_age_minutes' => self::nullableInt($submitted['max_age_minutes'] ?? null),
         ];
     }

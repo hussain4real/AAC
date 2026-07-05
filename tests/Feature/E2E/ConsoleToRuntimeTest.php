@@ -10,7 +10,7 @@ use App\Models\AuditEvent;
 use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
-use Database\Seeders\MaacE2ESeeder;
+use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Testing\TestResponse;
 use Inertia\Testing\AssertableInertia;
@@ -64,7 +64,7 @@ test('the full console setup to completed agent run works end to end', function 
     consolePost('llm-providers.store', [], [
         'name' => 'E2E Model',
         'code' => 'fake/e2e',
-        'provider' => 'MAAC Deterministic',
+        'provider' => 'MAACC Deterministic',
         'context_window' => '128K',
         'input_cost' => 1.0,
         'output_cost' => 2.0,
@@ -201,20 +201,20 @@ test('the full console setup to completed agent run works end to end', function 
 test('the authenticated console renders every setup screen the operator drives', function () {
     // Seed the canonical graph, then confirm each console screen the setup path
     // touches resolves for the team-scoped operator and renders its page.
-    $this->seed(MaacE2ESeeder::class);
+    $this->seed(MaaccE2ESeeder::class);
     $owner = $this->owner;
     $slug = $this->slug;
 
     $screens = [
-        ['applications', [], 'maac/applications/index'],
-        ['projects', [], 'maac/projects/index'],
-        ['llm-providers', [], 'maac/llm-providers'],
-        ['tools', [], 'maac/tools/index'],
-        ['agents', [], 'maac/agents/index'],
-        ['agents.create', [], 'maac/agents/create'],
-        ['sdk', [], 'maac/sdk'],
-        ['governance', [], 'maac/governance'],
-        ['runs', [], 'maac/runs/index'],
+        ['applications', [], 'maacc/applications/index'],
+        ['projects', [], 'maacc/projects/index'],
+        ['llm-providers', [], 'maacc/llm-providers'],
+        ['tools', [], 'maacc/tools/index'],
+        ['agents', [], 'maacc/agents/index'],
+        ['agents.create', [], 'maacc/agents/create'],
+        ['sdk', [], 'maacc/sdk'],
+        ['governance', [], 'maacc/governance'],
+        ['runs', [], 'maacc/runs/index'],
     ];
 
     foreach ($screens as [$name, $params, $component]) {

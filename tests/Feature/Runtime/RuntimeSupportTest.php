@@ -100,7 +100,7 @@ test('a catalog entry maps to an AI provider driver and falls back to the defaul
 });
 
 test('model pricing resolves per-1M rates from the catalog, falling back to the provider row', function () {
-    config(['maac.pricing.models' => ['gpt-5.4' => ['input' => 1.25, 'output' => 10.0]]]);
+    config(['maacc.pricing.models' => ['gpt-5.4' => ['input' => 1.25, 'output' => 10.0]]]);
     $pricing = new ModelPricing;
 
     $known = LlmProvider::factory()->make(['code' => 'gpt-5.4', 'input_cost' => 99.0, 'output_cost' => 99.0]);
@@ -114,8 +114,8 @@ test('model pricing resolves per-1M rates from the catalog, falling back to the 
 });
 
 test('the model pricing catalog stays within the per-million units guardrail', function () {
-    $ceiling = (float) config('maac.pricing.max_rate_per_million');
-    $models = config('maac.pricing.models');
+    $ceiling = (float) config('maacc.pricing.max_rate_per_million');
+    $models = config('maacc.pricing.models');
 
     expect($models)->not->toBeEmpty();
 
@@ -270,7 +270,7 @@ test('the provider-hosted registry recognizes only hosted web search contracts',
         ->and($registry->definitionFor($hostedEcho))->toBeNull();
 });
 
-test('a runtime tool maps the MAAC schema DSL to native JSON-schema types', function () {
+test('a runtime tool maps the MAACC schema DSL to native JSON-schema types', function () {
     $tool = new RuntimeTool(new LlmToolDefinition('lookup', '', [
         'name' => 'string',
         'count' => 'integer',

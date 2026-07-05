@@ -4,7 +4,7 @@ namespace App\Enums;
 
 /**
  * Client-side tool implementation status. Raw values match the console
- * contract's `implLabel` keys (resources/js/maac/data.ts).
+ * contract's `implLabel` keys (resources/js/maacc/data.ts).
  */
 enum ImplStatus: string
 {

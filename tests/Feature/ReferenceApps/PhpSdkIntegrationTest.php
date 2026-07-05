@@ -1,39 +1,39 @@
 <?php
 
-use App\Actions\Maac\CreateCredential;
+use App\Actions\Maacc\CreateCredential;
 use App\Enums\TraceEventType;
 use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\ToolImplementation;
 use App\Models\User;
-use Database\Seeders\MaacE2ESeeder;
+use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
-use Maac\Reference\Laravel\Handlers\FetchRecordsHandler;
-use Maac\Reference\Laravel\Support\CargoRepository;
-use Maac\Sdk\MaacClient;
-use Maac\Sdk\MaacConfig;
-use Maac\Sdk\Tools\ToolHandlerRegistry;
+use Maacc\Reference\Laravel\Handlers\FetchRecordsHandler;
+use Maacc\Reference\Laravel\Support\CargoRepository;
+use Maacc\Sdk\MaaccClient;
+use Maacc\Sdk\MaaccConfig;
+use Maacc\Sdk\Tools\ToolHandlerRegistry;
 use Tests\Support\Sdk\KernelTransport;
 
 /**
- * Phase 6B: an external application drives the entire MAAC integration through
+ * Phase 6B: an external application drives the entire MAACC integration through
  * the public SDK only — exchanging a real client_credentials token, syncing the
  * manifest, reporting a local handler, invoking the agent, and servicing the
- * client-side tool pause/resume — using the framework-agnostic maac/sdk
- * against a seeded MAAC instance over the in-process kernel transport.
+ * client-side tool pause/resume — using the framework-agnostic maacc/sdk
+ * against a seeded MAACC instance over the in-process kernel transport.
  */
 beforeEach(function () {
     if (! file_exists(storage_path('oauth-private.key'))) {
         Artisan::call('passport:keys');
     }
 
-    $this->seed(MaacE2ESeeder::class);
-    $this->application = Application::firstWhere('slug', MaacE2ESeeder::APP_SLUG);
-    $owner = User::firstWhere('email', MaacE2ESeeder::USER_EMAIL);
+    $this->seed(MaaccE2ESeeder::class);
+    $this->application = Application::firstWhere('slug', MaaccE2ESeeder::APP_SLUG);
+    $owner = User::firstWhere('email', MaaccE2ESeeder::USER_EMAIL);
 
     $issued = app(CreateCredential::class)->handle($this->application, $owner, ['environment' => 'production']);
-    $this->client = new MaacClient(
-        new MaacConfig('', $issued->credential->client_id, $issued->plainSecret),
+    $this->client = new MaaccClient(
+        new MaaccConfig('', $issued->credential->client_id, $issued->plainSecret),
         new KernelTransport($this),
     );
 });
@@ -44,29 +44,29 @@ it('completes the full SDK lifecycle from token to a finished run', function () 
 
     // 2. Manifest sync — the tool is listed and reported as needing a handler.
     $manifest = $this->client->manifest();
-    $tool = $manifest->tool(MaacE2ESeeder::TOOL_SLUG);
-    expect($manifest->agent(MaacE2ESeeder::AGENT_SLUG))->not->toBeNull()
+    $tool = $manifest->tool(MaaccE2ESeeder::TOOL_SLUG);
+    expect($manifest->agent(MaaccE2ESeeder::AGENT_SLUG))->not->toBeNull()
         ->and($tool)->not->toBeNull()
         ->and($tool->implementationStatus())->toBe('required');
 
-    // 3. Report the local handler — MAAC reconciles it as implemented.
+    // 3. Report the local handler — MAACC reconciles it as implemented.
     $registry = (new ToolHandlerRegistry)->register(
-        new FetchRecordsHandler(new CargoRepository, MaacE2ESeeder::TOOL_SLUG),
+        new FetchRecordsHandler(new CargoRepository, MaaccE2ESeeder::TOOL_SLUG),
     );
     $results = $this->client->reportHandlers($manifest, $registry, 'php');
-    expect($results[0]['tool'])->toBe(MaacE2ESeeder::TOOL_SLUG)
+    expect($results[0]['tool'])->toBe(MaaccE2ESeeder::TOOL_SLUG)
         ->and($results[0]['status'])->toBe('implemented');
 
     // 4. The manifest now reports the tool implemented (the key transition).
-    expect($this->client->manifest()->tool(MaacE2ESeeder::TOOL_SLUG)?->isImplemented())->toBeTrue();
+    expect($this->client->manifest()->tool(MaaccE2ESeeder::TOOL_SLUG)?->isImplemented())->toBeTrue();
 
     // 5. Invoke the agent — the model requests the client tool, the SDK services
     //    it from the registry, submits the result, and the run completes.
     bindFakeRouter()
-        ->toolCallThen(MaacE2ESeeder::TOOL_SLUG, ['query' => 'today'])
+        ->toolCallThen(MaaccE2ESeeder::TOOL_SLUG, ['query' => 'today'])
         ->textThen('All berths are clear.');
 
-    $run = $this->client->run(MaacE2ESeeder::AGENT_SLUG, 'Summarize today', $registry, 'php-sdk-reference');
+    $run = $this->client->run(MaaccE2ESeeder::AGENT_SLUG, 'Summarize today', $registry, 'php-sdk-reference');
 
     expect($run->isCompleted())->toBeTrue()
         ->and($run->response)->toBe('All berths are clear.')
@@ -75,7 +75,7 @@ it('completes the full SDK lifecycle from token to a finished run', function () 
     // 6. Run status retrieval reflects the completed run.
     expect($this->client->getRun($run->runId)->isCompleted())->toBeTrue();
 
-    // 7. MAAC recorded the run, its trace, usage/cost, and the implementation —
+    // 7. MAACC recorded the run, its trace, usage/cost, and the implementation —
     //    everything the dashboard, SDK center, run trace, and audit log render.
     $record = AgentRun::firstWhere('slug', $run->runId);
     expect($record->caller)->toBe('php-sdk-reference')
@@ -98,12 +98,12 @@ it('completes the full SDK lifecycle from token to a finished run', function () 
 });
 
 it('reads run status through the SDK while a run is paused', function () {
-    bindFakeRouter()->toolCallThen(MaacE2ESeeder::TOOL_SLUG, ['query' => 'today']);
+    bindFakeRouter()->toolCallThen(MaaccE2ESeeder::TOOL_SLUG, ['query' => 'today']);
 
-    $paused = $this->client->startRun(MaacE2ESeeder::AGENT_SLUG, 'Summarize', 'status-check');
+    $paused = $this->client->startRun(MaaccE2ESeeder::AGENT_SLUG, 'Summarize', 'status-check');
 
     expect($paused->isWaiting())->toBeTrue()
-        ->and($paused->toolCall?->tool)->toBe(MaacE2ESeeder::TOOL_SLUG)
+        ->and($paused->toolCall?->tool)->toBe(MaaccE2ESeeder::TOOL_SLUG)
         ->and($paused->toolCall?->arguments)->toBe(['query' => 'today']);
 
     $fetched = $this->client->getRun($paused->runId);

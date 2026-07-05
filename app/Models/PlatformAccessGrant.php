@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * The audited ledger of a MAAC platform-role grant (Phase 8B).
+ * The audited ledger of a MAACC platform-role grant (Phase 8B).
  *
  * Spatie's `model_has_roles` is the authorization source of truth; this record
  * is the governance trail around it — who granted which platform role to whom,

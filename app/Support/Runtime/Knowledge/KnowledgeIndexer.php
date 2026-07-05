@@ -143,7 +143,7 @@ class KnowledgeIndexer
      */
     private function chunk(string $body): array
     {
-        $maxWords = max(1, (int) config('maac.runtime.knowledge.chunk_size', 120));
+        $maxWords = max(1, (int) config('maacc.runtime.knowledge.chunk_size', 120));
         $paragraphs = preg_split('/\n\s*\n/', trim($body)) ?: [];
         $chunks = [];
 

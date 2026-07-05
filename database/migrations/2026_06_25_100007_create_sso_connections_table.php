@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
  * Enterprise identity connections: an OAuth 2.0 / OIDC provider a team's web
  * users authenticate through. The connection carries the provider endpoints, the
  * client credentials (the secret encrypted at rest), the claim mapping, and the
- * group→role rules that map an external identity onto MAAC team/project roles.
+ * group→role rules that map an external identity onto MAACC team/project roles.
  */
 return new class extends Migration
 {

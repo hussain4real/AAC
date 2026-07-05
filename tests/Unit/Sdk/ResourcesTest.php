@@ -1,12 +1,12 @@
 <?php
 
-use Maac\Sdk\Resources\Manifest;
-use Maac\Sdk\Resources\ManifestTool;
-use Maac\Sdk\Resources\Run;
-use Maac\Sdk\Resources\ToolCall;
+use Maacc\Sdk\Resources\Manifest;
+use Maacc\Sdk\Resources\ManifestTool;
+use Maacc\Sdk\Resources\Run;
+use Maacc\Sdk\Resources\ToolCall;
 
 /**
- * Unit coverage for the response value objects: how they parse MAAC's envelopes
+ * Unit coverage for the response value objects: how they parse MAACC's envelopes
  * and the status helpers consumers branch on.
  */
 it('parses a waiting run with its pending tool call', function () {

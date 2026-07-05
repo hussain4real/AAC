@@ -41,7 +41,7 @@ describe('page + gating', function () {
             ->get(accessRoute('access-control', $super))
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
-                ->component('maac/access-control')
+                ->component('maacc/access-control')
                 ->has('access.roles', 7)
                 ->has('access.admins')
                 ->where('capabilities.isSuperAdmin', true)

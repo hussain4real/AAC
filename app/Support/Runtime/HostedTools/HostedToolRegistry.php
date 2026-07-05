@@ -6,9 +6,9 @@ use App\Support\Runtime\Contracts\HostedTool;
 use RuntimeException;
 
 /**
- * Resolves the in-platform handler for a MAAC-hosted tool contract by slug.
+ * Resolves the in-platform handler for a MAACC-hosted tool contract by slug.
  * Seeded with the built-in utilities; applications register hosted contracts in
- * MAAC whose slug matches a registered handler.
+ * MAACC whose slug matches a registered handler.
  */
 class HostedToolRegistry
 {

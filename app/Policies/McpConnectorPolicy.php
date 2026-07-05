@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\McpConnector;
 use App\Models\User;
 
@@ -37,7 +37,7 @@ class McpConnectorPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageTool);
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -45,8 +45,8 @@ class McpConnectorPolicy
      */
     public function update(User $user, McpConnector $connector): bool
     {
-        return $user->isMaacPlatformAdmin($connector->team)
-            || $user->hasMaacPermissionOnAnyProject($connector->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($connector->team)
+            || $user->hasMaaccPermissionOnAnyProject($connector->team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -54,7 +54,7 @@ class McpConnectorPolicy
      */
     public function delete(User $user, McpConnector $connector): bool
     {
-        return $user->isMaacPlatformAdmin($connector->team)
-            || $user->hasMaacPermissionOnAnyProject($connector->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($connector->team)
+            || $user->hasMaaccPermissionOnAnyProject($connector->team, MaaccPermission::ManageTool);
     }
 }

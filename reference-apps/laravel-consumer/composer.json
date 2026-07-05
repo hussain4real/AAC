@@ -1,29 +1,29 @@
 {
-    "name": "maac/laravel-consumer",
-    "description": "Reference Laravel application that integrates with MAAC through the maac/sdk client.",
+    "name": "maacc/laravel-consumer",
+    "description": "Reference Laravel application that integrates with MAACC through the maacc/sdk client.",
     "type": "project",
     "license": "MIT",
     "require": {
         "php": ">=8.2",
         "illuminate/console": "^11.0 || ^12.0 || ^13.0",
         "illuminate/support": "^11.0 || ^12.0 || ^13.0",
-        "maac/sdk": "*"
+        "maacc/sdk": "*"
     },
     "autoload": {
         "psr-4": {
-            "Maac\\Reference\\Laravel\\": "src/"
+            "Maacc\\Reference\\Laravel\\": "src/"
         }
     },
     "repositories": [
         {
             "type": "path",
-            "url": "../../packages/maac-sdk-php"
+            "url": "../../packages/maacc-sdk-php"
         }
     ],
     "extra": {
         "laravel": {
             "providers": [
-                "Maac\\Reference\\Laravel\\MaacServiceProvider"
+                "Maacc\\Reference\\Laravel\\MaaccServiceProvider"
             ]
         }
     },

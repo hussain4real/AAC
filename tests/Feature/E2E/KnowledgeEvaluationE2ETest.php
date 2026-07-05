@@ -47,7 +47,7 @@ it('indexes a source, runs a RAG agent through an evaluation, and audits it', fu
     e2ePost('llm-providers.store', [], [
         'name' => 'E2E Model',
         'code' => 'fake/e2e',
-        'provider' => 'MAAC Deterministic',
+        'provider' => 'MAACC Deterministic',
         'context_window' => '128K',
         'input_cost' => 1.0,
         'output_cost' => 2.0,

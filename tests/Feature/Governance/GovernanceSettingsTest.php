@@ -1,7 +1,7 @@
 <?php
 
 use App\Enums\Environment;
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use App\Models\Application;
 use App\Models\AuditEvent;
 use App\Models\GovernanceSetting;
@@ -47,7 +47,7 @@ test('a developer cannot update governance settings', function () {
     [, $team] = ownerAndTeam();
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
-    $developer = projectRoleUser($team, $project, MaacRole::Developer);
+    $developer = projectRoleUser($team, $project, MaaccRole::Developer);
 
     $this->actingAs($developer)
         ->put(route('governance-settings.update', ['current_team' => $team->slug]), settingsPayload())

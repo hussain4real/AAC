@@ -1,6 +1,6 @@
 <?php
 
-use App\Enums\MaacRole;
+use App\Enums\MaaccRole;
 use App\Enums\TeamRole;
 use App\Models\Application;
 use App\Models\Project;
@@ -50,10 +50,10 @@ test('the redirect builds the provider authorize url and stores the state', func
 test('a callback provisions a new user, maps the group to a role, and signs them in', function () {
     [, $team] = ownerAndTeam();
     $connection = SsoConnection::factory()->for($team)->withMappings([
-        ['group' => 'maac-admins', 'team_role' => 'admin'],
+        ['group' => 'maacc-admins', 'team_role' => 'admin'],
     ])->create();
 
-    fakeIdp(['sub' => 'ext-1', 'email' => 'newhire@corp.com', 'name' => 'New Hire', 'groups' => ['maac-admins']]);
+    fakeIdp(['sub' => 'ext-1', 'email' => 'newhire@corp.com', 'name' => 'New Hire', 'groups' => ['maacc-admins']]);
 
     ssoCallback($connection)->assertRedirect();
 
@@ -90,24 +90,24 @@ test('a callback updates an existing project role and ignores unknown projects',
     $project = Project::factory()->for($application)->create();
     $user = User::factory()->create(['email' => 'dev2@corp.com']);
     $team->members()->attach($user, ['role' => 'member']);
-    $project->members()->attach($user, ['maac_role' => MaacRole::Viewer->value]);
+    $project->members()->attach($user, ['maacc_role' => MaaccRole::Viewer->value]);
 
     $connection = SsoConnection::factory()->for($team)->withMappings([
-        ['group' => 'devs', 'team_role' => 'member', 'maac_role' => 'developer', 'project_slug' => $project->slug],
-        ['group' => 'devs', 'team_role' => 'member', 'maac_role' => 'auditor', 'project_slug' => 'ghost-project'],
+        ['group' => 'devs', 'team_role' => 'member', 'maacc_role' => 'developer', 'project_slug' => $project->slug],
+        ['group' => 'devs', 'team_role' => 'member', 'maacc_role' => 'auditor', 'project_slug' => 'ghost-project'],
     ])->create();
 
     fakeIdp(['sub' => 'ext-d2', 'email' => 'dev2@corp.com', 'name' => 'Dev2', 'groups' => ['devs']]);
 
     ssoCallback($connection)->assertRedirect();
 
-    expect($user->fresh()->maacRoleFor($project))->toBe(MaacRole::Developer);
+    expect($user->fresh()->maaccRoleFor($project))->toBe(MaaccRole::Developer);
 });
 
 test('a callback without a matching group uses the default team role', function () {
     [, $team] = ownerAndTeam();
     $connection = SsoConnection::factory()->for($team)->withMappings([
-        ['group' => 'maac-admins', 'team_role' => 'admin'],
+        ['group' => 'maacc-admins', 'team_role' => 'admin'],
     ])->create(['default_team_role' => TeamRole::Member]);
 
     fakeIdp(['sub' => 'ext-2', 'email' => 'member@corp.com', 'name' => 'Member', 'groups' => ['other']]);
@@ -117,19 +117,19 @@ test('a callback without a matching group uses the default team role', function 
     expect(User::firstWhere('email', 'member@corp.com')->teamRole($team))->toBe(TeamRole::Member);
 });
 
-test('a callback maps a group to a project MAAC role', function () {
+test('a callback maps a group to a project MAACC role', function () {
     [, $team] = ownerAndTeam();
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
     $connection = SsoConnection::factory()->for($team)->withMappings([
-        ['group' => 'devs', 'team_role' => 'member', 'maac_role' => 'developer', 'project_slug' => $project->slug],
+        ['group' => 'devs', 'team_role' => 'member', 'maacc_role' => 'developer', 'project_slug' => $project->slug],
     ])->create();
 
     fakeIdp(['sub' => 'ext-dev', 'email' => 'dev@corp.com', 'name' => 'Dev', 'groups' => ['devs']]);
 
     ssoCallback($connection)->assertRedirect();
 
-    expect(User::firstWhere('email', 'dev@corp.com')->maacRoleFor($project))->toBe(MaacRole::Developer);
+    expect(User::firstWhere('email', 'dev@corp.com')->maaccRoleFor($project))->toBe(MaaccRole::Developer);
 });
 
 test('a callback links an existing user by email instead of creating a new one', function () {

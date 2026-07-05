@@ -8,7 +8,7 @@ import type {
     Role,
     Run,
     Tool,
-} from '@/maac/data';
+} from '@/maacc/data';
 import type { Auth } from '@/types/auth';
 import type { Team } from '@/types/teams';
 
@@ -20,7 +20,7 @@ declare module 'react' {
 }
 
 /** Headline dashboard stat tiles (Phase 5 — real aggregates). */
-export interface MaacDashboardStats {
+export interface MaaccDashboardStats {
     apps: number;
     projects: number;
     agents: number;
@@ -33,7 +33,7 @@ export interface MaacDashboardStats {
     cost: string;
 }
 
-export interface MaacAlert {
+export interface MaaccAlert {
     sev: string;
     title: string;
     desc: string;
@@ -41,16 +41,16 @@ export interface MaacAlert {
     icon: string;
 }
 
-export interface MaacDashboard {
-    stats: MaacDashboardStats;
+export interface MaaccDashboard {
+    stats: MaaccDashboardStats;
     runStatus: { label: string; value: number; color: string }[];
     runsOverTime: number[];
     topAgents: { id: string; name: string; runs: number; app: string }[];
-    alerts: MaacAlert[];
+    alerts: MaaccAlert[];
 }
 
 /** Operational monitoring summary (Phase 5). */
-export interface MaacOperational {
+export interface MaaccOperational {
     totalRuns: number;
     failedRuns: number;
     expiredRuns: number;
@@ -61,7 +61,7 @@ export interface MaacOperational {
     costAnomaly: boolean;
 }
 
-export interface MaacAuditEvent {
+export interface MaaccAuditEvent {
     id: string;
     action: string;
     label: string;
@@ -73,7 +73,7 @@ export interface MaacAuditEvent {
     metadata: Record<string, unknown> | null;
 }
 
-export interface MaacGovernanceSettings {
+export interface MaaccGovernanceSettings {
     retainPromptsDays: number;
     retainResponsesDays: number;
     retainToolArgumentsDays: number;
@@ -85,7 +85,7 @@ export interface MaacGovernanceSettings {
     defaultDailyRunQuota: number | null;
 }
 
-export interface MaacQuota {
+export interface MaaccQuota {
     id: string;
     scope: string;
     scopeKey: string;
@@ -96,7 +96,7 @@ export interface MaacQuota {
     enabled: boolean;
 }
 
-export interface MaacApprovals {
+export interface MaaccApprovals {
     tools: ApprovalItem[];
     agents: ApprovalItem[];
     models: ApprovalItem[];
@@ -105,7 +105,7 @@ export interface MaacApprovals {
 }
 
 /** A published SDK client package (Phase 6C). */
-export interface MaacSdkPackage {
+export interface MaaccSdkPackage {
     language: string;
     name: string;
     version: string | null;
@@ -114,7 +114,7 @@ export interface MaacSdkPackage {
 }
 
 /** A contract/SDK deprecation and its removal window (Phase 6C). */
-export interface MaacSdkDeprecation {
+export interface MaaccSdkDeprecation {
     id?: string;
     summary?: string;
     deprecated_in?: string;
@@ -123,17 +123,17 @@ export interface MaacSdkDeprecation {
 }
 
 /** The versioned SDK platform identity (Phase 6C). */
-export interface MaacSdkPlatform {
+export interface MaaccSdkPlatform {
     api_version: string;
     minimum_client_version: string;
     current_client_version: string;
     languages: { value: string; label: string }[];
-    packages: MaacSdkPackage[];
-    deprecations: MaacSdkDeprecation[];
+    packages: MaaccSdkPackage[];
+    deprecations: MaaccSdkDeprecation[];
 }
 
 /** A reported SDK client version + its compatibility verdict (Phase 6C). */
-export interface MaacSdkClient {
+export interface MaaccSdkClient {
     language: string | null;
     version: string | null;
     status: string;
@@ -141,12 +141,12 @@ export interface MaacSdkClient {
 }
 
 /** One application's SDK integration health (Phase 6C). */
-export interface MaacSdkAppHealth {
+export interface MaaccSdkAppHealth {
     id: string;
     name: string;
     environment: string;
     lastSyncedAt: string | null;
-    clients: MaacSdkClient[];
+    clients: MaaccSdkClient[];
     compatible: boolean;
     tools: {
         total: number;
@@ -158,7 +158,7 @@ export interface MaacSdkAppHealth {
 }
 
 /** A client-side tool whose implementation has drifted from its contract (Phase 6C). */
-export interface MaacSdkDrift {
+export interface MaaccSdkDrift {
     application: string;
     applicationId: string;
     tool: string;
@@ -171,14 +171,14 @@ export interface MaacSdkDrift {
 }
 
 /** The SDK versioning & compatibility dashboard dataset (Phase 6C). */
-export interface MaacSdkCompatibility {
-    platform: MaacSdkPlatform;
-    applications: MaacSdkAppHealth[];
-    drift: MaacSdkDrift[];
+export interface MaaccSdkCompatibility {
+    platform: MaaccSdkPlatform;
+    applications: MaaccSdkAppHealth[];
+    drift: MaaccSdkDrift[];
 }
 
 /** A single webhook delivery attempt (Phase 6D). */
-export interface MaacWebhookDelivery {
+export interface MaaccWebhookDelivery {
     id: string;
     event: string;
     eventLabel: string;
@@ -195,7 +195,7 @@ export interface MaacWebhookDelivery {
 }
 
 /** A registered webhook endpoint and its recent delivery history (Phase 6D). */
-export interface MaacWebhookEndpoint {
+export interface MaaccWebhookEndpoint {
     id: string;
     uuid: string;
     appId: string | null;
@@ -210,11 +210,11 @@ export interface MaacWebhookEndpoint {
     lastDeliveredAt: string | null;
     lastFailedAt: string | null;
     createdAt: string | null;
-    deliveries: MaacWebhookDelivery[];
+    deliveries: MaaccWebhookDelivery[];
 }
 
 /** A remote tool discovered on an MCP connector (Phase 6E). */
-export interface MaacConnectorCapability {
+export interface MaaccConnectorCapability {
     name: string;
     title: string | null;
     description: string | null;
@@ -222,7 +222,7 @@ export interface MaacConnectorCapability {
 }
 
 /** A registered external MCP connector and its discovered capabilities (Phase 6E). */
-export interface MaacConnector {
+export interface MaaccConnector {
     uuid: string;
     id: string;
     name: string;
@@ -237,7 +237,7 @@ export interface MaacConnector {
     status: string;
     statusLabel: string;
     environments: string[];
-    capabilities: MaacConnectorCapability[];
+    capabilities: MaaccConnectorCapability[];
     toolCount: number | null;
     lastDiscovered: string | null;
     owner: string | null;
@@ -245,7 +245,7 @@ export interface MaacConnector {
 }
 
 /** An ingested document within a knowledge source (Phase 6F). */
-export interface MaacKnowledgeDocument {
+export interface MaaccKnowledgeDocument {
     id: string;
     title: string;
     uri: string | null;
@@ -259,7 +259,7 @@ export interface MaacKnowledgeDocument {
 }
 
 /** A governed knowledge (RAG) source and its documents (Phase 6F). */
-export interface MaacKnowledgeSource {
+export interface MaaccKnowledgeSource {
     uuid: string;
     id: string;
     name: string;
@@ -274,12 +274,12 @@ export interface MaacKnowledgeSource {
     toolCount: number | null;
     lastIndexed: string | null;
     owner: string | null;
-    documents: MaacKnowledgeDocument[];
+    documents: MaaccKnowledgeDocument[];
     createdAt: string | null;
 }
 
 /** A governed read-only data source backing `db` tools (Phase 8A). */
-export interface MaacDataSource {
+export interface MaaccDataSource {
     uuid: string;
     id: string;
     name: string;
@@ -305,14 +305,14 @@ export interface MaacDataSource {
 }
 
 /** A single assertion verdict recorded for an evaluation case (Phase 6F). */
-export interface MaacEvaluationCheck {
+export interface MaaccEvaluationCheck {
     type: string;
     passed: boolean;
     detail: string;
 }
 
 /** A case in a golden evaluation dataset (Phase 6F). */
-export interface MaacEvaluationCase {
+export interface MaaccEvaluationCase {
     id: string;
     name: string;
     kind: string;
@@ -331,7 +331,7 @@ export interface MaacEvaluationCase {
 }
 
 /** A golden evaluation dataset (Phase 6F). */
-export interface MaacEvaluationDataset {
+export interface MaaccEvaluationDataset {
     uuid: string;
     id: string;
     name: string;
@@ -339,18 +339,18 @@ export interface MaacEvaluationDataset {
     projectId: string | null;
     project: string | null;
     caseCount: number | null;
-    cases: MaacEvaluationCase[];
+    cases: MaaccEvaluationCase[];
     createdAt: string | null;
 }
 
 /** A per-case evaluation result (Phase 6F). */
-export interface MaacEvaluationResult {
+export interface MaaccEvaluationResult {
     id: string;
     caseName: string;
     kind: string;
     kindLabel: string;
     passed: boolean;
-    checks: MaacEvaluationCheck[];
+    checks: MaaccEvaluationCheck[];
     citations: Array<Record<string, unknown>>;
     cost: number;
     latencyMs: number;
@@ -360,7 +360,7 @@ export interface MaacEvaluationResult {
 }
 
 /** An evaluation run of a dataset against an agent (Phase 6F). */
-export interface MaacEvaluation {
+export interface MaaccEvaluation {
     id: string;
     label: string;
     status: string;
@@ -385,11 +385,11 @@ export interface MaacEvaluation {
     citationRate: number;
     completedAt: string | null;
     createdAt: string | null;
-    results: MaacEvaluationResult[];
+    results: MaaccEvaluationResult[];
 }
 
 /** Phase 6G — a vault-held secret (never the plaintext). */
-export interface MaacVaultSecret {
+export interface MaaccVaultSecret {
     uuid: string;
     id: string;
     name: string;
@@ -407,7 +407,7 @@ export interface MaacVaultSecret {
 }
 
 /** Phase 6G — an advanced model routing policy. */
-export interface MaacRoutingPolicy {
+export interface MaaccRoutingPolicy {
     uuid: string;
     id: string;
     name: string;
@@ -425,7 +425,7 @@ export interface MaacRoutingPolicy {
 }
 
 /** Phase 6G — a recent-health snapshot for a model provider. */
-export interface MaacProviderHealth {
+export interface MaaccProviderHealth {
     id: string;
     name: string;
     code: string;
@@ -436,7 +436,7 @@ export interface MaacProviderHealth {
 }
 
 /** Phase 6G — a break-glass / incident-response action. */
-export interface MaacIncident {
+export interface MaaccIncident {
     id: string;
     type: string;
     typeLabel: string;
@@ -454,7 +454,7 @@ export interface MaacIncident {
 }
 
 /** Phase 6G — an enterprise identity (SSO) connection. */
-export interface MaacSsoConnection {
+export interface MaaccSsoConnection {
     uuid: string;
     id: string;
     name: string;
@@ -473,7 +473,7 @@ export interface MaacSsoConnection {
     groupRoleMappings: Array<{
         group: string;
         team_role: string;
-        maac_role?: string;
+        maacc_role?: string;
         project_slug?: string;
     }>;
     autoProvision: boolean;
@@ -485,33 +485,33 @@ export interface MaacSsoConnection {
     createdAt: string | null;
 }
 
-export interface MaacProp {
+export interface MaaccProp {
     apps: Application[];
     projects: Project[];
     agents: Agent[];
     tools: Tool[];
     runs: Run[];
     llms: Llm[];
-    dashboard: MaacDashboard;
-    operational: MaacOperational;
-    approvals: MaacApprovals;
-    auditEvents: MaacAuditEvent[];
+    dashboard: MaaccDashboard;
+    operational: MaaccOperational;
+    approvals: MaaccApprovals;
+    auditEvents: MaaccAuditEvent[];
     roles: Role[];
     policies: Policy[];
-    governanceSettings: MaacGovernanceSettings;
-    quotas: MaacQuota[];
-    sdkCompatibility: MaacSdkCompatibility;
-    webhooks: MaacWebhookEndpoint[];
-    connectors: MaacConnector[];
-    knowledgeSources: MaacKnowledgeSource[];
-    dataSources: MaacDataSource[];
-    evaluationDatasets: MaacEvaluationDataset[];
-    evaluations: MaacEvaluation[];
-    vaultSecrets: MaacVaultSecret[];
-    routingPolicies: MaacRoutingPolicy[];
-    providerHealth: MaacProviderHealth[];
-    incidents: MaacIncident[];
-    ssoConnections: MaacSsoConnection[];
+    governanceSettings: MaaccGovernanceSettings;
+    quotas: MaaccQuota[];
+    sdkCompatibility: MaaccSdkCompatibility;
+    webhooks: MaaccWebhookEndpoint[];
+    connectors: MaaccConnector[];
+    knowledgeSources: MaaccKnowledgeSource[];
+    dataSources: MaaccDataSource[];
+    evaluationDatasets: MaaccEvaluationDataset[];
+    evaluations: MaaccEvaluation[];
+    vaultSecrets: MaaccVaultSecret[];
+    routingPolicies: MaaccRoutingPolicy[];
+    providerHealth: MaaccProviderHealth[];
+    incidents: MaaccIncident[];
+    ssoConnections: MaaccSsoConnection[];
 }
 
 declare module '@inertiajs/core' {
@@ -522,7 +522,7 @@ declare module '@inertiajs/core' {
             sidebarOpen: boolean;
             currentTeam: Team | null;
             teams: Team[];
-            maac: MaacProp | null;
+            maacc: MaaccProp | null;
             [key: string]: unknown;
         };
     }

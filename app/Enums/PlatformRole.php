@@ -5,12 +5,12 @@ namespace App\Enums;
 use Illuminate\Support\Str;
 
 /**
- * MAAC platform-administration roles (Phase 8B).
+ * MAACC platform-administration roles (Phase 8B).
  *
- * These are MAAC's own internal operator roles, held globally (not per-tenant)
- * and backed by Spatie. They sit ABOVE the team/project-scoped {@see MaacRole}
+ * These are MAACC's own internal operator roles, held globally (not per-tenant)
+ * and backed by Spatie. They sit ABOVE the team/project-scoped {@see MaaccRole}
  * that governs a tenant user's application workflows: a user with no platform
- * role is a pure tenant user, while a platform role grants cross-tenant MAAC
+ * role is a pure tenant user, while a platform role grants cross-tenant MAACC
  * administration. {@see PlatformRole::SuperAdmin} additionally bypasses every
  * authorization gate (a `Gate::before` override).
  */
@@ -38,7 +38,7 @@ enum PlatformRole: string
     public function description(): string
     {
         return match ($this) {
-            self::SuperAdmin => 'Unrestricted MAAC platform control, including break-glass and assigning any role.',
+            self::SuperAdmin => 'Unrestricted MAACC platform control, including break-glass and assigning any role.',
             self::PlatformAdmin => 'Full operational control of the platform, tenants, and governance (no emergency break-glass).',
             self::SecurityReviewer => 'Review and decide approvals, approve tools, read audits, and run incident containment.',
             self::Auditor => 'Read-only access across the platform plus signed audit export.',

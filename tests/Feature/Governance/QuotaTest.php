@@ -11,7 +11,7 @@ use App\Support\Governance\QuotaGuard;
 beforeEach(function () {
     $this->travelTo(now()->startOfDay()->addHours(12));
     [$this->owner, $this->team] = ownerAndTeam();
-    $this->agent = maacAgent($this->team);
+    $this->agent = maaccAgent($this->team);
     $this->application = $this->agent->project->application;
     $this->guard = app(QuotaGuard::class);
 });
@@ -22,7 +22,7 @@ beforeEach(function () {
 function quotaFillRuns(int $count, string $environment = 'production'): void
 {
     for ($i = 0; $i < $count; $i++) {
-        maacRun(test()->agent, [
+        maaccRun(test()->agent, [
             'started_at' => now(),
             'environment' => $environment,
             'tokens_in' => 100,
@@ -119,7 +119,7 @@ test('a disabled quota is not enforced', function () {
 });
 
 test('a quota scoped to a different subject does not apply', function () {
-    $otherAgent = maacAgent($this->team);
+    $otherAgent = maaccAgent($this->team);
     QuotaLimit::factory()->for($this->team)->create(['scope' => QuotaScope::Agent, 'subject_id' => $otherAgent->id, 'max_runs_per_day' => 1]);
     quotaFillRuns(3);
 

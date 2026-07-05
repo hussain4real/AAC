@@ -15,7 +15,7 @@ class QuotaLimitPolicy
      */
     public function create(User $user): bool
     {
-        return $user->currentTeam !== null && $user->isMaacPlatformAdmin($user->currentTeam);
+        return $user->currentTeam !== null && $user->isMaaccPlatformAdmin($user->currentTeam);
     }
 
     /**
@@ -23,7 +23,7 @@ class QuotaLimitPolicy
      */
     public function update(User $user, QuotaLimit $quotaLimit): bool
     {
-        return $user->isMaacPlatformAdmin($quotaLimit->team);
+        return $user->isMaaccPlatformAdmin($quotaLimit->team);
     }
 
     /**
@@ -31,6 +31,6 @@ class QuotaLimitPolicy
      */
     public function delete(User $user, QuotaLimit $quotaLimit): bool
     {
-        return $user->isMaacPlatformAdmin($quotaLimit->team);
+        return $user->isMaaccPlatformAdmin($quotaLimit->team);
     }
 }

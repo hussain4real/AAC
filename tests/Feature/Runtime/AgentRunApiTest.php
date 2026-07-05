@@ -147,7 +147,7 @@ test('the system prompt sent to the model is the user prompt plus the auto-gener
         ->toContain('Fetches operational voyage records.');
 });
 
-test('hosted web search is sent as a provider tool instead of a MAAC executed tool', function () {
+test('hosted web search is sent as a provider tool instead of a MAACC executed tool', function () {
     assignTool([
         'slug' => 'webSearch',
         'name' => 'webSearch',
@@ -470,7 +470,7 @@ test('a run is cancelled when the agent is unpublished before resuming', functio
 });
 
 test('a run that exceeds the step limit fails', function () {
-    config(['maac.runtime.max_steps' => 1]);
+    config(['maacc.runtime.max_steps' => 1]);
 
     assignTool([
         'slug' => 'echo',
@@ -487,7 +487,7 @@ test('a run that exceeds the step limit fails', function () {
 });
 
 test('a run expires immediately when started past its deadline', function () {
-    config(['maac.runtime.default_timeout_seconds' => -10]);
+    config(['maacc.runtime.default_timeout_seconds' => -10]);
 
     fakeRouter()->textThen('too late');
 
@@ -630,8 +630,8 @@ test('a run is rejected when the daily run quota is exceeded', function () {
         ->assertJsonPath('error', 'quota_exceeded');
 });
 
-test('a run completes using a remote HTTP tool executed by MAAC', function () {
-    config(['maac.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
+test('a run completes using a remote HTTP tool executed by MAACC', function () {
+    config(['maacc.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
     Http::preventStrayRequests();
     Http::fake(['tools.example.com/*' => Http::response(['result' => 'on time', 'total' => 3])]);
 
@@ -663,7 +663,7 @@ test('a run completes using a remote HTTP tool executed by MAAC', function () {
             ->contains(fn ($event) => ($event->data['execution_mode'] ?? null) === 'http'))->toBeTrue();
 });
 
-test('a run completes using an MCP connector tool executed by MAAC', function () {
+test('a run completes using an MCP connector tool executed by MAACC', function () {
     Http::preventStrayRequests();
     Http::fake(FakeMcpServer::make()->returns('lookup', ['result' => 'Doha'])->handler());
 
@@ -697,7 +697,7 @@ test('a run completes using an MCP connector tool executed by MAAC', function ()
 });
 
 test('a remote HTTP tool result is redacted at rest by the tool redaction rules', function () {
-    config(['maac.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
+    config(['maacc.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
     Http::preventStrayRequests();
     Http::fake(['tools.example.com/*' => Http::response(['result' => 'ok', 'ssn' => '123-45-6789'])]);
 
@@ -726,7 +726,7 @@ test('a remote HTTP tool result is redacted at rest by the tool redaction rules'
 });
 
 test('a remote HTTP run fails with a controlled error for a blocked endpoint', function () {
-    config(['maac.runtime.remote_http.allowed_hosts' => []]);
+    config(['maacc.runtime.remote_http.allowed_hosts' => []]);
 
     assignTool([
         'slug' => 'blocked_tool',
@@ -780,7 +780,7 @@ test('a connector run fails with a controlled error when the server is unreachab
 });
 
 test('a server-side tool requiring approval is blocked at runtime until activated', function () {
-    config(['maac.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
+    config(['maacc.runtime.remote_http.allowed_hosts' => ['tools.example.com']]);
     Http::preventStrayRequests();
     Http::fake(['tools.example.com/*' => Http::response(['result' => 'ok'])]);
 

@@ -2,10 +2,10 @@
 
 namespace App\Support;
 
-use App\Http\Resources\Maac\IncidentActionResource;
-use App\Http\Resources\Maac\ModelRoutingPolicyResource;
-use App\Http\Resources\Maac\SsoConnectionResource;
-use App\Http\Resources\Maac\VaultSecretResource;
+use App\Http\Resources\Maacc\IncidentActionResource;
+use App\Http\Resources\Maacc\ModelRoutingPolicyResource;
+use App\Http\Resources\Maacc\SsoConnectionResource;
+use App\Http\Resources\Maacc\VaultSecretResource;
 use App\Models\Team;
 use App\Support\Runtime\Routing\ProviderHealth;
 
@@ -13,7 +13,7 @@ use App\Support\Runtime\Routing\ProviderHealth;
  * Assembles the Phase 6G enterprise console dataset for a team — the secrets
  * vault inventory, advanced model routing policies and provider-health signals,
  * enterprise identity (SSO) connections, and the incident-response timeline — and
- * merges it into the shared `maac` Inertia prop alongside {@see GovernanceConsoleData}.
+ * merges it into the shared `maacc` Inertia prop alongside {@see GovernanceConsoleData}.
  */
 class EnterpriseConsoleData
 {

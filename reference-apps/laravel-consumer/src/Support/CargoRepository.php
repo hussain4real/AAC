@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Maac\Reference\Laravel\Support;
+namespace Maacc\Reference\Laravel\Support;
 
 /**
  * Stands in for the consuming application's OWN data layer — the records here
- * never leave the application. MAAC asks for them via a client-side tool call;
+ * never leave the application. MAACC asks for them via a client-side tool call;
  * this class is where a real app would query its database, call an internal
- * service, or apply its own row-level permissions. MAAC sees only the result.
+ * service, or apply its own row-level permissions. MAACC sees only the result.
  */
 final class CargoRepository
 {

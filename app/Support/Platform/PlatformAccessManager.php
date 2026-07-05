@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Governs MAAC platform-role grants (Phase 8B).
+ * Governs MAACC platform-role grants (Phase 8B).
  *
  * Every grant, break-glass activation, revocation, certification, and expiry is
  * applied to Spatie (the authorization source of truth) and recorded in the
@@ -236,8 +236,8 @@ class PlatformAccessManager
      */
     private function resolveTtlMinutes(?int $ttlMinutes): int
     {
-        $default = (int) config('maac.platform.break_glass.default_ttl_minutes', 60);
-        $max = (int) config('maac.platform.break_glass.max_ttl_minutes', 240);
+        $default = (int) config('maacc.platform.break_glass.default_ttl_minutes', 60);
+        $max = (int) config('maacc.platform.break_glass.max_ttl_minutes', 240);
 
         return min($ttlMinutes ?? $default, $max);
     }
@@ -247,7 +247,7 @@ class PlatformAccessManager
      */
     private function certificationDays(): int
     {
-        return (int) config('maac.platform.access_review.certification_days', 90);
+        return (int) config('maacc.platform.access_review.certification_days', 90);
     }
 
     /**
@@ -255,7 +255,7 @@ class PlatformAccessManager
      */
     private function staleDays(): int
     {
-        return (int) config('maac.platform.access_review.stale_days', 60);
+        return (int) config('maacc.platform.access_review.stale_days', 60);
     }
 
     /**

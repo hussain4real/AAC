@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\Agent;
 use App\Models\Project;
 use App\Models\User;
@@ -46,12 +46,12 @@ class AgentPolicy
     public function create(User $user, ?Project $project = null): bool
     {
         if ($project !== null) {
-            return $user->hasMaacPermission($project->application->team, MaacPermission::ManageAgent, $project);
+            return $user->hasMaaccPermission($project->application->team, MaaccPermission::ManageAgent, $project);
         }
 
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageAgent);
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageAgent);
     }
 
     /**
@@ -59,7 +59,7 @@ class AgentPolicy
      */
     public function update(User $user, Agent $agent): bool
     {
-        return $user->hasMaacPermission($agent->project->application->team, MaacPermission::ManageAgent, $agent->project);
+        return $user->hasMaaccPermission($agent->project->application->team, MaaccPermission::ManageAgent, $agent->project);
     }
 
     /**
@@ -67,7 +67,7 @@ class AgentPolicy
      */
     public function publish(User $user, Agent $agent): bool
     {
-        return $user->hasMaacPermission($agent->project->application->team, MaacPermission::PublishAgent, $agent->project);
+        return $user->hasMaaccPermission($agent->project->application->team, MaaccPermission::PublishAgent, $agent->project);
     }
 
     /**
@@ -75,6 +75,6 @@ class AgentPolicy
      */
     public function delete(User $user, Agent $agent): bool
     {
-        return $user->hasMaacPermission($agent->project->application->team, MaacPermission::ManageAgent, $agent->project);
+        return $user->hasMaaccPermission($agent->project->application->team, MaaccPermission::ManageAgent, $agent->project);
     }
 }

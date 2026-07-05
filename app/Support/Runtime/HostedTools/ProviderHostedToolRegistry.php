@@ -7,8 +7,8 @@ use App\Models\ToolContract;
 use App\Support\Runtime\LlmProviderToolDefinition;
 
 /**
- * Resolves hosted MAAC contracts that are actually executed by the model
- * provider, not by a PHP handler inside MAAC.
+ * Resolves hosted MAACC contracts that are actually executed by the model
+ * provider, not by a PHP handler inside MAACC.
  */
 class ProviderHostedToolRegistry
 {
@@ -18,7 +18,7 @@ class ProviderHostedToolRegistry
     private const WEB_SEARCH_SLUGS = ['webSearch', 'web_search'];
 
     /**
-     * Resolve the provider-side tool definition for a MAAC-hosted contract.
+     * Resolve the provider-side tool definition for a MAACC-hosted contract.
      */
     public function definitionFor(ToolContract $tool): ?LlmProviderToolDefinition
     {

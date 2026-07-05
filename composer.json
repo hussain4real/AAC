@@ -46,9 +46,9 @@
     "autoload-dev": {
         "psr-4": {
             "Tests\\": "tests/",
-            "Maac\\Sdk\\": "packages/maac-sdk-php/src/",
-            "Maac\\Reference\\Laravel\\": "reference-apps/laravel-consumer/src/",
-            "Maac\\Reference\\Cli\\": "reference-apps/php-cli-consumer/src/"
+            "Maacc\\Sdk\\": "packages/maacc-sdk-php/src/",
+            "Maacc\\Reference\\Laravel\\": "reference-apps/laravel-consumer/src/",
+            "Maacc\\Reference\\Cli\\": "reference-apps/php-cli-consumer/src/"
         }
     },
     "scripts": {
@@ -80,7 +80,7 @@
             "npm run types:check",
             "npm run types:check:sdk",
             "npm run test:sdk",
-            "@php artisan maac:sdk-fixtures --check",
+            "@php artisan maacc:sdk-fixtures --check",
             "@analyse",
             "@test"
         ],

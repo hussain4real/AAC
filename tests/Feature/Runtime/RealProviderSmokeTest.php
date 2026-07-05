@@ -16,12 +16,12 @@ use App\Support\Runtime\LlmRequest;
 |
 | These tests exercise the production App\Support\Runtime\AiLlmRouter against a
 | REAL OpenAI provider — there is no Ai::fake here. They are skipped unless
-| MAAC_OPENAI_SMOKE_KEY is set, so `composer ci:check` and the coverage gate are
+| MAACC_OPENAI_SMOKE_KEY is set, so `composer ci:check` and the coverage gate are
 | unaffected (AiLlmRouter's own lines are fully covered by RuntimeSupportTest via
 | the fake gateway; this file adds live confidence, not coverage).
 |
 | Run, once a key is exported:
-|   MAAC_OPENAI_SMOKE_KEY=sk-... php artisan test tests/Feature/Runtime/RealProviderSmokeTest.php
+|   MAACC_OPENAI_SMOKE_KEY=sk-... php artisan test tests/Feature/Runtime/RealProviderSmokeTest.php
 |
 */
 
@@ -32,13 +32,13 @@ use App\Support\Runtime\LlmRequest;
  */
 function openAiSmoke(): array
 {
-    $key = env('MAAC_OPENAI_SMOKE_KEY');
+    $key = env('MAACC_OPENAI_SMOKE_KEY');
 
     if (! is_string($key) || $key === '') {
-        test()->markTestSkipped('Set MAAC_OPENAI_SMOKE_KEY to run the live OpenAI provider smoke.');
+        test()->markTestSkipped('Set MAACC_OPENAI_SMOKE_KEY to run the live OpenAI provider smoke.');
     }
 
-    $model = env('MAAC_OPENAI_SMOKE_MODEL');
+    $model = env('MAACC_OPENAI_SMOKE_MODEL');
 
     return [$key, is_string($model) && $model !== '' ? $model : 'gpt-5.4'];
 }
@@ -68,7 +68,7 @@ test('a published no-tools agent completes a real run using the vault key', func
     [$key, $model] = openAiSmoke();
     [, $team] = ownerAndTeam();
 
-    $this->artisan('maac:openai-smoke', [
+    $this->artisan('maacc:openai-smoke', [
         '--team' => $team->slug,
         '--key' => $key,
         '--model' => $model,
@@ -94,11 +94,11 @@ test('a published no-tools agent completes a real run using the vault key', func
         ->and($run->cost)->toBeGreaterThan(0);
 });
 
-test('a published agent invokes the MAAC-hosted vessel_status tool on a real run', function () {
+test('a published agent invokes the MAACC-hosted vessel_status tool on a real run', function () {
     [$key, $model] = openAiSmoke();
     [, $team] = ownerAndTeam();
 
-    $this->artisan('maac:openai-smoke', [
+    $this->artisan('maacc:openai-smoke', [
         '--team' => $team->slug,
         '--key' => $key,
         '--model' => $model,

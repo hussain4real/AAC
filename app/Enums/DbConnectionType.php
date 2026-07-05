@@ -6,7 +6,7 @@ use App\Models\DataSource;
 
 /**
  * The approved kind of read-only data surface a {@see DataSource}
- * exposes. MAAC-hosted database access is allowed only through governed
+ * exposes. MAACC-hosted database access is allowed only through governed
  * read-only surfaces — a read replica, a materialized view, a dedicated
  * reporting schema, or a curated set of database views — never unrestricted
  * production tables. The type is governance metadata surfaced for review.

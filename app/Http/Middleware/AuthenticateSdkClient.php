@@ -12,7 +12,7 @@ use Laravel\Passport\Client;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Resolves the registered MAAC application behind an SDK/runtime request from
+ * Resolves the registered MAACC application behind an SDK/runtime request from
  * the Passport client_credentials token, and binds an {@see SdkContext} to the
  * request. Rejects tokens with no matching credential and revoked credentials.
  */

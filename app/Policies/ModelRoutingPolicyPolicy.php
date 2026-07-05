@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\ModelRoutingPolicy;
 use App\Models\User;
 
@@ -28,8 +28,8 @@ class ModelRoutingPolicyPolicy
         $team = $user->currentTeam;
 
         return $team !== null && (
-            $user->isMaacPlatformAdmin($team)
-            || $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageAgent)
+            $user->isMaaccPlatformAdmin($team)
+            || $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageAgent)
         );
     }
 
@@ -38,8 +38,8 @@ class ModelRoutingPolicyPolicy
      */
     public function update(User $user, ModelRoutingPolicy $policy): bool
     {
-        return $user->isMaacPlatformAdmin($policy->team)
-            || $user->hasMaacPermissionOnAnyProject($policy->team, MaacPermission::ManageAgent);
+        return $user->isMaaccPlatformAdmin($policy->team)
+            || $user->hasMaaccPermissionOnAnyProject($policy->team, MaaccPermission::ManageAgent);
     }
 
     /**
@@ -47,7 +47,7 @@ class ModelRoutingPolicyPolicy
      */
     public function delete(User $user, ModelRoutingPolicy $policy): bool
     {
-        return $user->isMaacPlatformAdmin($policy->team)
-            || $user->hasMaacPermissionOnAnyProject($policy->team, MaacPermission::ManageAgent);
+        return $user->isMaaccPlatformAdmin($policy->team)
+            || $user->hasMaaccPermissionOnAnyProject($policy->team, MaaccPermission::ManageAgent);
     }
 }

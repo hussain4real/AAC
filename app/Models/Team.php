@@ -108,7 +108,7 @@ class Team extends Model
     }
 
     /**
-     * Get the MAAC applications registered under this team.
+     * Get the MAACC applications registered under this team.
      *
      * @return HasMany<Application, $this>
      */

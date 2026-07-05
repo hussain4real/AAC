@@ -9,7 +9,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
-    config(['maac.runtime.remote_http.allowed_hosts' => ['tools.example.com', '*.trusted.io']]);
+    config(['maacc.runtime.remote_http.allowed_hosts' => ['tools.example.com', '*.trusted.io']]);
     Http::preventStrayRequests();
 });
 
@@ -50,7 +50,7 @@ it('supports each configured HTTP method', function (string $method) {
 })->with(['get', 'put', 'patch', 'delete']);
 
 it('skips empty allowlist entries when matching the host', function () {
-    config(['maac.runtime.remote_http.allowed_hosts' => ['', 'tools.example.com']]);
+    config(['maacc.runtime.remote_http.allowed_hosts' => ['', 'tools.example.com']]);
     Http::fake(['tools.example.com/*' => Http::response(['result' => 'ok'])]);
 
     expect(httpExecutor()->execute(httpTool(), []))->toBe(['result' => 'ok']);
@@ -70,7 +70,7 @@ it('blocks an endpoint host that is not on the allowlist', function () {
 });
 
 it('blocks a denied loopback host even if allowlisted', function () {
-    config(['maac.runtime.remote_http.allowed_hosts' => ['localhost']]);
+    config(['maacc.runtime.remote_http.allowed_hosts' => ['localhost']]);
 
     expect(fn () => httpExecutor()->execute(httpTool(['endpoint' => 'http://localhost/x']), []))
         ->toThrow(fn (ToolExecutionException $e) => expect($e->failureCode)->toBe('remote_http_blocked'));
@@ -152,7 +152,7 @@ it('defaults the header name to Authorization when none is given', function () {
 });
 
 it('caps per-tool retries at the platform maximum', function () {
-    config(['maac.runtime.remote_http.max_attempts' => 1]);
+    config(['maacc.runtime.remote_http.max_attempts' => 1]);
     Http::fake(['tools.example.com/*' => Http::response('', 503)]);
 
     expect(fn () => httpExecutor()->execute(httpTool(['retry' => ['max_attempts' => 9]]), []))

@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\ToolContract;
 use App\Models\User;
 
@@ -36,7 +36,7 @@ class ToolContractPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageTool);
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -44,8 +44,8 @@ class ToolContractPolicy
      */
     public function update(User $user, ToolContract $toolContract): bool
     {
-        return $user->isMaacPlatformAdmin($toolContract->team)
-            || $user->hasMaacPermissionOnAnyProject($toolContract->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($toolContract->team)
+            || $user->hasMaaccPermissionOnAnyProject($toolContract->team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -53,8 +53,8 @@ class ToolContractPolicy
      */
     public function approve(User $user, ToolContract $toolContract): bool
     {
-        return $user->isMaacPlatformAdmin($toolContract->team)
-            || $user->hasMaacPermissionOnAnyProject($toolContract->team, MaacPermission::ApproveTool);
+        return $user->isMaaccPlatformAdmin($toolContract->team)
+            || $user->hasMaaccPermissionOnAnyProject($toolContract->team, MaaccPermission::ApproveTool);
     }
 
     /**
@@ -62,7 +62,7 @@ class ToolContractPolicy
      */
     public function delete(User $user, ToolContract $toolContract): bool
     {
-        return $user->isMaacPlatformAdmin($toolContract->team)
-            || $user->hasMaacPermissionOnAnyProject($toolContract->team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($toolContract->team)
+            || $user->hasMaaccPermissionOnAnyProject($toolContract->team, MaaccPermission::ManageTool);
     }
 }

@@ -36,7 +36,7 @@ class ProviderHealth
             return [];
         }
 
-        $since = Date::now()->subMinutes((int) config('maac.routing.health_window_minutes'));
+        $since = Date::now()->subMinutes((int) config('maacc.routing.health_window_minutes'));
 
         $rows = AgentRun::query()
             ->selectRaw('llm_provider_id')
@@ -68,8 +68,8 @@ class ProviderHealth
     private function snapshot(int $total, int $failures, mixed $avgLatency): ProviderHealthSnapshot
     {
         $failureRate = $total > 0 ? $failures / $total : 0.0;
-        $minSample = (int) config('maac.routing.health_min_sample');
-        $threshold = (float) config('maac.routing.health_failure_threshold');
+        $minSample = (int) config('maacc.routing.health_min_sample');
+        $threshold = (float) config('maacc.routing.health_failure_threshold');
 
         $healthy = $total < $minSample || $failureRate <= $threshold;
 

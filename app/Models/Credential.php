@@ -81,7 +81,7 @@ class Credential extends Model
      */
     public static function generateClientId(): string
     {
-        return 'maac_'.Str::lower(Str::random(24));
+        return 'maacc_'.Str::lower(Str::random(24));
     }
 
     /**
@@ -89,7 +89,7 @@ class Credential extends Model
      */
     public static function generateSecret(): string
     {
-        return 'maac_sk_'.Str::random(40);
+        return 'maacc_sk_'.Str::random(40);
     }
 
     /**

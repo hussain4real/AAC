@@ -10,7 +10,7 @@ use App\Models\Application;
 use App\Models\Credential;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
-use Database\Seeders\MaacE2ESeeder;
+use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Passport;
 
@@ -20,14 +20,14 @@ use Laravel\Passport\Passport;
  * scenario, returning a controlled error envelope rather than a 500.
  */
 beforeEach(function () {
-    $this->seed(MaacE2ESeeder::class);
-    $this->application = Application::firstWhere('slug', MaacE2ESeeder::APP_SLUG);
+    $this->seed(MaaccE2ESeeder::class);
+    $this->application = Application::firstWhere('slug', MaaccE2ESeeder::APP_SLUG);
     $this->team = $this->application->team;
-    $this->agent = Agent::firstWhere('agent_slug', MaacE2ESeeder::AGENT_SLUG);
-    $this->tool = ToolContract::firstWhere('slug', MaacE2ESeeder::TOOL_SLUG);
+    $this->agent = Agent::firstWhere('agent_slug', MaaccE2ESeeder::AGENT_SLUG);
+    $this->tool = ToolContract::firstWhere('slug', MaaccE2ESeeder::TOOL_SLUG);
     $this->credential = Credential::query()
         ->where('application_id', $this->application->id)
-        ->where('label', MaacE2ESeeder::CREDENTIAL_LABEL)
+        ->where('label', MaaccE2ESeeder::CREDENTIAL_LABEL)
         ->first();
 });
 
@@ -132,7 +132,7 @@ test('an oversized tool result is rejected and the run stays resumable', functio
 });
 
 test('a run started past its deadline expires immediately', function () {
-    config(['maac.runtime.default_timeout_seconds' => -10]);
+    config(['maacc.runtime.default_timeout_seconds' => -10]);
     Passport::actingAsClient($this->credential->oauthClient, [], 'api');
     bindFakeRouter()->textThen('too late');
 

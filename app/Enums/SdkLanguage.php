@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * SDK languages MAAC can generate handler stubs for and that applications may
+ * SDK languages MAACC can generate handler stubs for and that applications may
  * report their client-side tool implementations against.
  */
 enum SdkLanguage: string

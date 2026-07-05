@@ -25,7 +25,7 @@ it('expires break-glass and reports review work as a table', function () {
     $old = $this->manager->grant(User::factory()->create(), PlatformRole::Auditor, $this->actor, 'x');
     $old->forceFill(['certified_at' => now()->subDays(200)])->save();
 
-    $exit = Artisan::call('maac:review-platform-access');
+    $exit = Artisan::call('maacc:review-platform-access');
     $output = Artisan::output();
 
     expect($exit)->toBe(0)
@@ -38,7 +38,7 @@ it('emits the review as JSON', function () {
     $old = $this->manager->grant(User::factory()->create(), PlatformRole::Auditor, $this->actor, 'x');
     $old->forceFill(['certified_at' => now()->subDays(200)])->save();
 
-    $exit = Artisan::call('maac:review-platform-access', ['--json' => true]);
+    $exit = Artisan::call('maacc:review-platform-access', ['--json' => true]);
     $report = json_decode(Artisan::output(), true);
 
     expect($exit)->toBe(0)
@@ -55,7 +55,7 @@ it('includes a stale grant in the review', function () {
         'certified_at' => now(),
     ]);
 
-    Artisan::call('maac:review-platform-access', ['--json' => true]);
+    Artisan::call('maacc:review-platform-access', ['--json' => true]);
     $report = json_decode(Artisan::output(), true);
 
     expect(collect($report['stale'])->pluck('user'))->toContain($staleUser->email);

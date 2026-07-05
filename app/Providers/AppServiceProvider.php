@@ -5,7 +5,7 @@ namespace App\Providers;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
-use App\Support\MaacConsoleData;
+use App\Support\MaaccConsoleData;
 use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Secrets\DatabaseSecretVault;
 use Carbon\CarbonImmutable;
@@ -29,10 +29,10 @@ class AppServiceProvider extends ServiceProvider
     {
         // Bind the platform secrets vault. The database-backed driver is the
         // default; an enterprise deployment swaps in an external vault (HashiCorp
-        // Vault, AWS Secrets Manager, …) via `maac.vault.driver` with no caller
+        // Vault, AWS Secrets Manager, …) via `maacc.vault.driver` with no caller
         // change, since every consumer depends on the SecretVault interface.
         $this->app->bind(SecretVault::class, fn (Application $app): SecretVault => $app->make(
-            (string) config('maac.vault.driver', DatabaseSecretVault::class),
+            (string) config('maacc.vault.driver', DatabaseSecretVault::class),
         ));
     }
 
@@ -48,7 +48,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Invalidate the shared console dataset cache ({@see MaacConsoleData}) on any
+     * Invalidate the shared console dataset cache ({@see MaaccConsoleData}) on any
      * write to a console-scoped model. The dataset is a shared Inertia prop built
      * on every authenticated request, so it is cached and only rebuilt when the
      * underlying data actually changes. Team membership and auth models are
@@ -70,12 +70,12 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            MaacConsoleData::invalidate();
+            MaaccConsoleData::invalidate();
         });
     }
 
     /**
-     * Grant the MAAC Super Admin platform role an unrestricted authorization
+     * Grant the MAACC Super Admin platform role an unrestricted authorization
      * override (Phase 8B). Returning null falls through to the normal policy and
      * permission checks, so only a Super Admin is short-circuited — every other
      * platform role is gated by its explicit permissions.

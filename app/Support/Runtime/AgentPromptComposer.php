@@ -7,10 +7,10 @@ use App\Models\ToolContract;
 use Illuminate\Support\Collection;
 
 /**
- * Composes the effective system prompt MAAC sends to the model for a run.
+ * Composes the effective system prompt MAACC sends to the model for a run.
  *
  * The user-authored {@see Agent::$system_prompt} captures the agent's intent and
- * is the only part a user edits. MAAC appends an auto-generated brief describing
+ * is the only part a user edits. MAACC appends an auto-generated brief describing
  * the tools the agent has been given — derived entirely from the tool config —
  * so the model knows what each tool is for and where it runs without the user
  * having to document them by hand. The exact argument schemas are delivered
@@ -21,7 +21,7 @@ final class AgentPromptComposer
 {
     /**
      * Build the effective system prompt: the user prompt followed by the
-     * MAAC-generated tool brief (omitted when the agent has no tools).
+     * MAACC-generated tool brief (omitted when the agent has no tools).
      */
     public function compose(Agent $agent): string
     {
@@ -54,7 +54,7 @@ final class AgentPromptComposer
 
         return implode("\n", [
             '## Tools available to you',
-            'MAAC has connected the tools below to you. Call a tool by the name in backticks when it helps you answer the request; otherwise reply directly. Ground your answers in the results the tools return.',
+            'MAACC has connected the tools below to you. Call a tool by the name in backticks when it helps you answer the request; otherwise reply directly. Ground your answers in the results the tools return.',
             '',
             ...$entries,
         ]);

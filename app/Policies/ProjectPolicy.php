@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\Project;
 use App\Models\User;
 
@@ -35,7 +35,7 @@ class ProjectPolicy
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaacPermission($team, MaacPermission::ManageProject);
+        return $team !== null && $user->hasMaaccPermission($team, MaaccPermission::ManageProject);
     }
 
     /**
@@ -43,7 +43,7 @@ class ProjectPolicy
      */
     public function update(User $user, Project $project): bool
     {
-        return $user->hasMaacPermission($project->application->team, MaacPermission::ManageProject, $project);
+        return $user->hasMaaccPermission($project->application->team, MaaccPermission::ManageProject, $project);
     }
 
     /**
@@ -51,6 +51,6 @@ class ProjectPolicy
      */
     public function delete(User $user, Project $project): bool
     {
-        return $user->hasMaacPermission($project->application->team, MaacPermission::ManageProject, $project);
+        return $user->hasMaaccPermission($project->application->team, MaaccPermission::ManageProject, $project);
     }
 }

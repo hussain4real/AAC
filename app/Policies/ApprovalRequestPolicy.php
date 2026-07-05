@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\ApprovalRequest;
 use App\Models\User;
 
@@ -31,9 +31,9 @@ class ApprovalRequestPolicy
             return false;
         }
 
-        return $user->isMaacPlatformAdmin($team)
-            || $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageAgent)
-            || $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ManageTool);
+        return $user->isMaaccPlatformAdmin($team)
+            || $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageAgent)
+            || $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ManageTool);
     }
 
     /**
@@ -41,7 +41,7 @@ class ApprovalRequestPolicy
      */
     public function decide(User $user, ApprovalRequest $approvalRequest): bool
     {
-        return $user->isMaacPlatformAdmin($approvalRequest->team)
-            || $user->hasMaacPermissionOnAnyProject($approvalRequest->team, MaacPermission::ApproveTool);
+        return $user->isMaaccPlatformAdmin($approvalRequest->team)
+            || $user->hasMaaccPermissionOnAnyProject($approvalRequest->team, MaaccPermission::ApproveTool);
     }
 }

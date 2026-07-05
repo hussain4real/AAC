@@ -15,6 +15,6 @@ class WebhookDeliveryPolicy
      */
     public function replay(User $user, WebhookDelivery $delivery): bool
     {
-        return $user->isMaacPlatformAdmin($delivery->endpoint->application->team);
+        return $user->isMaaccPlatformAdmin($delivery->endpoint->application->team);
     }
 }

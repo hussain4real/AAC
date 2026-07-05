@@ -6,7 +6,7 @@ use App\Support\Runtime\Contracts\HostedTool;
 
 /**
  * Built-in hosted tool that returns live operational status for a vessel from
- * MAAC's fleet system. The model has no way to know this data on its own, so it
+ * MAACC's fleet system. The model has no way to know this data on its own, so it
  * must call the tool — the canonical reason a tool exists.
  *
  * Contract shape: input `{ "vessel": "string" }`,

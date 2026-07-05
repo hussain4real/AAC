@@ -5,7 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Registered external MCP (Model Context Protocol) servers that MAAC connects to
+ * Registered external MCP (Model Context Protocol) servers that MAACC connects to
  * as a client. A connector exposes one or more remote tools; an MCP-backed tool
  * contract (execution_mode = connector) maps to a connector + a remote tool
  * name. Auth material is encrypted at rest and never returned to the console or

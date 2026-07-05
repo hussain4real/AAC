@@ -16,7 +16,7 @@ class PruneRunDataCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'maac:prune-run-data';
+    protected $signature = 'maacc:prune-run-data';
 
     /**
      * The console command description.

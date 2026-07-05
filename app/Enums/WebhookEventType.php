@@ -3,7 +3,7 @@
 namespace App\Enums;
 
 /**
- * The events MAAC delivers to a registered webhook endpoint. Most mirror the
+ * The events MAACC delivers to a registered webhook endpoint. Most mirror the
  * externally-observable run transitions (the run starts, pauses for a
  * client-side tool, completes, fails, expires, or is cancelled); the
  * implementation event fires when an application reports a client-side tool

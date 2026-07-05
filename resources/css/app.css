@@ -145,12 +145,12 @@
 }
 
 /* ============================================================
-   MAAC — Milaha AI Agent Center design tokens
-   Scoped to `.maac-theme` so the console adopts Milaha branding
+   MAACC — Milaha AI Agent Center design tokens
+   Scoped to `.maacc-theme` so the console adopts Milaha branding
    (and shadcn atoms inside it follow suit) while the existing
    auth/account screens keep the default starter-kit look.
    ============================================================ */
-.maac-theme {
+.maacc-theme {
     /* brand scales (theme-independent) */
     --purple-50: #f6f0fb;
     --purple-100: #ecdff6;
@@ -244,7 +244,7 @@
     color: var(--text);
 }
 
-.dark .maac-theme {
+.dark .maacc-theme {
     /* semantic — dark */
     --bg: #070e1b;
     --surface: #0f1b30;
@@ -288,63 +288,63 @@
     --blue-500: #6ea6ec;
 }
 
-/* ---- MAAC interaction + animation CSS (ported from prototype) ---- */
-.maac-theme .maac-btn:hover:not(:disabled) {
+/* ---- MAACC interaction + animation CSS (ported from prototype) ---- */
+.maacc-theme .maacc-btn:hover:not(:disabled) {
     filter: brightness(0.97);
 }
-.dark .maac-theme .maac-btn:hover:not(:disabled) {
+.dark .maacc-theme .maacc-btn:hover:not(:disabled) {
     filter: brightness(1.12);
 }
-.maac-theme .maac-btn:active:not(:disabled) {
+.maacc-theme .maacc-btn:active:not(:disabled) {
     transform: translateY(0.5px);
 }
-.maac-theme .maac-card-hover:hover {
+.maacc-theme .maacc-card-hover:hover {
     box-shadow: var(--sh-md);
     border-color: var(--border-2);
     transform: translateY(-1px);
 }
-.maac-theme .maac-row:hover {
+.maacc-theme .maacc-row:hover {
     background: var(--surface-2);
 }
-.maac-theme .maac-link {
+.maacc-theme .maacc-link {
     cursor: pointer;
     transition: color 0.12s;
 }
-.maac-theme .maac-link:hover {
+.maacc-theme .maacc-link:hover {
     color: var(--primary) !important;
     text-decoration: none;
 }
-.maac-theme .maac-input:focus {
+.maacc-theme .maacc-input:focus {
     border-color: var(--primary) !important;
     box-shadow: 0 0 0 3px var(--ring);
 }
-.maac-theme .maac-iconbtn:hover {
+.maacc-theme .maacc-iconbtn:hover {
     background: var(--surface-3);
     color: var(--text) !important;
 }
-.maac-theme .maac-copybtn:hover {
+.maacc-theme .maacc-copybtn:hover {
     background: var(--surface-3);
 }
-.maac-theme .maac-hbar:hover {
+.maacc-theme .maacc-hbar:hover {
     opacity: 0.85;
 }
-.maac-navitem {
+.maacc-navitem {
     transition:
         background 0.12s,
         color 0.12s;
 }
-.maac-navitem:hover {
+.maacc-navitem:hover {
     background: rgba(255, 255, 255, 0.06);
     color: #fff;
 }
-.maac-tip {
+.maacc-tip {
     position: relative;
 }
-.maac-vbar {
+.maacc-vbar {
     position: relative;
 }
-.maac-tip:hover::after,
-.maac-vbar:hover::after {
+.maacc-tip:hover::after,
+.maacc-vbar:hover::after {
     content: attr(data-tip);
     position: absolute;
     bottom: calc(100% + 7px);
@@ -362,7 +362,7 @@
     box-shadow: var(--sh-pop);
     font-family: var(--font);
 }
-.maac-tip:hover::after {
+.maacc-tip:hover::after {
     font-size: 11.5px;
     max-width: 260px;
     white-space: normal;
@@ -370,15 +370,15 @@
     text-align: left;
     line-height: 1.4;
 }
-.maac-scroll::-webkit-scrollbar {
+.maacc-scroll::-webkit-scrollbar {
     width: 8px;
 }
-.maac-theme input::placeholder,
-.maac-theme textarea::placeholder {
+.maacc-theme input::placeholder,
+.maacc-theme textarea::placeholder {
     color: var(--text-3);
 }
 
-@keyframes maacFadeUp {
+@keyframes maaccFadeUp {
     from {
         transform: translateY(7px);
     }
@@ -386,7 +386,7 @@
         transform: none;
     }
 }
-@keyframes maacFadeIn {
+@keyframes maaccFadeIn {
     from {
         opacity: 0.001;
     }
@@ -394,7 +394,7 @@
         opacity: 1;
     }
 }
-@keyframes maacPopIn {
+@keyframes maaccPopIn {
     from {
         transform: translateY(8px) scale(0.985);
     }
@@ -402,7 +402,7 @@
         transform: none;
     }
 }
-@keyframes maacPulseDot {
+@keyframes maaccPulseDot {
     0%,
     100% {
         opacity: 1;
@@ -411,7 +411,7 @@
         opacity: 0.35;
     }
 }
-@keyframes maacRouteIn {
+@keyframes maaccRouteIn {
     from {
         opacity: 0.4;
     }
@@ -419,11 +419,11 @@
         opacity: 1;
     }
 }
-.maac-theme .route-anim {
-    animation: maacRouteIn 0.25s ease;
+.maacc-theme .route-anim {
+    animation: maaccRouteIn 0.25s ease;
 }
 @media (prefers-reduced-motion: reduce) {
-    .maac-theme * {
+    .maacc-theme * {
         animation-duration: 0.01ms !important;
         transition-duration: 0.01ms !important;
     }

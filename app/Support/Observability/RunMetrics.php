@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Number;
 
 /**
- * Computes the run/observability rollups that back the MAAC dashboard from real
+ * Computes the run/observability rollups that back the MAACC dashboard from real
  * Agent Run records: today's volume, status distribution, hourly trend, token
  * and cost totals, and the most-used agents. Replaces the Phase 1 fixture
  * `dashboard` block with truthful aggregates.

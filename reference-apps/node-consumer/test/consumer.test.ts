@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { MaacError } from '../../../packages/maac-sdk-ts/src/index.ts';
-import type { HttpRequest, HttpResponse, Transport } from '../../../packages/maac-sdk-ts/src/index.ts';
+import { MaaccError } from '../../../packages/maacc-sdk-ts/src/index.ts';
+import type { HttpRequest, HttpResponse, Transport } from '../../../packages/maacc-sdk-ts/src/index.ts';
 import { NodeConsumer } from '../src/consumer.ts';
 
 interface ScriptedResponse {
@@ -52,11 +52,11 @@ function withEnv(values: Record<string, string | undefined>, callback: () => Pro
 }
 
 const FULL_ENV = {
-  MAAC_BASE_URL: 'https://maac.test',
-  MAAC_CLIENT_ID: 'cid',
-  MAAC_CLIENT_SECRET: 'secret',
-  MAAC_AGENT_SLUG: 'ops',
-  MAAC_TOOL_FETCH_RECORDS: 'fetch',
+  MAACC_BASE_URL: 'https://maacc.test',
+  MAACC_CLIENT_ID: 'cid',
+  MAACC_CLIENT_SECRET: 'secret',
+  MAACC_AGENT_SLUG: 'ops',
+  MAACC_TOOL_FETCH_RECORDS: 'fetch',
 };
 
 test('reports its handler and completes a run from environment configuration', async () => {
@@ -109,7 +109,7 @@ test('reports its handler and completes a run from environment configuration', a
 });
 
 test('throws a typed error when required environment variables are missing', async () => {
-  await withEnv({ ...FULL_ENV, MAAC_CLIENT_SECRET: undefined }, async () => {
-    assert.throws(() => NodeConsumer.fromEnvironment(), (error: unknown) => error instanceof MaacError);
+  await withEnv({ ...FULL_ENV, MAACC_CLIENT_SECRET: undefined }, async () => {
+    assert.throws(() => NodeConsumer.fromEnvironment(), (error: unknown) => error instanceof MaaccError);
   });
 });

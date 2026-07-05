@@ -64,7 +64,7 @@ class SdkStubGenerator
         import { ToolHandlerRegistry } from "@qatar-navigation-milaha/sdk";
 
         // Handler for the "{$tool->slug}" client-side tool (contract v{$tool->version}).
-        // Pass `registry` to client.run(agentSlug, input, registry) — MAAC pauses the run here.
+        // Pass `registry` to client.run(agentSlug, input, registry) — MAACC pauses the run here.
         const registry = new ToolHandlerRegistry();
 
         registry.register("{$tool->slug}", (args, ctx) => {
@@ -93,11 +93,11 @@ class SdkStubGenerator
         return <<<PHP
         <?php
 
-        use Maac\\Sdk\\Tools\\ToolContext;
-        use Maac\\Sdk\\Tools\\ToolHandlerRegistry;
+        use Maacc\\Sdk\\Tools\\ToolContext;
+        use Maacc\\Sdk\\Tools\\ToolHandlerRegistry;
 
         // Handler for the "{$tool->slug}" client-side tool (contract v{$tool->version}).
-        // Pass \$registry to \$client->run(\$agentSlug, \$input, \$registry) — MAAC pauses the run here.
+        // Pass \$registry to \$client->run(\$agentSlug, \$input, \$registry) — MAACC pauses the run here.
         \$registry = new ToolHandlerRegistry;
 
         \$registry->registerCallable('{$tool->slug}', function (array \$args, ToolContext \$ctx): array {
@@ -125,7 +125,7 @@ class SdkStubGenerator
         $returnArgs = $this->lines($tool->output_schema, fn (string $f): string => "        \"{$f}\": result[\"{$f}\"],");
 
         return <<<PY
-        from maac_sdk import ToolHandlerRegistry
+        from maacc_sdk import ToolHandlerRegistry
 
         registry = ToolHandlerRegistry()
 

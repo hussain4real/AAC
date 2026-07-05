@@ -14,7 +14,7 @@ use Illuminate\Support\Str;
 /**
  * Enterprise SSO login: redirects a guest to the provider's authorize endpoint
  * (with a CSRF state in the session) and handles the callback — verifying state,
- * exchanging the code, mapping the identity onto a MAAC user/role, and signing
+ * exchanging the code, mapping the identity onto a MAACC user/role, and signing
  * them in. Local password auth remains available alongside this.
  */
 class SsoController extends Controller

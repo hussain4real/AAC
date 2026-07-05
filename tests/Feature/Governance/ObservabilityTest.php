@@ -17,11 +17,11 @@ beforeEach(function () {
 
 test('run metrics aggregate today\'s runs, status, trend, and top agents', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team, ['name' => 'Ops Agent']);
+    $agent = maaccAgent($team, ['name' => 'Ops Agent']);
 
-    maacRun($agent, ['status' => RunStatus::Completed, 'tokens_in' => 1000, 'tokens_out' => 500, 'cost' => 0.02, 'started_at' => now()->subHours(1)]);
-    maacRun($agent, ['status' => RunStatus::Failed, 'started_at' => now()->subHours(2)]);
-    maacRun($agent, ['status' => RunStatus::WaitingForClient, 'started_at' => now()->subMinutes(30)]);
+    maaccRun($agent, ['status' => RunStatus::Completed, 'tokens_in' => 1000, 'tokens_out' => 500, 'cost' => 0.02, 'started_at' => now()->subHours(1)]);
+    maaccRun($agent, ['status' => RunStatus::Failed, 'started_at' => now()->subHours(2)]);
+    maaccRun($agent, ['status' => RunStatus::WaitingForClient, 'started_at' => now()->subMinutes(30)]);
 
     $metrics = app(RunMetrics::class)->forTeam($team);
 
@@ -42,14 +42,14 @@ test('run metrics aggregate today\'s runs, status, trend, and top agents', funct
 
 test('operational monitor reports metrics and a severity-sorted alert feed', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
 
-    maacRun($agent, ['status' => RunStatus::Completed, 'latency_ms' => 2000, 'started_at' => now()->subHours(1)]);
-    maacRun($agent, ['status' => RunStatus::Failed, 'error' => 'schema mismatch', 'started_at' => now()->subHours(2)]);
-    maacRun($agent, ['status' => RunStatus::Expired, 'started_at' => now()->subHours(3)]);
-    maacRun($agent, ['status' => RunStatus::WaitingForClient, 'started_at' => now()->subMinutes(20)]);
+    maaccRun($agent, ['status' => RunStatus::Completed, 'latency_ms' => 2000, 'started_at' => now()->subHours(1)]);
+    maaccRun($agent, ['status' => RunStatus::Failed, 'error' => 'schema mismatch', 'started_at' => now()->subHours(2)]);
+    maaccRun($agent, ['status' => RunStatus::Expired, 'started_at' => now()->subHours(3)]);
+    maaccRun($agent, ['status' => RunStatus::WaitingForClient, 'started_at' => now()->subMinutes(20)]);
 
-    $run = maacRun($agent, ['status' => RunStatus::Running, 'started_at' => now()->subHours(1)]);
+    $run = maaccRun($agent, ['status' => RunStatus::Running, 'started_at' => now()->subHours(1)]);
     ToolCall::factory()->for($run)->create(['status' => ToolCallStatus::Completed, 'requested_at' => now()->subHours(1)]);
     ToolCall::factory()->for($run)->create(['status' => ToolCallStatus::Failed, 'requested_at' => now()->subHours(1)]);
 
@@ -93,10 +93,10 @@ test('pending approvals raise a low-severity alert', function () {
 
 test('cost anomaly is detected when today exceeds the trailing average', function () {
     [, $team] = ownerAndTeam();
-    $agent = maacAgent($team);
+    $agent = maaccAgent($team);
 
-    maacRun($agent, ['cost' => 1, 'started_at' => now()->subDays(2)]);
-    maacRun($agent, ['cost' => 10, 'started_at' => now()->subHours(1)]);
+    maaccRun($agent, ['cost' => 1, 'started_at' => now()->subDays(2)]);
+    maaccRun($agent, ['cost' => 10, 'started_at' => now()->subHours(1)]);
 
     $result = app(OperationalMonitor::class)->forTeam($team);
 

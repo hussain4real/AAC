@@ -5,7 +5,7 @@ namespace App\Support\Runtime;
 use RuntimeException;
 
 /**
- * A controlled failure raised while MAAC executes a server-side tool (remote
+ * A controlled failure raised while MAACC executes a server-side tool (remote
  * HTTP or MCP connector). The {@see self::$failureCode} maps directly to the run
  * failure reason the runtime records and returns to the SDK, so every failure
  * mode is observable and named rather than surfacing as a raw exception.
@@ -35,7 +35,7 @@ class ToolExecutionException extends RuntimeException
     }
 
     /**
-     * The remote endpoint rejected MAAC's credentials.
+     * The remote endpoint rejected MAACC's credentials.
      */
     public static function httpUnauthorized(int $status): self
     {
@@ -83,7 +83,7 @@ class ToolExecutionException extends RuntimeException
     }
 
     /**
-     * The connector server rejected MAAC's credentials.
+     * The connector server rejected MAACC's credentials.
      */
     public static function connectorUnauthorized(string $message): self
     {

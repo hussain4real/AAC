@@ -11,9 +11,9 @@ use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 /**
- * Seeds the MAAC platform-administration RBAC (Phase 8B): the granular Spatie
+ * Seeds the MAACC platform-administration RBAC (Phase 8B): the granular Spatie
  * permission catalogue, the platform roles with their permission sets, and the
- * bootstrap Super Admins named in `config('maac.platform.super_admins')`.
+ * bootstrap Super Admins named in `config('maacc.platform.super_admins')`.
  * Idempotent — `findOrCreate` upserts, and re-syncing permissions is safe.
  */
 class PlatformRbacSeeder extends Seeder
@@ -52,7 +52,7 @@ class PlatformRbacSeeder extends Seeder
     private function assignBootstrapSuperAdmins(): void
     {
         /** @var array<int, string> $emails */
-        $emails = config('maac.platform.super_admins', []);
+        $emails = config('maacc.platform.super_admins', []);
 
         foreach ($emails as $email) {
             $user = User::firstWhere('email', $email);

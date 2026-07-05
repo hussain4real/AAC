@@ -1,8 +1,8 @@
 {
-    "name": "maac-node-tool-client",
+    "name": "maacc-node-tool-client",
     "version": "0.1.0",
     "private": true,
-    "description": "Standalone Node/TypeScript test client that implements a MAAC client-side tool: it reports the implementation so MAAC registers it, then services the run's client-side tool pause locally.",
+    "description": "Standalone Node/TypeScript test client that implements a MAACC client-side tool: it reports the implementation so MAACC registers it, then services the run's client-side tool pause locally.",
     "type": "module",
     "engines": {
         "node": ">=22.18"

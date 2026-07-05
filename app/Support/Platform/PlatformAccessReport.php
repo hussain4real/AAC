@@ -10,7 +10,7 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 
 /**
- * Builds the read model for the MAAC Access Control console page (Phase 8B): the
+ * Builds the read model for the MAACC Access Control console page (Phase 8B): the
  * platform role/permission catalogue, every platform administrator with their
  * active grants, the access-review work lists, and the recent platform-access
  * audit trail. Read-only; all mutation goes through {@see PlatformAccessManager}.

@@ -2,7 +2,7 @@
 
 namespace App\Policies;
 
-use App\Enums\MaacPermission;
+use App\Enums\MaaccPermission;
 use App\Models\User;
 
 /**
@@ -19,6 +19,6 @@ class AuditEventPolicy
         $team = $user->currentTeam;
 
         return $team !== null
-            && ($user->isMaacPlatformAdmin($team) || $user->hasMaacPermissionOnAnyProject($team, MaacPermission::ViewAudit));
+            && ($user->isMaaccPlatformAdmin($team) || $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::ViewAudit));
     }
 }

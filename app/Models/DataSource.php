@@ -20,10 +20,10 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 
 /**
- * A governed read-only data source MAAC may query for a `db` tool contract. The
+ * A governed read-only data source MAACC may query for a `db` tool contract. The
  * runtime only queries an active source available in the run's environment,
  * through the ops-provisioned read-only connection it references; any credential
- * MAAC must inject is resolved from the secrets vault at query time, so MAAC
+ * MAACC must inject is resolved from the secrets vault at query time, so MAACC
  * never persists a plaintext connection string, username, or password. A
  * sensitive source is gated behind a data-source access approval and stays a
  * draft until granted.
@@ -150,7 +150,7 @@ class DataSource extends Model
 
     /**
      * Resolve the source's connection credential from the secrets vault, or null
-     * when the connection needs no MAAC-injected credential.
+     * when the connection needs no MAACC-injected credential.
      */
     public function resolveCredential(SecretVault $vault): ?string
     {
@@ -176,12 +176,12 @@ class DataSource extends Model
     }
 
     /**
-     * The ephemeral, per-source connection name used when MAAC injects a
+     * The ephemeral, per-source connection name used when MAACC injects a
      * vault-resolved credential over the referenced base connection.
      */
     public function ephemeralConnectionName(): string
     {
-        return 'maac_ds_'.$this->id;
+        return 'maacc_ds_'.$this->id;
     }
 
     /**

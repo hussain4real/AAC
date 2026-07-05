@@ -1,8 +1,8 @@
 <?php
 
-use App\Actions\Maac\CreateCredential;
-use App\Actions\Maac\RevokeCredential;
-use App\Actions\Maac\RotateCredential;
+use App\Actions\Maacc\CreateCredential;
+use App\Actions\Maacc\RevokeCredential;
+use App\Actions\Maacc\RotateCredential;
 use App\Models\Application;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Testing\TestResponse;
