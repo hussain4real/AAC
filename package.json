@@ -3,7 +3,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "vite build",
+        "build": "php artisan route:clear; vite build",
         "build:sdk": "npm --prefix packages/maacc-sdk-ts run build",
         "build:ssr": "vite build && vite build --ssr",
         "dev": "vite",
