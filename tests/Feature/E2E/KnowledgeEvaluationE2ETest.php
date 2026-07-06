@@ -23,6 +23,10 @@ use App\Models\ToolContract;
 beforeEach(function () {
     [$this->owner, $this->team] = ownerAndTeam();
     $this->slug = $this->team->slug;
+
+    // Fake-provider mode: publishing's live connection check resolves the
+    // deterministic router, and the run uses the scripted fake bound below.
+    config(['maacc.runtime.driver' => 'fake']);
 });
 
 function e2ePost(string $name, array $params, array $payload)
@@ -53,9 +57,9 @@ it('indexes a source, runs a RAG agent through an evaluation, and audits it', fu
         'output_cost' => 2.0,
         'sensitivity' => 'internal',
         'environments' => ['production'],
-        'status' => 'approved',
     ]);
     $provider = LlmProvider::firstWhere('code', 'fake/e2e');
+    e2ePost('llm-providers.publish', ['llmProvider' => $provider->slug], []);
 
     e2ePost('projects.store', [], [
         'application_id' => $application->id,

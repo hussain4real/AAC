@@ -3,7 +3,7 @@
 use App\Enums\LlmStatus;
 use App\Models\LlmProvider;
 
-test('a platform admin can add a model to the catalog', function () {
+test('a platform admin can add a model to the catalog as an unverified draft', function () {
     [$owner, $team] = ownerAndTeam();
 
     $this->actingAs($owner)
@@ -19,11 +19,16 @@ test('a platform admin can add a model to the catalog', function () {
         ])
         ->assertRedirect();
 
-    $model = LlmProvider::firstWhere('code', 'azure/gpt-4o');
+    // The `azure/` prefix is stripped to the bare id the provider expects, and
+    // the entry starts as an unpublished, unverified draft.
+    $model = LlmProvider::firstWhere('code', 'gpt-4o');
 
     expect($model)->not->toBeNull()
         ->and($model->team_id)->toBe($team->id)
-        ->and($model->status)->toBe(LlmStatus::Approved);
+        ->and($model->status)->toBe(LlmStatus::Draft)
+        ->and($model->isVerified())->toBeFalse();
+
+    expect(LlmProvider::firstWhere('code', 'azure/gpt-4o'))->toBeNull();
 });
 
 test('model catalog creation validates required fields', function () {

@@ -7,6 +7,7 @@ namespace App\Enums;
  */
 enum LlmStatus: string
 {
+    case Draft = 'draft';
     case Approved = 'approved';
     case Deprecated = 'deprecated';
     case Blocked = 'blocked';
@@ -17,6 +18,15 @@ enum LlmStatus: string
     public function label(): string
     {
         return ucfirst($this->value);
+    }
+
+    /**
+     * Whether the model is live and usable by agents. Only an approved model
+     * runs; a draft awaits a passing verification before it can be published.
+     */
+    public function isPublished(): bool
+    {
+        return $this === self::Approved;
     }
 
     /**

@@ -2,6 +2,7 @@
 
 use App\Enums\CredentialStatus;
 use App\Enums\RunStatus;
+use App\Enums\VaultSecretKind;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
@@ -10,6 +11,7 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
 use App\Support\MaaccConsoleData;
+use App\Support\Secrets\Contracts\SecretVault;
 use Database\Seeders\MaaccDemoSeeder;
 
 /**
@@ -151,4 +153,39 @@ test('the console prop exposes record uuids and safe credentials for ui wiring',
     expect($credentialData)->toHaveKeys(['id', 'clientId', 'status', 'environment'])
         ->and($credentialData['id'])->toBe($credential->id)
         ->and($credentialData)->not->toHaveKey('secret');
+});
+
+test('the console data exposes the provider catalog and per-model verification state', function () {
+    [, $team] = ownerAndTeam();
+
+    // A live, verified model with a bound key.
+    $verified = LlmProvider::factory()->for($team)->create(['provider' => 'OpenAI', 'code' => 'gpt-5.4']);
+    $secret = app(SecretVault::class)->store(
+        $team,
+        VaultSecretKind::LlmKey->reference($verified->slug),
+        'OpenAI key',
+        VaultSecretKind::LlmKey,
+        'sk-secret-9876',
+    );
+    $verified->update(['vault_secret_id' => $secret->id]);
+
+    // An unverified draft with no key.
+    $draft = LlmProvider::factory()->for($team)->draft()->create(['provider' => 'Anthropic', 'code' => 'claude-sonnet-5']);
+
+    $data = MaaccConsoleData::forTeam($team);
+
+    expect($data['providerCatalog'])->not->toBeEmpty()
+        ->and(collect($data['providerCatalog'])->pluck('driver'))->toContain('openai');
+
+    $verifiedData = collect($data['llms'])->firstWhere('id', $verified->slug);
+    expect($verifiedData['hasKey'])->toBeTrue()
+        ->and($verifiedData['keyLastFour'])->toBe('9876')
+        ->and($verifiedData['verification']['status'])->toBe('ok')
+        ->and($verifiedData['verification']['focus'])->toBe('none');
+
+    $draftData = collect($data['llms'])->firstWhere('id', $draft->slug);
+    expect($draftData['hasKey'])->toBeFalse()
+        ->and($draftData['keyLastFour'])->toBeNull()
+        ->and($draftData['verification']['status'])->toBeNull()
+        ->and($draftData['status'])->toBe('Draft');
 });

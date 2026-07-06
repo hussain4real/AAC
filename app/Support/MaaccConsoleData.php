@@ -150,6 +150,7 @@ class MaaccConsoleData
             ->get();
 
         $llms = $team->llmProviders()
+            ->with('vaultSecret')
             ->orderByDesc('usage_pct')
             ->get();
 
@@ -168,6 +169,7 @@ class MaaccConsoleData
             'tools' => ToolContractResource::collection($tools)->resolve(),
             'runs' => AgentRunResource::collection($runs)->resolve(),
             'llms' => LlmProviderResource::collection($llms)->resolve(),
+            'providerCatalog' => ProviderCatalog::providers(),
             // Phase 5 — real observability rollups and governance dataset.
             'dashboard' => [
                 ...app(RunMetrics::class)->forTeam($team),

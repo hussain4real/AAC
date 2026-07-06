@@ -30,7 +30,15 @@ import type {
     MaaccWebhookEndpoint,
 } from '@/types/global';
 import { MAACC as FIXTURE } from './data';
-import type { Agent, Application, Llm, Project, Run, Tool } from './data';
+import type {
+    Agent,
+    Application,
+    Llm,
+    Project,
+    ProviderCatalogEntry,
+    Run,
+    Tool,
+} from './data';
 
 export type MaaccDataset = {
     apps: Application[];
@@ -98,6 +106,7 @@ export function useMaaccDataset(): MaaccDataset {
 }
 
 export type MaaccData = MaaccDataset & {
+    providerCatalog: ProviderCatalogEntry[];
     roles: typeof FIXTURE.roles;
     approvals: MaaccApprovals;
     policies: typeof FIXTURE.policies;
@@ -142,6 +151,7 @@ export function useMaaccData(): MaaccData {
     return useMemo(
         () => ({
             ...dataset,
+            providerCatalog: maacc?.providerCatalog ?? [],
             roles: maacc?.roles ?? FIXTURE.roles,
             approvals: maacc?.approvals ?? FIXTURE.approvals,
             policies: maacc?.policies ?? FIXTURE.policies,
@@ -151,7 +161,8 @@ export function useMaaccData(): MaaccData {
             auditEvents: maacc?.auditEvents ?? [],
             governanceSettings: maacc?.governanceSettings ?? DEFAULT_SETTINGS,
             quotas: maacc?.quotas ?? [],
-            sdkCompatibility: maacc?.sdkCompatibility ?? EMPTY_SDK_COMPATIBILITY,
+            sdkCompatibility:
+                maacc?.sdkCompatibility ?? EMPTY_SDK_COMPATIBILITY,
             webhooks: maacc?.webhooks ?? [],
             connectors: maacc?.connectors ?? [],
             knowledgeSources: maacc?.knowledgeSources ?? [],

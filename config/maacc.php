@@ -48,6 +48,7 @@ return [
         'max_steps' => (int) env('MAACC_RUNTIME_MAX_STEPS', 8),
         'default_timeout_seconds' => (int) env('MAACC_RUNTIME_TIMEOUT', 120),
         'per_turn_timeout_seconds' => (int) env('MAACC_RUNTIME_TURN_TIMEOUT', 30),
+        'verify_timeout_seconds' => (int) env('MAACC_VERIFY_TIMEOUT', 15),
 
         'stream' => [
             'poll_interval_ms' => (int) env('MAACC_RUNTIME_STREAM_INTERVAL', 500),

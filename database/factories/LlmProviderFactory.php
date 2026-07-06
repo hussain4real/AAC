@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\Environment;
 use App\Enums\LlmStatus;
+use App\Enums\LlmVerificationOutcome;
 use App\Enums\Sensitivity;
 use App\Models\LlmProvider;
 use App\Models\Team;
@@ -46,6 +47,10 @@ class LlmProviderFactory extends Factory
             'usage_pct' => fake()->numberBetween(0, 40),
             'runs_count' => fake()->numberBetween(0, 7000),
             'note' => fake()->sentence(),
+            'verification_status' => LlmVerificationOutcome::Ok,
+            'verification_message' => 'The provider returned a response.',
+            'verified_at' => now(),
+            'verification_checked_at' => now(),
         ];
     }
 
@@ -56,6 +61,20 @@ class LlmProviderFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'status' => LlmStatus::Deprecated,
+        ]);
+    }
+
+    /**
+     * Indicate that the model is an unpublished draft awaiting verification.
+     */
+    public function draft(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => LlmStatus::Draft,
+            'verification_status' => null,
+            'verification_message' => null,
+            'verified_at' => null,
+            'verification_checked_at' => null,
         ]);
     }
 }

@@ -114,6 +114,8 @@ test('enum helper predicates behave as expected', function () {
         ->and(ExecMode::Knowledge->isClientSide())->toBeFalse()
         ->and(AgentStatus::Published->isPublished())->toBeTrue()
         ->and(AgentStatus::Draft->isPublished())->toBeFalse()
+        ->and(LlmStatus::Approved->isPublished())->toBeTrue()
+        ->and(LlmStatus::Draft->isPublished())->toBeFalse()
         ->and(CredentialStatus::Active->isUsable())->toBeTrue()
         ->and(CredentialStatus::Revoked->isUsable())->toBeFalse()
         ->and(RunStatus::Completed->isTerminal())->toBeTrue()
