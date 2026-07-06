@@ -36,10 +36,18 @@ class UpdateLlmProvider
         $llmProvider->update($data);
 
         if (is_string($apiKey) && $apiKey !== '') {
+            $reference = VaultSecretKind::LlmKey->reference($llmProvider->slug);
+
+            // The model dialog and the Secrets Vault page manage the same vault
+            // secret (`llm_key:{slug}`). Preserve a name the operator may have set
+            // for it on the vault page instead of clobbering it with the default.
+            $name = $llmProvider->team->vaultSecrets()->where('reference', $reference)->value('name')
+                ?? $llmProvider->name.' key';
+
             $secret = $this->vault->store(
                 $llmProvider->team,
-                VaultSecretKind::LlmKey->reference($llmProvider->slug),
-                $llmProvider->name.' key',
+                $reference,
+                $name,
                 VaultSecretKind::LlmKey,
                 $apiKey,
             );

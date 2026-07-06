@@ -166,10 +166,11 @@ test('creating with an api key stores it in the vault and binds it', function ()
 test('updating with a new api key rotates the secret and clears verification', function () {
     [$owner, $team] = ownerAndTeam();
     $provider = LlmProvider::factory()->for($team)->create(['provider' => 'OpenAI', 'code' => 'gpt-5.4']);
+    // A secret created on the Secrets Vault page with a custom name.
     $secret = app(SecretVault::class)->store(
         $team,
         VaultSecretKind::LlmKey->reference($provider->slug),
-        'OpenAI key',
+        'Ops team OpenAI key',
         VaultSecretKind::LlmKey,
         'sk-old-key',
     );
@@ -183,5 +184,23 @@ test('updating with a new api key rotates the secret and clears verification', f
 
     $fresh = $provider->fresh();
     expect($fresh->resolveApiKey(app(SecretVault::class)))->toBe('sk-new-key-value')
-        ->and($fresh->verification_status)->toBeNull();
+        ->and($fresh->verification_status)->toBeNull()
+        // The custom vault name survives an inline key rotation.
+        ->and($fresh->vaultSecret->name)->toBe('Ops team OpenAI key');
+});
+
+test('updating binds a first api key with a default name when none exists', function () {
+    [$owner, $team] = ownerAndTeam();
+    $provider = LlmProvider::factory()->for($team)->draft()->create(['provider' => 'OpenAI', 'code' => 'gpt-5.4']);
+    expect($provider->vault_secret_id)->toBeNull();
+
+    $this->actingAs($owner)
+        ->put(route('llm-providers.update', ['current_team' => $team->slug, 'llmProvider' => $provider->slug]), [
+            'api_key' => 'sk-first-key',
+        ])
+        ->assertRedirect();
+
+    $fresh = $provider->fresh();
+    expect($fresh->resolveApiKey(app(SecretVault::class)))->toBe('sk-first-key')
+        ->and($fresh->vaultSecret->name)->toBe($provider->name.' key');
 });
