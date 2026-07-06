@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\AgentStatus;
+use App\Enums\LlmStatus;
 use App\Enums\RunStatus;
 use App\Enums\TraceEventType;
 use App\Models\Agent;
@@ -32,6 +33,10 @@ beforeEach(function () {
 
     [$this->owner, $this->team] = ownerAndTeam();
     $this->slug = $this->team->slug;
+
+    // Fake-provider mode: publishing's live connection check resolves the
+    // deterministic router, and the run uses the scripted fake bound below.
+    config(['maacc.runtime.driver' => 'fake']);
 });
 
 /**
@@ -60,7 +65,9 @@ test('the full console setup to completed agent run works end to end', function 
     $application = Application::firstWhere('code', 'CARGO');
     expect($application)->not->toBeNull();
 
-    // 2. Add an approved model to the catalog.
+    // 2. Add a model to the catalog, then publish it. Publishing runs a live
+    //    connection check (deterministic in fake-provider mode) and approves
+    //    the model so the runtime can select it.
     consolePost('llm-providers.store', [], [
         'name' => 'E2E Model',
         'code' => 'fake/e2e',
@@ -70,9 +77,10 @@ test('the full console setup to completed agent run works end to end', function 
         'output_cost' => 2.0,
         'sensitivity' => 'internal',
         'environments' => ['production'],
-        'status' => 'approved',
     ]);
     $provider = LlmProvider::firstWhere('code', 'fake/e2e');
+    consolePost('llm-providers.publish', ['llmProvider' => $provider->slug]);
+    expect($provider->fresh()->status)->toBe(LlmStatus::Approved);
 
     // 3. Create a project under the application.
     consolePost('projects.store', [], [

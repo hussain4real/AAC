@@ -4,8 +4,10 @@ namespace App\Models;
 
 use App\Concerns\RecordsAuditEvents;
 use App\Enums\LlmStatus;
+use App\Enums\LlmVerificationOutcome;
 use App\Enums\Sensitivity;
 use App\Support\Secrets\Contracts\SecretVault;
+use Carbon\CarbonInterface;
 use Database\Factories\LlmProviderFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -31,6 +33,10 @@ use Illuminate\Support\Carbon;
  * @property array<int, string> $environments
  * @property LlmStatus $status
  * @property string|null $vault_secret_id
+ * @property Carbon|null $verified_at
+ * @property LlmVerificationOutcome|null $verification_status
+ * @property string|null $verification_message
+ * @property Carbon|null $verification_checked_at
  * @property int $usage_pct
  * @property int $runs_count
  * @property string|null $note
@@ -108,10 +114,18 @@ class LlmProvider extends Model
         'azure' => 'azure',
         'bedrock' => 'bedrock',
         'vertex' => 'gemini',
+        'google' => 'gemini',
         'gemini' => 'gemini',
         'anthropic' => 'anthropic',
         'claude' => 'anthropic',
+        'openrouter' => 'openrouter',
         'openai' => 'openai',
+        'groq' => 'groq',
+        'deepseek' => 'deepseek',
+        'mistral' => 'mistral',
+        'ollama' => 'ollama',
+        'grok' => 'xai',
+        'xai' => 'xai',
     ];
 
     /**
@@ -120,7 +134,16 @@ class LlmProvider extends Model
      */
     public function driver(): string
     {
-        $normalized = strtolower($this->provider);
+        return self::driverFor($this->provider);
+    }
+
+    /**
+     * Map a provider label to its configured `laravel/ai` driver, falling back
+     * to the application's default AI provider when none matches.
+     */
+    public static function driverFor(string $provider): string
+    {
+        $normalized = strtolower($provider);
 
         foreach (self::DRIVER_MAP as $needle => $driver) {
             if (str_contains($normalized, $needle)) {
@@ -139,6 +162,30 @@ class LlmProvider extends Model
     {
         return $this->status === LlmStatus::Approved
             && in_array($environment, $this->environments, true);
+    }
+
+    /**
+     * Whether the most recent live connection check passed. Publishing a model
+     * to the catalog requires a passing check, so a wrong model code or key can
+     * never reach production traffic.
+     */
+    public function isVerified(): bool
+    {
+        return $this->verification_status === LlmVerificationOutcome::Ok;
+    }
+
+    /**
+     * Record the result of a live connection check. `verified_at` only advances
+     * on success, so it always marks the last time the model actually connected.
+     */
+    public function recordVerification(LlmVerificationOutcome $outcome, string $message, CarbonInterface $at): void
+    {
+        $this->forceFill([
+            'verification_status' => $outcome,
+            'verification_message' => $message,
+            'verification_checked_at' => $at,
+            'verified_at' => $outcome->isSuccess() ? $at : $this->verified_at,
+        ])->save();
     }
 
     /**
@@ -172,6 +219,9 @@ class LlmProvider extends Model
             'output_cost' => 'float',
             'usage_pct' => 'integer',
             'runs_count' => 'integer',
+            'verified_at' => 'datetime',
+            'verification_status' => LlmVerificationOutcome::class,
+            'verification_checked_at' => 'datetime',
         ];
     }
 }

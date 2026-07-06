@@ -40,6 +40,16 @@ class LlmProviderResource extends JsonResource
             'usagePct' => $this->usage_pct,
             'runs' => $this->runs_count,
             'note' => $this->note,
+            'hasKey' => $this->vault_secret_id !== null,
+            'keyLastFour' => $this->whenLoaded('vaultSecret', fn (): ?string => $this->vaultSecret?->last_four),
+            'verification' => [
+                'status' => $this->verification_status?->value,
+                'label' => $this->verification_status?->label(),
+                'focus' => $this->verification_status?->focus(),
+                'message' => $this->verification_message,
+                'verifiedAt' => $this->verified_at?->toIso8601String(),
+                'checkedAt' => $this->verification_checked_at?->toIso8601String(),
+            ],
         ];
     }
 }

@@ -93,6 +93,8 @@ Route::prefix('{current_team}')
         Route::resource('llm-providers', LlmProviderController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['llm-providers' => 'llmProvider']);
+        Route::post('llm-providers/{llmProvider}/verify', [LlmProviderController::class, 'verify'])->name('llm-providers.verify');
+        Route::post('llm-providers/{llmProvider}/publish', [LlmProviderController::class, 'publish'])->name('llm-providers.publish');
 
         // MAACC console (Phase 6E — MCP connectors for connector-backed tools)
         Route::resource('connectors', McpConnectorController::class)

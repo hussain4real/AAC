@@ -52,4 +52,20 @@ class LlmProviderPolicy
     {
         return $user->hasMaaccPermission($llmProvider->team, MaaccPermission::ManagePlatform);
     }
+
+    /**
+     * Determine whether the user can run a live connection check on the model.
+     */
+    public function verify(User $user, LlmProvider $llmProvider): bool
+    {
+        return $user->hasMaaccPermission($llmProvider->team, MaaccPermission::ManagePlatform);
+    }
+
+    /**
+     * Determine whether the user can publish the model to the live catalog.
+     */
+    public function publish(User $user, LlmProvider $llmProvider): bool
+    {
+        return $user->hasMaaccPermission($llmProvider->team, MaaccPermission::ManagePlatform);
+    }
 }

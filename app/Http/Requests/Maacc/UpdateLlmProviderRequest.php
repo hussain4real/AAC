@@ -27,7 +27,14 @@ class UpdateLlmProviderRequest extends FormRequest
             'sensitivity' => ['sometimes', 'required', Rule::enum(Sensitivity::class)],
             'environments' => ['sometimes', 'required', 'array', 'min:1'],
             'environments.*' => [Rule::enum(Environment::class)],
-            'status' => ['sometimes', 'required', Rule::enum(LlmStatus::class)],
+            // `approved` is intentionally excluded — a model reaches the live
+            // catalog only through the verification-gated publish action.
+            'status' => ['sometimes', 'required', Rule::in([
+                LlmStatus::Draft->value,
+                LlmStatus::Deprecated->value,
+                LlmStatus::Blocked->value,
+            ])],
+            'api_key' => ['nullable', 'string', 'max:512'],
             'note' => ['nullable', 'string'],
         ];
     }

@@ -1,12 +1,14 @@
 /* ============================================================
    MAACC — LLM Providers
    ============================================================ */
-import { Head, router, useForm } from '@inertiajs/react';
-import { useState } from 'react';
+import { Head, router, useForm, useHttp } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
 import {
     destroy as destroyLlm,
+    publish as publishLlm,
     store as storeLlm,
     update as updateLlm,
+    verify as verifyLlm,
 } from '@/actions/App/Http/Controllers/Maacc/LlmProviderController';
 import { Donut, DonutLegend, StatCard } from '@/components/maacc/charts';
 import {
@@ -23,15 +25,13 @@ import {
     Table,
     Td,
     Textarea,
-    Toggle,
     Tr,
 } from '@/components/maacc/ui';
-import type { Llm } from '@/maacc/data';
+import type { Llm, LlmVerification, ProviderCatalogEntry } from '@/maacc/data';
 import {
     ChipMultiSelect,
     ENV_OPTIONS,
     FieldError,
-    LLM_STATUS_OPTIONS,
     SENSITIVITY_OPTIONS,
     toEnumValue,
     useCurrentTeam,
@@ -39,17 +39,84 @@ import {
 import { Icon } from '@/maacc/icons';
 import { useMaaccData } from '@/maacc/use-data';
 
+/** The JSON returned by the verify endpoint's `result` key. */
+type VerifyResult = {
+    outcome: string;
+    label: string;
+    focus: string;
+    message: string;
+    passed: boolean;
+    latency_ms: number | null;
+};
+
+/** Status options an operator may set directly — `approved` is reached only
+ * through the verification-gated publish action. */
+const EDITABLE_STATUS_OPTIONS = [
+    { value: 'draft', label: 'Draft' },
+    { value: 'deprecated', label: 'Deprecated' },
+    { value: 'blocked', label: 'Blocked' },
+];
+
+/** Sentinel for the "custom model" option — Radix `Select` forbids an
+ * empty-string item value, so the escape hatch needs a real value. */
+const CUSTOM_MODEL = '__custom__';
+
+/** Map a verification focus to a badge tone. */
+function focusTone(focus?: string | null): 'teal' | 'amber' | 'red' {
+    if (focus === 'none') {
+        return 'teal';
+    }
+
+    return focus === 'network' || focus === 'retry' ? 'amber' : 'red';
+}
+
+/** Compact verification indicator shown in the model catalog row. */
+function VerificationChip({ v }: { v?: LlmVerification }) {
+    if (!v || !v.status) {
+        return (
+            <span style={{ fontSize: 10.5, color: 'var(--text-3)' }}>
+                Unverified
+            </span>
+        );
+    }
+
+    const ok = v.status === 'ok';
+
+    return (
+        <span
+            className="maacc-tip"
+            data-tip={v.message ?? undefined}
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                fontSize: 10.5,
+                color: ok ? 'var(--teal-500)' : 'var(--red-500)',
+            }}
+        >
+            <Icon name={ok ? 'checkCircle' : 'x'} size={11} />
+            {ok ? 'Verified' : (v.label ?? 'Failed')}
+        </span>
+    );
+}
+
 function LlmFormModal({
     llm,
+    catalog,
     open,
     onClose,
 }: {
     llm?: Llm;
+    catalog: ProviderCatalogEntry[];
     open: boolean;
     onClose: () => void;
 }) {
     const team = useCurrentTeam();
     const isEdit = !!llm;
+    const { submit } = useHttp();
+    const [testing, setTesting] = useState(false);
+    const [result, setResult] = useState<VerifyResult | null>(null);
+
     const form = useForm<{
         name: string;
         code: string;
@@ -60,11 +127,12 @@ function LlmFormModal({
         sensitivity: string;
         environments: string[];
         status: string;
+        api_key: string;
         note: string;
     }>({
         name: llm?.name ?? '',
         code: llm?.code ?? '',
-        provider: llm?.provider ?? '',
+        provider: llm?.provider ?? catalog[0]?.label ?? '',
         context_window: llm?.ctx ?? '',
         input_cost: llm?.inCost ?? 0,
         output_cost: llm?.outCost ?? 0,
@@ -72,12 +140,59 @@ function LlmFormModal({
         environments: llm
             ? llm.envs.map((e) => toEnumValue(e))
             : ['development'],
-        status: llm ? toEnumValue(llm.status) : 'approved',
+        status: llm ? toEnumValue(llm.status) : 'draft',
+        api_key: '',
         note: llm?.note ?? '',
     });
 
+    // Provider options come from the curated catalog; a legacy/custom provider
+    // that is not in the catalog is preserved as its own option.
+    const providerOptions = useMemo(() => {
+        const opts = catalog.map((c) => ({ value: c.label, label: c.label }));
+
+        if (
+            form.data.provider &&
+            !opts.some((o) => o.value === form.data.provider)
+        ) {
+            opts.push({ value: form.data.provider, label: form.data.provider });
+        }
+
+        return opts;
+    }, [catalog, form.data.provider]);
+
+    const activeProvider = catalog.find((c) => c.label === form.data.provider);
+    const models = activeProvider?.models ?? [];
+    const modelOptions = [
+        ...models.map((m) => ({ value: m.code, label: m.label })),
+        { value: CUSTOM_MODEL, label: 'Custom / other…' },
+    ];
+    const selectedModel = models.some((m) => m.code === form.data.code)
+        ? form.data.code
+        : CUSTOM_MODEL;
+    const displayCode = activeProvider
+        ? `${activeProvider.driver}/${form.data.code || '…'}`
+        : form.data.code;
+
+    const pickModel = (code: string) => {
+        const model = models.find((m) => m.code === code);
+
+        if (!model) {
+            return;
+        }
+
+        form.setData({
+            ...form.data,
+            code: model.code,
+            context_window: model.context,
+            input_cost: model.input,
+            output_cost: model.output,
+            name: form.data.name || model.label,
+        });
+    };
+
     const close = () => {
         form.clearErrors();
+        setResult(null);
         onClose();
     };
 
@@ -90,7 +205,7 @@ function LlmFormModal({
         );
     };
 
-    const submit = () => {
+    const submitForm = () => {
         if (!team) {
             return;
         }
@@ -113,6 +228,42 @@ function LlmFormModal({
         });
     };
 
+    // Save the current form, then run a live connection check so the result
+    // reflects exactly what was entered.
+    const testConnection = () => {
+        if (!team || !llm) {
+            return;
+        }
+
+        setResult(null);
+        setTesting(true);
+
+        form.put(updateLlm([team.slug, llm.id]).url, {
+            preserveScroll: true,
+            onSuccess: async () => {
+                try {
+                    const data = (await submit(
+                        verifyLlm([team.slug, llm.id]),
+                    )) as { result: VerifyResult };
+                    setResult(data.result);
+                    router.reload({ only: ['maacc'] });
+                } catch {
+                    setResult({
+                        outcome: 'unknown',
+                        label: 'Check failed',
+                        focus: 'retry',
+                        message: 'The connection check could not be completed.',
+                        passed: false,
+                        latency_ms: null,
+                    });
+                } finally {
+                    setTesting(false);
+                }
+            },
+            onError: () => setTesting(false),
+        });
+    };
+
     const half = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 };
 
     return (
@@ -120,26 +271,53 @@ function LlmFormModal({
             open={open}
             onClose={close}
             icon="llm"
-            title={isEdit ? 'Edit model' : 'Add Model'}
-            sub="Register an approved model in the company catalog."
-            width={600}
+            title={isEdit ? 'Edit model' : 'Add model'}
+            sub="Pick a provider and model, add its API key, then verify the live connection before publishing."
+            width={620}
             footer={
                 <>
                     <Btn variant="ghost" onClick={close}>
                         Cancel
                     </Btn>
+                    {isEdit && (
+                        <Btn
+                            variant="ghost"
+                            icon="bolt"
+                            disabled={form.processing || testing}
+                            onClick={testConnection}
+                        >
+                            {testing ? 'Testing…' : 'Test connection'}
+                        </Btn>
+                    )}
                     <Btn
                         variant="primary"
                         icon="check"
-                        disabled={form.processing}
-                        onClick={submit}
+                        disabled={form.processing || testing}
+                        onClick={submitForm}
                     >
-                        {isEdit ? 'Save changes' : 'Add Model'}
+                        {isEdit ? 'Save changes' : 'Add model'}
                     </Btn>
                 </>
             }
         >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={half}>
+                    <Field label="Provider" required>
+                        <Select
+                            value={form.data.provider}
+                            onChange={(v) => form.setData('provider', v)}
+                            options={providerOptions}
+                        />
+                        <FieldError error={form.errors.provider} />
+                    </Field>
+                    <Field label="Model" hint="From the provider catalog">
+                        <Select
+                            value={selectedModel}
+                            onChange={pickModel}
+                            options={modelOptions}
+                        />
+                    </Field>
+                </div>
                 <div style={half}>
                     <Field label="Model name" required>
                         <Input
@@ -147,42 +325,78 @@ function LlmFormModal({
                             onChange={(e) =>
                                 form.setData('name', e.target.value)
                             }
-                            placeholder="GPT-4o"
+                            placeholder="GPT-5.4"
                         />
                         <FieldError error={form.errors.name} />
                     </Field>
-                    <Field label="Model code" required>
+                    <Field
+                        label="Model code"
+                        required
+                        hint="The bare id the provider expects"
+                    >
                         <Input
                             value={form.data.code}
                             onChange={(e) =>
                                 form.setData('code', e.target.value)
                             }
-                            placeholder="azure/gpt-4o"
+                            placeholder="gpt-5.4"
                             style={{ fontFamily: 'var(--mono)' }}
                         />
                         <FieldError error={form.errors.code} />
                     </Field>
                 </div>
+                <div
+                    className="mono"
+                    style={{
+                        fontSize: 11,
+                        color: 'var(--text-3)',
+                        marginTop: -6,
+                    }}
+                >
+                    Sent to the provider as{' '}
+                    <span style={{ color: 'var(--text-2)' }}>
+                        {form.data.code || '…'}
+                    </span>{' '}
+                    · shown as {displayCode}
+                </div>
+                <Field
+                    label="API key"
+                    hint={
+                        llm?.hasKey
+                            ? `Key set ••••${llm.keyLastFour ?? ''} — leave blank to keep`
+                            : 'Stored encrypted in the vault'
+                    }
+                >
+                    <Input
+                        type="password"
+                        value={form.data.api_key}
+                        onChange={(e) =>
+                            form.setData('api_key', e.target.value)
+                        }
+                        placeholder={llm?.hasKey ? '••••••••' : 'sk-…'}
+                        autoComplete="off"
+                        style={{ fontFamily: 'var(--mono)' }}
+                    />
+                    <FieldError error={form.errors.api_key} />
+                </Field>
                 <div style={half}>
-                    <Field label="Provider" required>
-                        <Input
-                            value={form.data.provider}
-                            onChange={(e) =>
-                                form.setData('provider', e.target.value)
-                            }
-                            placeholder="Azure OpenAI"
-                        />
-                        <FieldError error={form.errors.provider} />
-                    </Field>
                     <Field label="Context window" required>
                         <Input
                             value={form.data.context_window}
                             onChange={(e) =>
                                 form.setData('context_window', e.target.value)
                             }
-                            placeholder="128K"
+                            placeholder="400K"
                         />
                         <FieldError error={form.errors.context_window} />
+                    </Field>
+                    <Field label="Sensitivity rating" required>
+                        <Select
+                            value={form.data.sensitivity}
+                            onChange={(v) => form.setData('sensitivity', v)}
+                            options={SENSITIVITY_OPTIONS}
+                        />
+                        <FieldError error={form.errors.sensitivity} />
                     </Field>
                 </div>
                 <div style={half}>
@@ -217,24 +431,16 @@ function LlmFormModal({
                         <FieldError error={form.errors.output_cost} />
                     </Field>
                 </div>
-                <div style={half}>
-                    <Field label="Sensitivity rating" required>
-                        <Select
-                            value={form.data.sensitivity}
-                            onChange={(v) => form.setData('sensitivity', v)}
-                            options={SENSITIVITY_OPTIONS}
-                        />
-                        <FieldError error={form.errors.sensitivity} />
-                    </Field>
+                {isEdit && (
                     <Field label="Status" required>
                         <Select
                             value={form.data.status}
                             onChange={(v) => form.setData('status', v)}
-                            options={LLM_STATUS_OPTIONS}
+                            options={EDITABLE_STATUS_OPTIONS}
                         />
                         <FieldError error={form.errors.status} />
                     </Field>
-                </div>
+                )}
                 <Field label="Allowed environments" required>
                     <ChipMultiSelect
                         options={ENV_OPTIONS}
@@ -252,6 +458,49 @@ function LlmFormModal({
                     />
                     <FieldError error={form.errors.note} />
                 </Field>
+                {result && (
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: 9,
+                            padding: '10px 12px',
+                            borderRadius: 10,
+                            border: `1px solid var(--${result.passed ? 'teal' : focusTone(result.focus)}-500)`,
+                            background: result.passed
+                                ? 'color-mix(in srgb, var(--teal-500) 10%, transparent)'
+                                : 'color-mix(in srgb, var(--red-500) 8%, transparent)',
+                        }}
+                    >
+                        <Icon
+                            name={result.passed ? 'checkCircle' : 'alert'}
+                            size={15}
+                        />
+                        <div>
+                            <div
+                                style={{
+                                    fontWeight: 600,
+                                    fontSize: 12.5,
+                                    color: 'var(--text)',
+                                }}
+                            >
+                                {result.label}
+                                {result.passed && result.latency_ms !== null
+                                    ? ` · ${result.latency_ms}ms`
+                                    : ''}
+                            </div>
+                            <div
+                                style={{
+                                    fontSize: 11.5,
+                                    color: 'var(--text-2)',
+                                    lineHeight: 1.5,
+                                }}
+                            >
+                                {result.message}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </Modal>
     );
@@ -265,11 +514,11 @@ export default function LLMProviders() {
     const approved = MAACC.llms.filter((l) => l.status === 'Approved');
     const totalRuns = MAACC.llms.reduce((s, l) => s + l.runs, 0);
 
-    const setStatus = (llm: Llm, status: string) => {
+    const publishModel = (llm: Llm) => {
         if (team) {
-            router.put(
-                updateLlm([team.slug, llm.id]).url,
-                { status },
+            router.post(
+                publishLlm([team.slug, llm.id]).url,
+                {},
                 { preserveScroll: true },
             );
         }
@@ -282,6 +531,15 @@ export default function LLMProviders() {
             });
         }
     };
+
+    const statusTone = (status: Llm['status']) =>
+        status === 'Approved'
+            ? 'teal'
+            : status === 'Deprecated'
+              ? 'amber'
+              : status === 'Blocked'
+                ? 'red'
+                : 'blue';
 
     return (
         <>
@@ -450,18 +708,24 @@ export default function LLMProviders() {
                                         </div>
                                     </Td>
                                     <Td>
-                                        <Badge
-                                            tone={
-                                                l.status === 'Approved'
-                                                    ? 'teal'
-                                                    : l.status === 'Deprecated'
-                                                      ? 'amber'
-                                                      : 'red'
-                                            }
-                                            dot
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                gap: 3,
+                                                alignItems: 'flex-start',
+                                            }}
                                         >
-                                            {l.status}
-                                        </Badge>
+                                            <Badge
+                                                tone={statusTone(l.status)}
+                                                dot
+                                            >
+                                                {l.status}
+                                            </Badge>
+                                            <VerificationChip
+                                                v={l.verification}
+                                            />
+                                        </div>
                                     </Td>
                                     <Td align="right">
                                         <div
@@ -472,18 +736,18 @@ export default function LLMProviders() {
                                                 justifyContent: 'flex-end',
                                             }}
                                         >
-                                            <Toggle
-                                                on={l.status === 'Approved'}
-                                                onChange={(on) =>
-                                                    setStatus(
-                                                        l,
-                                                        on
-                                                            ? 'approved'
-                                                            : 'deprecated',
-                                                    )
-                                                }
-                                                size="sm"
-                                            />
+                                            {l.status !== 'Approved' && (
+                                                <Btn
+                                                    variant="primary"
+                                                    size="sm"
+                                                    icon="checkCircle"
+                                                    onClick={() =>
+                                                        publishModel(l)
+                                                    }
+                                                >
+                                                    Publish
+                                                </Btn>
+                                            )}
                                             <Btn
                                                 variant="ghost"
                                                 size="icon"
@@ -614,6 +878,7 @@ export default function LLMProviders() {
                 </div>
 
                 <LlmFormModal
+                    catalog={MAACC.providerCatalog}
                     open={showAdd}
                     onClose={() => setShowAdd(false)}
                 />
@@ -621,6 +886,7 @@ export default function LLMProviders() {
                     <LlmFormModal
                         key={editing.id}
                         llm={editing}
+                        catalog={MAACC.providerCatalog}
                         open
                         onClose={() => setEditing(null)}
                     />

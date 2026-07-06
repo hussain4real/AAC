@@ -5,6 +5,7 @@ import type {
     Llm,
     Policy,
     Project,
+    ProviderCatalogEntry,
     Role,
     Run,
     Tool,
@@ -492,6 +493,7 @@ export interface MaaccProp {
     tools: Tool[];
     runs: Run[];
     llms: Llm[];
+    providerCatalog: ProviderCatalogEntry[];
     dashboard: MaaccDashboard;
     operational: MaaccOperational;
     approvals: MaaccApprovals;

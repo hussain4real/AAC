@@ -30,6 +30,15 @@ export type RunStatus =
     | 'cancelled'
     | 'queued';
 
+export type LlmVerification = {
+    status: string | null;
+    label: string | null;
+    focus: string | null;
+    message: string | null;
+    verifiedAt: string | null;
+    checkedAt: string | null;
+};
+
 export type Llm = {
     /** Stable database UUID — used as the value when submitting forms. */
     uuid?: string;
@@ -42,10 +51,30 @@ export type Llm = {
     outCost: number;
     sensitivity: Sensitivity;
     envs: Environment[];
-    status: 'Approved' | 'Deprecated' | 'Blocked';
+    status: 'Draft' | 'Approved' | 'Deprecated' | 'Blocked';
     usagePct: number;
     runs: number;
     note: string;
+    /** Whether an API key is bound in the vault (server-provided). */
+    hasKey?: boolean;
+    keyLastFour?: string | null;
+    verification?: LlmVerification;
+};
+
+/** A model entry in the curated provider catalog. */
+export type CatalogModel = {
+    code: string;
+    label: string;
+    context: string;
+    input: number;
+    output: number;
+};
+
+/** A provider entry in the curated catalog that powers the picker. */
+export type ProviderCatalogEntry = {
+    driver: string;
+    label: string;
+    models: CatalogModel[];
 };
 
 /** Safe credential metadata (the hashed secret is never exposed). */
