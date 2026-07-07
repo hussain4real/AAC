@@ -30,6 +30,7 @@ use App\Support\Runtime\Knowledge\KnowledgeToolExecutor;
 use App\Support\Runtime\Mcp\McpToolExecutor;
 use App\Support\Runtime\Remote\RemoteHttpToolExecutor;
 use App\Support\Runtime\Routing\ModelRouter;
+use App\Support\Sdk\RuntimeImplementationRecorder;
 use App\Support\Sdk\ToolSchema;
 use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Webhooks\RunWebhookEmitter;
@@ -64,6 +65,7 @@ class AgentRunner
         private readonly ApprovalManager $approvals,
         private readonly ModelPricing $pricing,
         private readonly AgentPromptComposer $promptComposer,
+        private readonly RuntimeImplementationRecorder $runtimeImplementations,
     ) {}
 
     /**
@@ -289,6 +291,13 @@ class AgentRunner
         $this->completeToolCall($run, $tool, $call, $result);
         $this->tracer->record($run, TraceEventType::ToolResultReceived, "Client tool result received: {$call->tool_name}.", ['tool_call_id' => $call->id]);
         $this->tracer->record($run, TraceEventType::Validated, 'Tool result validated.');
+
+        // A schema-valid client-tool result proves the application's handler
+        // works, so mark its implementation for this environment as validated —
+        // real usage keeps the status honest without an explicit SDK report.
+        if ($run->environment instanceof Environment) {
+            $this->runtimeImplementations->record($tool, $run->application, $run->environment);
+        }
         $this->appendMessage($run, LlmMessage::tool($call->tool_name, (string) json_encode($result)));
         $this->tracer->record($run, TraceEventType::Resumed, 'Run resumed after client tool.');
 
