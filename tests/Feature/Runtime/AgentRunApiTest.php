@@ -3,6 +3,7 @@
 use App\Enums\AgentStatus;
 use App\Enums\Environment;
 use App\Enums\ExecMode;
+use App\Enums\ImplStatus;
 use App\Enums\LlmStatus;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
@@ -18,6 +19,7 @@ use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
+use App\Models\ToolImplementation;
 use App\Support\Governance\PayloadMasker;
 use App\Support\Runtime\Contracts\HostedTool;
 use App\Support\Runtime\Contracts\LlmRouter;
@@ -214,6 +216,33 @@ test('a paused run resumes and completes when a valid tool result is submitted',
             TraceEventType::Validated,
             TraceEventType::Resumed,
         );
+});
+
+test('a completed client-tool run marks the tool implementation validated', function () {
+    $tool = assignTool(['slug' => 'getRecords', 'execution_mode' => ExecMode::Client]);
+
+    fakeRouter()
+        ->toolCallThen('getRecords', ['query' => 'today'])
+        ->textThen('There were 12 departures.');
+
+    $start = invokeAgent()->assertCreated();
+
+    test()->postJson("/api/v1/runs/{$start->json('run_id')}/tool-results", [
+        'tool_call_id' => $start->json('tool_call.id'),
+        'result' => ['results' => ['a', 'b'], 'total' => 12],
+    ])->assertOk();
+
+    // Executing the client tool with a schema-valid result flips its
+    // implementation status without any explicit SDK report.
+    $implementation = ToolImplementation::query()
+        ->where('tool_contract_id', $tool->id)
+        ->where('application_id', test()->application->id)
+        ->where('environment', Environment::Production->value)
+        ->first();
+
+    expect($implementation)->not->toBeNull()
+        ->and($implementation->status)->toBe(ImplStatus::Implemented)
+        ->and($implementation->last_validated_at)->not->toBeNull();
 });
 
 test('an invalid tool result is rejected and the run stays waiting', function () {
