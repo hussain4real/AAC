@@ -14,6 +14,7 @@ import {
     Select,
     inputStyle,
 } from '@/components/maacc/ui';
+import { effectiveImpl } from '@/maacc/data';
 import type { Agent } from '@/maacc/data';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
@@ -28,7 +29,7 @@ function AgentCard({ agent, onOpen }: { agent: Agent; onOpen: () => void }) {
         .map((t) => MAACC.toolById(t))
         .filter((t) => t?.execMode === 'client');
     const missing = clientTools.filter((t) =>
-        ['required', 'outdated', 'incompatible'].includes(t!.impl),
+        ['required', 'outdated', 'incompatible'].includes(effectiveImpl(t!)),
     ).length;
 
     return (

@@ -18,6 +18,7 @@ import {
     Textarea,
     Toggle,
 } from '@/components/maacc/ui';
+import { effectiveImpl } from '@/maacc/data';
 import type { Application, Llm, Project, Tool } from '@/maacc/data';
 import { FieldError, useCurrentTeam } from '@/maacc/forms';
 import { Icon } from '@/maacc/icons';
@@ -561,7 +562,8 @@ function StepTools({ data, set }: StepProps) {
                                                 </div>
                                             </div>
                                             {t.execMode === 'client' &&
-                                                t.impl !== 'implemented' && (
+                                                effectiveImpl(t) !==
+                                                    'implemented' && (
                                                     <Badge tone="orange" dot>
                                                         Needs SDK
                                                     </Badge>
@@ -690,7 +692,9 @@ function StepReview({ data, go }: StepReviewProps) {
     const clientTools: Tool[] = data.tools
         .map((t) => MAACC.toolById(t))
         .filter((t): t is Tool => t?.execMode === 'client');
-    const missing: Tool[] = clientTools.filter((t) => t.impl !== 'implemented');
+    const missing: Tool[] = clientTools.filter(
+        (t) => effectiveImpl(t) !== 'implemented',
+    );
 
     return (
         <div>
