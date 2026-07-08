@@ -23,6 +23,7 @@ import {
     Tr,
 } from '@/components/maacc/ui';
 import type { Tone } from '@/components/maacc/ui';
+import { effectiveImpl } from '@/maacc/data';
 import type {
     Application,
     Environment,
@@ -47,7 +48,7 @@ function implFor(
 
 /** The effective implementation status for a tool in an environment. */
 function implStatusFor(tool: Tool, env: Environment): ImplStatus {
-    return implFor(tool, env)?.status ?? tool.impl;
+    return implFor(tool, env)?.status ?? effectiveImpl(tool);
 }
 
 /* ── local sub-components ── */
@@ -976,7 +977,8 @@ export default function SDKCenter() {
                                     const ag = MAACC.agentById(t.usedBy[0]);
                                     const isSel = selTool === t.id;
                                     const impl = implFor(t, app.env);
-                                    const status = impl?.status ?? t.impl;
+                                    const status =
+                                        impl?.status ?? effectiveImpl(t);
 
                                     return (
                                         <Tr

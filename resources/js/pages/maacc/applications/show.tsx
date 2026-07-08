@@ -43,6 +43,7 @@ import {
     Textarea,
     Tr,
 } from '@/components/maacc/ui';
+import { effectiveImpl } from '@/maacc/data';
 import type {
     Agent,
     Application,
@@ -192,9 +193,9 @@ function AppOverview({
 }) {
     const MAACC = useMaaccData();
     const missing = tools.filter((t) =>
-        ['required', 'outdated', 'incompatible'].includes(t.impl),
+        ['required', 'outdated', 'incompatible'].includes(effectiveImpl(t)),
     );
-    const implemented = tools.filter((t) => t.impl === 'implemented');
+    const implemented = tools.filter((t) => effectiveImpl(t) === 'implemented');
 
     return (
         <div
@@ -337,7 +338,7 @@ function AppOverview({
                                     >
                                         {t.name}
                                     </span>
-                                    <ImplBadge status={t.impl} />
+                                    <ImplBadge status={effectiveImpl(t)} />
                                 </div>
                             ))}
                         </div>
@@ -605,7 +606,7 @@ function AppTools({ tools, go }: { tools: Tool[]; go: MaaccNav['go'] }) {
                             .join(', ')}
                     </Td>
                     <Td>
-                        <ImplBadge status={t.impl} />
+                        <ImplBadge status={effectiveImpl(t)} />
                     </Td>
                 </Tr>
             ))}
@@ -999,9 +1000,10 @@ MAACC_ENVIRONMENT=${app.env.toLowerCase()}`;
                             lineHeight: 1.5,
                         }}
                     >
-                        Store the Client Secret in a secrets manager. MAACC never
-                        stores application database credentials — client-side
-                        tools run inside this application's own boundary.
+                        Store the Client Secret in a secrets manager. MAACC
+                        never stores application database credentials —
+                        client-side tools run inside this application's own
+                        boundary.
                     </div>
                 </div>
             </div>

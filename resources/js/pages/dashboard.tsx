@@ -25,6 +25,7 @@ import {
     Tr,
 } from '@/components/maacc/ui';
 import PendingInvitationsModal from '@/components/pending-invitations-modal';
+import { effectiveImpl } from '@/maacc/data';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
 import type { RouteName } from '@/maacc/nav';
@@ -136,7 +137,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
         .slice(0, 5)
         .map((a) => ({ id: a.id, name: a.name, runs: a.runs7d, app: a.appId }));
     const toolsNeedImpl = scope.tools.filter((t) =>
-        ['required', 'outdated', 'incompatible'].includes(t.impl),
+        ['required', 'outdated', 'incompatible'].includes(effectiveImpl(t)),
     );
 
     const llmData = (() => {
@@ -760,7 +761,9 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                                             )?.name.replace(' Agent', '')}
                                         </Td>
                                         <Td>
-                                            <ImplBadge status={t.impl} />
+                                            <ImplBadge
+                                                status={effectiveImpl(t)}
+                                            />
                                         </Td>
                                     </Tr>
                                 ))}

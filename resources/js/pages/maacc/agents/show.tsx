@@ -44,7 +44,8 @@ import {
     TOOL_TYPE_META,
 } from '@/components/maacc/ui';
 import type { KVItem } from '@/components/maacc/ui';
-import type { Agent, Llm, Project, Application, Tool, Run } from '@/maacc/data';
+import { effectiveImpl } from '@/maacc/data';
+import type { Agent, Application, Llm, Project, Run, Tool } from '@/maacc/data';
 import {
     AGENT_STATUS_OPTIONS,
     ChipMultiSelect,
@@ -336,7 +337,7 @@ function AgentOverview({
                                     t !== undefined && t.execMode === 'client',
                             );
                         const done = cs.filter(
-                            (t) => t.impl === 'implemented',
+                            (t) => effectiveImpl(t) === 'implemented',
                         ).length;
 
                         return (
@@ -634,7 +635,7 @@ function AgentTools({
                             }}
                         >
                             {t.execMode === 'client' ? (
-                                <ImplBadge status={t.impl} />
+                                <ImplBadge status={effectiveImpl(t)} />
                             ) : (
                                 <Badge tone="teal" dot>
                                     Ready
