@@ -30,5 +30,12 @@ yarn-error.log
 
 /database/maacc_reporting.sqlite
 
+# Graphify runtime state and machine-local caches. Keep only the portable
+# GRAPH_REPORT.md, graph.json, and graph.html evidence artifacts in Git.
+/graphify-out/.graphify_*
+/graphify-out/cache/
+/graphify-out/cost.json
+/graphify-out/manifest.json
+
 # Compiled TypeScript SDK output — build artifact, rebuilt from src via `npm run build`.
 /packages/maacc-sdk-ts/dist
