@@ -17,8 +17,9 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
 use App\Models\User;
-use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\DeterministicLlmRouter;
+use App\Support\Runtime\LlmProviderVerifier;
+use App\Support\Secrets\Contracts\SecretVault;
 
 /**
  * End-to-end proof of the Phase 6F surface, driven entirely through the
@@ -36,7 +37,10 @@ beforeEach(function () {
     // Fake-provider mode: publishing's live connection check resolves the
     // deterministic router, and the run uses the scripted fake bound below.
     config(['maacc.runtime.driver' => 'fake']);
-    $this->instance(LlmRouter::class, app(DeterministicLlmRouter::class));
+    $this->instance(LlmProviderVerifier::class, new LlmProviderVerifier(
+        app(DeterministicLlmRouter::class),
+        app(SecretVault::class),
+    ));
 });
 
 function e2ePost(string $name, array $params, array $payload)
