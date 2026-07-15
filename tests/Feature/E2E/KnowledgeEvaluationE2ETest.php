@@ -2,7 +2,9 @@
 
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalType;
+use App\Enums\Environment;
 use App\Enums\EvaluationStatus;
+use App\Enums\LlmVerificationOutcome;
 use App\Enums\RunStatus;
 use App\Enums\TeamRole;
 use App\Models\Agent;
@@ -17,9 +19,7 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
 use App\Models\User;
-use App\Support\Runtime\DeterministicLlmRouter;
-use App\Support\Runtime\LlmProviderVerifier;
-use App\Support\Secrets\Contracts\SecretVault;
+use App\Support\Governance\ApprovalManager;
 
 /**
  * End-to-end proof of the Phase 6F surface, driven entirely through the
@@ -34,13 +34,8 @@ beforeEach(function () {
     $this->reviewer->switchTeam($this->team);
     $this->slug = $this->team->slug;
 
-    // Fake-provider mode: publishing's live connection check resolves the
-    // deterministic router, and the run uses the scripted fake bound below.
+    // The run uses the scripted fake router bound by the scenario below.
     config(['maacc.runtime.driver' => 'fake']);
-    $this->instance(LlmProviderVerifier::class, new LlmProviderVerifier(
-        app(DeterministicLlmRouter::class),
-        app(SecretVault::class),
-    ));
 });
 
 function e2ePost(string $name, array $params, array $payload)
@@ -50,9 +45,9 @@ function e2ePost(string $name, array $params, array $payload)
         ->assertRedirect();
 }
 
-function e2eApprove(ApprovalType $type): void
+function e2eApprove(ApprovalType $type, ?ApprovalRequest $approval = null): void
 {
-    $approval = ApprovalRequest::query()->pending()->where('type', $type)->latest()->firstOrFail();
+    $approval ??= ApprovalRequest::query()->pending()->where('type', $type)->latest()->firstOrFail();
 
     test()->actingAs(test()->reviewer)
         ->post(route('approvals.approve', [
@@ -86,8 +81,13 @@ it('indexes a source, runs a RAG agent through an evaluation, and audits it', fu
     ]);
     $provider = LlmProvider::firstWhere('code', 'fake/e2e');
     $provider->update(['platform_owned' => true]);
-    e2ePost('llm-providers.publish', ['llmProvider' => $provider->slug], []);
-    e2eApprove(ApprovalType::ModelAccess);
+    $provider->recordVerification(LlmVerificationOutcome::Ok, 'Verified by the deterministic E2E fixture.', now());
+    $modelApproval = app(ApprovalManager::class)->requestModelAccess(
+        $provider->fresh(),
+        $this->owner,
+        Environment::Production,
+    );
+    e2eApprove(ApprovalType::ModelAccess, $modelApproval);
 
     e2ePost('projects.store', [], [
         'application_id' => $application->id,

@@ -2,7 +2,9 @@
 
 use App\Enums\AgentStatus;
 use App\Enums\ApprovalType;
+use App\Enums\Environment;
 use App\Enums\LlmStatus;
+use App\Enums\LlmVerificationOutcome;
 use App\Enums\RunStatus;
 use App\Enums\TeamRole;
 use App\Enums\TraceEventType;
@@ -15,9 +17,7 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
 use App\Models\User;
-use App\Support\Runtime\DeterministicLlmRouter;
-use App\Support\Runtime\LlmProviderVerifier;
-use App\Support\Secrets\Contracts\SecretVault;
+use App\Support\Governance\ApprovalManager;
 use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Testing\TestResponse;
@@ -44,13 +44,8 @@ beforeEach(function () {
     $this->reviewer->switchTeam($this->team);
     $this->slug = $this->team->slug;
 
-    // Fake-provider mode: publishing's live connection check resolves the
-    // deterministic router, and the run uses the scripted fake bound below.
+    // The run uses the scripted fake router bound by the scenario below.
     config(['maacc.runtime.driver' => 'fake']);
-    $this->instance(LlmProviderVerifier::class, new LlmProviderVerifier(
-        app(DeterministicLlmRouter::class),
-        app(SecretVault::class),
-    ));
 });
 
 /**
@@ -69,9 +64,9 @@ function consolePost(string $route, array $params, array $payload = []): TestRes
 /**
  * Approve the newest pending request through the governed console action.
  */
-function consoleApprove(ApprovalType $type): ApprovalRequest
+function consoleApprove(ApprovalType $type, ?ApprovalRequest $approval = null): ApprovalRequest
 {
-    $approval = ApprovalRequest::query()->pending()->where('type', $type)->latest()->firstOrFail();
+    $approval ??= ApprovalRequest::query()->pending()->where('type', $type)->latest()->firstOrFail();
 
     test()->actingAs(test()->reviewer)
         ->post(route('approvals.approve', [
@@ -96,9 +91,8 @@ test('the full console setup to completed agent run works end to end', function 
     $application = Application::firstWhere('code', 'CARGO');
     expect($application)->not->toBeNull();
 
-    // 2. Add a model to the catalog, then publish it. Publishing runs a live
-    //    connection check (deterministic in fake-provider mode) and approves
-    //    the model so the runtime can select it.
+    // 2. Add a model to the catalog, stage its production access through the
+    //    authoritative governance service, and approve it through the console.
     consolePost('llm-providers.store', [], [
         'name' => 'E2E Model',
         'code' => 'fake/e2e',
@@ -111,8 +105,13 @@ test('the full console setup to completed agent run works end to end', function 
     ]);
     $provider = LlmProvider::firstWhere('code', 'fake/e2e');
     $provider->update(['platform_owned' => true]);
-    consolePost('llm-providers.publish', ['llmProvider' => $provider->slug]);
-    consoleApprove(ApprovalType::ModelAccess);
+    $provider->recordVerification(LlmVerificationOutcome::Ok, 'Verified by the deterministic E2E fixture.', now());
+    $modelApproval = app(ApprovalManager::class)->requestModelAccess(
+        $provider->fresh(),
+        $this->owner,
+        Environment::Production,
+    );
+    consoleApprove(ApprovalType::ModelAccess, $modelApproval);
     expect($provider->fresh()->status)->toBe(LlmStatus::Approved);
 
     // 3. Create a project under the application.
