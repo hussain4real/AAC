@@ -50,7 +50,7 @@ jobs:
         run: php artisan key:generate
 
       - name: Generate Wayfinder definitions
-        run: php artisan wayfinder:generate --no-interaction
+        run: php artisan wayfinder:generate --with-form --no-interaction
 
       - name: Check PHP formatting
         run: composer lint:check
