@@ -1,7 +1,8 @@
 /* eslint-disable */
 // @ts-nocheck
 import React from 'react';
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
+import { EnterpriseReadinessBanner } from '@/components/enterprise-readiness-banner';
 import '../../css/landing.css';
 
 /* ============================================================
@@ -16,6 +17,14 @@ const {
     createContext,
     useContext,
 } = React;
+
+const ReadinessCtx = createContext({ registrationEnabled: false });
+
+function useRegistrationHref() {
+    const { registrationEnabled } = useContext(ReadinessCtx);
+
+    return registrationEnabled ? '/register' : '/login';
+}
 
 /* ---------------- Icons (MAAC set + extras) ---------------- */
 const ICON_PATHS = {
@@ -899,6 +908,7 @@ function ThemeToggle({ compact }) {
 }
 
 function TopNav() {
+    const registrationHref = useRegistrationHref();
     const [scrolled, setScrolled] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     useEffect(() => {
@@ -998,7 +1008,7 @@ function TopNav() {
                             Log in
                         </a>
                         <Btn
-                            href="/register"
+                            href={registrationHref}
                             size="sm"
                             icon="arrowRight"
                             style={{ flexDirection: 'row-reverse' }}
@@ -1072,7 +1082,7 @@ function TopNav() {
                     }}
                 >
                     <Btn
-                        href="/register"
+                        href={registrationHref}
                         icon="arrowRight"
                         style={{ flex: 1, flexDirection: 'row-reverse' }}
                     >
@@ -1483,6 +1493,8 @@ function HeroConsole() {
 }
 
 function Hero() {
+    const registrationHref = useRegistrationHref();
+
     return (
         <section
             id="top"
@@ -1597,7 +1609,7 @@ function Hero() {
                         }}
                     >
                         <Btn
-                            href="/register"
+                            href={registrationHref}
                             icon="arrowRight"
                             style={{ flexDirection: 'row-reverse' }}
                         >
@@ -5128,6 +5140,8 @@ function Estimator() {
 }
 
 function Pricing() {
+    const registrationHref = useRegistrationHref();
+
     return (
         <section
             id="pricing"
@@ -5317,7 +5331,11 @@ function Pricing() {
                                     ))}
                                 </div>
                                 <Btn
-                                    href={t.href}
+                                    href={
+                                        t.href === '/register'
+                                            ? registrationHref
+                                            : t.href
+                                    }
                                     variant={t.variant}
                                     icon={
                                         t.variant === 'primary'
@@ -5347,6 +5365,7 @@ function Pricing() {
 }
 
 function Onboarding() {
+    const registrationHref = useRegistrationHref();
     const steps = [
         {
             n: '01',
@@ -5467,7 +5486,7 @@ function Onboarding() {
                     }}
                 >
                     <Btn
-                        href="/register"
+                        href={registrationHref}
                         icon="arrowRight"
                         style={{ flexDirection: 'row-reverse' }}
                     >
@@ -5483,6 +5502,8 @@ function Onboarding() {
 }
 
 function FinalCTA() {
+    const registrationHref = useRegistrationHref();
+
     return (
         <section
             className="ls-section"
@@ -5559,7 +5580,7 @@ function FinalCTA() {
                     }}
                 >
                     <Btn
-                        href="/register"
+                        href={registrationHref}
                         icon="arrowRight"
                         style={{ flexDirection: 'row-reverse' }}
                     >
@@ -5586,6 +5607,7 @@ function FinalCTA() {
 }
 
 function Footer() {
+    const registrationHref = useRegistrationHref();
     const cols = [
         {
             title: 'Platform',
@@ -5617,7 +5639,7 @@ function Footer() {
         {
             title: 'Account',
             links: [
-                ['Log in', '/register'],
+                ['Log in', '/login'],
                 ['Start free', '/register'],
                 ['Status', '#top'],
             ],
@@ -5700,7 +5722,11 @@ function Footer() {
                                 {c.links.map(([label, href]) => (
                                     <a
                                         key={label}
-                                        href={href}
+                                        href={
+                                            href === '/register'
+                                                ? registrationHref
+                                                : href
+                                        }
                                         className="foot-link"
                                         style={{
                                             fontSize: 13.5,
@@ -5766,31 +5792,36 @@ Object.assign(window, { Pricing, Onboarding, FinalCTA, Footer });
 /* ============================================================
    MAACC Landing — app root
    ============================================================ */
-function LandingApp() {
+function LandingApp({ readiness }) {
     const themeState = useThemeState();
     return (
-        <ThemeCtx.Provider value={themeState}>
-            <TopNav />
-            <main>
-                <Hero />
-                <TrustBand />
-                <Architecture />
-                <FeatureGrid />
-                <Simulator />
-                <Playground />
-                <StubGen />
-                <StatBand />
-                <Quotes />
-                <Pricing />
-                <Onboarding />
-                <FinalCTA />
-            </main>
-            <Footer />
-        </ThemeCtx.Provider>
+        <ReadinessCtx.Provider value={readiness}>
+            <ThemeCtx.Provider value={themeState}>
+                <TopNav />
+                <EnterpriseReadinessBanner className="sticky top-[72px] z-[90]" />
+                <main>
+                    <Hero />
+                    <TrustBand />
+                    <Architecture />
+                    <FeatureGrid />
+                    <Simulator />
+                    <Playground />
+                    <StubGen />
+                    <StatBand />
+                    <Quotes />
+                    <Pricing />
+                    <Onboarding />
+                    <FinalCTA />
+                </main>
+                <Footer />
+            </ThemeCtx.Provider>
+        </ReadinessCtx.Provider>
     );
 }
 
 export default function Welcome() {
+    const readiness = usePage().props.readiness;
+
     return (
         <>
             <Head title="MAACC — Multi Agent AI Control Centre">
@@ -5799,7 +5830,7 @@ export default function Welcome() {
                     content="MAACC is the control centre for enterprise AI agents — orchestrate models, tools and runs from one governed platform while your data stays in your app."
                 />
             </Head>
-            <LandingApp />
+            <LandingApp readiness={readiness} />
         </>
     );
 }

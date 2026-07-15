@@ -34,6 +34,8 @@ test('registration screen includes team invitation context', function () {
 });
 
 test('new users can register', function () {
+    config()->set('maacc.readiness.registration_enabled', true);
+
     $response = $this->post(route('register.store'), [
         'name' => 'Test User',
         'email' => 'test@example.com',
@@ -45,4 +47,19 @@ test('new users can register', function () {
 
     $user = User::where('email', 'test@example.com')->first();
     $response->assertRedirect(route('dashboard'));
+});
+
+test('new user registration is frozen by default during enterprise remediation', function () {
+    config()->set('maacc.readiness.registration_enabled', false);
+
+    $response = $this->post(route('register.store'), [
+        'name' => 'Blocked User',
+        'email' => 'blocked@example.com',
+        'password' => 'password',
+        'password_confirmation' => 'password',
+    ]);
+
+    $response->assertSessionHasErrors('email');
+    $this->assertGuest();
+    expect(User::query()->where('email', 'blocked@example.com')->exists())->toBeFalse();
 });

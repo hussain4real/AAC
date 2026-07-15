@@ -32,6 +32,7 @@ class SsoIdentityFactory extends Factory
             'subject' => 'sub-'.fake()->unique()->uuid(),
             'email' => fake()->unique()->safeEmail(),
             'raw_claims' => [],
+            'managed_project_ids' => [],
             'last_login_at' => now(),
         ];
     }

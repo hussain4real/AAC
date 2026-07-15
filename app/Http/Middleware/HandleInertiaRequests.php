@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Support\EnterpriseReadiness;
 use App\Support\MaaccConsoleData;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -42,6 +43,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'name' => config('app.name'),
+            'readiness' => fn (): array => app(EnterpriseReadiness::class)->sharedState(),
             'auth' => [
                 'user' => $user,
                 // The user's MAACC platform-administration access (Phase 8B), so

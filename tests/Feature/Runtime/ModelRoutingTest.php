@@ -6,9 +6,13 @@ use App\Enums\RoutingStrategy;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
 use App\Enums\TraceEventType;
+use App\Exceptions\Sdk\RuntimeRequestException;
 use App\Models\AgentRun;
 use App\Models\LlmProvider;
 use App\Models\ModelRoutingPolicy;
+use App\Models\Team;
+use App\Models\ToolAssignment;
+use App\Models\ToolContract;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Routing\ModelRouter;
 use App\Support\Runtime\Routing\ProviderHealth;
@@ -37,12 +41,51 @@ test('with no policy an unavailable model yields no selection', function () {
         ->and($decision->rationale)->toContain('not approved or available');
 });
 
+test('the router ignores persisted policy candidates outside the project allowlist', function () {
+    [, $team] = ownerAndTeam();
+    $agent = maaccAgent($team);
+    $unapprovedForProject = LlmProvider::factory()->for($team)->create([
+        'input_cost' => 0.01,
+        'output_cost' => 0.01,
+    ]);
+    ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create([
+        'fallback_provider_ids' => [$unapprovedForProject->id],
+    ]);
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
+
+    $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
+
+    expect($decision->provider->is($agent->llmProvider))->toBeTrue()
+        ->and($decision->chainIds())->toBe([$agent->llm_provider_id])
+        ->and(collect($decision->considered)->pluck('provider.id')->all())
+        ->not->toContain($unapprovedForProject->id);
+});
+
+test('the runtime rejects a persisted cross-tenant tool assignment before creating a run', function () {
+    [, $team] = ownerAndTeam();
+    $agent = maaccAgent($team, ['status' => AgentStatus::Published]);
+    $foreignTeam = Team::factory()->create();
+    $foreignTool = ToolContract::factory()->for($foreignTeam)->create();
+    ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $foreignTool->id]);
+
+    expect(fn () => app(AgentRunner::class)->start(
+        $agent->fresh(),
+        $agent->project->application,
+        Environment::Production,
+        'hi',
+        null,
+    ))->toThrow(RuntimeRequestException::class, 'not eligible');
+
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
+});
+
 test('the cost-optimized strategy selects the cheapest eligible model', function () {
     [, $team] = ownerAndTeam();
     $agent = maaccAgent($team);
     $agent->llmProvider->update(['input_cost' => 5, 'output_cost' => 5]);
     $cheap = LlmProvider::factory()->for($team)->create(['input_cost' => 0.5, 'output_cost' => 0.5]);
     $mid = LlmProvider::factory()->for($team)->create(['input_cost' => 2, 'output_cost' => 2]);
+    $agent->project->llmProviders()->attach([$cheap->id, $mid->id]);
 
     ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create([
         'fallback_provider_ids' => [$cheap->id, $mid->id],
@@ -64,6 +107,7 @@ test('the router filters candidates by environment, sensitivity, and cost ceilin
     $wrongEnv = LlmProvider::factory()->for($team)->create(['environments' => [Environment::Staging->value], 'sensitivity' => Sensitivity::Restricted]);
     $tooSensitive = LlmProvider::factory()->for($team)->create(['sensitivity' => Sensitivity::Public]);
     $tooExpensive = LlmProvider::factory()->for($team)->create(['sensitivity' => Sensitivity::Restricted, 'input_cost' => 20, 'output_cost' => 20]);
+    $agent->project->llmProviders()->attach([$wrongEnv->id, $tooSensitive->id, $tooExpensive->id]);
 
     ModelRoutingPolicy::factory()->for($team)->for($agent)->create([
         'fallback_provider_ids' => [$wrongEnv->id, $tooSensitive->id, $tooExpensive->id],
@@ -80,11 +124,58 @@ test('the router filters candidates by environment, sensitivity, and cost ceilin
         ->and(collect($decision->considered)->firstWhere('provider.id', $tooExpensive->id)->reason)->toContain('cost ceiling');
 });
 
+test('the router skips a tenant provider that has no vault credential', function () {
+    [, $team] = ownerAndTeam();
+    $agent = maaccAgent($team);
+    $agent->llmProvider->update(['input_cost' => 5, 'output_cost' => 5]);
+    $uncredentialed = LlmProvider::factory()->for($team)->create([
+        'input_cost' => 0.01,
+        'output_cost' => 0.01,
+        'platform_owned' => false,
+        'vault_secret_id' => null,
+    ]);
+    $agent->project->llmProviders()->attach($uncredentialed);
+    ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create([
+        'fallback_provider_ids' => [$uncredentialed->id],
+    ]);
+
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
+    $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
+
+    expect($decision->provider->is($agent->llmProvider))->toBeTrue()
+        ->and(collect($decision->considered)->firstWhere('provider.id', $uncredentialed->id)->reason)
+        ->toContain('credential source');
+});
+
+test('the router skips a provider whose verification is no longer valid', function () {
+    [, $team] = ownerAndTeam();
+    $agent = maaccAgent($team);
+    $agent->llmProvider->update(['input_cost' => 5, 'output_cost' => 5]);
+    $unverified = LlmProvider::factory()->for($team)->create([
+        'input_cost' => 0.01,
+        'output_cost' => 0.01,
+        'verification_status' => null,
+        'verified_at' => null,
+    ]);
+    $agent->project->llmProviders()->attach($unverified);
+    ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create([
+        'fallback_provider_ids' => [$unverified->id],
+    ]);
+
+    $run = maaccRun($agent, ['environment' => Environment::Production, 'sensitivity' => Sensitivity::Public]);
+    $decision = app(ModelRouter::class)->select($run->load(['agent.routingPolicy', 'agent.llmProvider']));
+
+    expect($decision->provider->is($agent->llmProvider))->toBeTrue()
+        ->and(collect($decision->considered)->firstWhere('provider.id', $unverified->id)->reason)
+        ->toContain('has not passed verification');
+});
+
 test('an unhealthy primary is filtered so a healthy fallback is chosen', function () {
     [, $team] = ownerAndTeam();
     $agent = maaccAgent($team);
     $primary = $agent->llmProvider;
     $fallback = LlmProvider::factory()->for($team)->create();
+    $agent->project->llmProviders()->attach($fallback);
 
     // Six recent model-error runs on the primary push it over the failure threshold.
     AgentRun::factory()->count(6)->create([
@@ -132,10 +223,12 @@ test('the runtime fails over to the next model when a model call errors mid-run'
     // moves to the costlier fallback.
     $agent->llmProvider->update(['input_cost' => 0.1, 'output_cost' => 0.1]);
     $fallback = LlmProvider::factory()->for($team)->create(['input_cost' => 9, 'output_cost' => 9]);
+    $agent->project->llmProviders()->attach($fallback);
 
     ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create([
         'fallback_provider_ids' => [$fallback->id],
     ]);
+    approveCurrentAgentConfiguration($agent);
 
     $fake = bindFakeRouter();
     $fake->throwThen('primary down')->textThen('Recovered.');
@@ -152,6 +245,7 @@ test('the run fails when the routing chain is exhausted', function () {
     $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
 
     ModelRoutingPolicy::factory()->for($team)->for($agent)->create(['fallback_provider_ids' => []]);
+    approveCurrentAgentConfiguration($agent);
 
     $fake = bindFakeRouter();
     $fake->throwThen('total outage');
@@ -166,7 +260,9 @@ test('the run trace records the routing rationale and considered candidates', fu
     [, $team] = ownerAndTeam();
     $agent = maaccAgent($team, ['status' => AgentStatus::Published, 'sensitivity' => Sensitivity::Public]);
     $fallback = LlmProvider::factory()->for($team)->create();
+    $agent->project->llmProviders()->attach($fallback);
     ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create(['fallback_provider_ids' => [$fallback->id]]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->textThen('done');
 

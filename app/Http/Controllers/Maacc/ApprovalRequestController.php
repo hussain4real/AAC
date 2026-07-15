@@ -14,7 +14,6 @@ use App\Jobs\AdvanceAgentRun;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\ApprovalRequest;
-use App\Models\Credential;
 use App\Models\DataSource;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
@@ -45,7 +44,7 @@ class ApprovalRequestController extends Controller
             ApprovalType::AgentPublication => $manager->requestAgentPublication($this->agent($team, $subject), $user, $environment),
             ApprovalType::ToolContract => $manager->requestToolContractApproval($this->tool($team, $subject), $user),
             ApprovalType::ModelAccess => $manager->requestModelAccess($this->model($team, $subject), $user, $environment),
-            ApprovalType::CredentialChange => $manager->requestCredentialChange($this->credential($team, $subject), $user, (string) ($request->validated('change') ?? 'production change')),
+            ApprovalType::CredentialChange => abort(422, 'Credential changes must be staged through the credential management action.'),
             ApprovalType::KnowledgeIngestion => $manager->requestKnowledgeIngestion($this->source($team, $subject), $user),
             ApprovalType::DataSourceAccess => $manager->requestDataSourceAccess($this->dataSource($team, $subject), $user),
             ApprovalType::RuntimeAction => abort(422, 'Runtime approvals are opened by the runtime, not requested manually.'),
@@ -62,7 +61,6 @@ class ApprovalRequestController extends Controller
     public function approve(DecideApprovalRequest $request, string $currentTeam, ApprovalRequest $approvalRequest, ApproveApprovalRequest $action): RedirectResponse
     {
         Gate::authorize('decide', $approvalRequest);
-        abort_unless($approvalRequest->isPending(), 409, 'This request has already been decided.');
 
         try {
             $approved = $action->handle($approvalRequest, $request->user(), $request->validated('note'));
@@ -77,7 +75,7 @@ class ApprovalRequestController extends Controller
 
         // A resumed runtime approval continues the paused run on a worker (the run
         // was marked running inside the approval transaction, which has committed).
-        if ($approved->type === ApprovalType::RuntimeAction && $approved->subject instanceof AgentRun) {
+        if ($approved->wasChanged('status') && $approved->type === ApprovalType::RuntimeAction && $approved->subject instanceof AgentRun) {
             AdvanceAgentRun::dispatch($approved->subject);
         }
 
@@ -92,7 +90,6 @@ class ApprovalRequestController extends Controller
     public function reject(DecideApprovalRequest $request, string $currentTeam, ApprovalRequest $approvalRequest, RejectApprovalRequest $action): RedirectResponse
     {
         Gate::authorize('decide', $approvalRequest);
-        abort_unless($approvalRequest->isPending(), 409, 'This request has already been decided.');
 
         $action->handle($approvalRequest, $request->user(), $request->validated('note'));
 
@@ -126,17 +123,6 @@ class ApprovalRequestController extends Controller
     private function model(Team $team, string $reference): LlmProvider
     {
         return $team->llmProviders()->where('slug', $reference)->firstOrFail();
-    }
-
-    /**
-     * Resolve a credential by id within the team.
-     */
-    private function credential(Team $team, string $reference): Credential
-    {
-        return Credential::query()
-            ->whereHas('application', fn ($query) => $query->where('team_id', $team->id))
-            ->where('id', $reference)
-            ->firstOrFail();
     }
 
     /**

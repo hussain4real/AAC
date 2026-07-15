@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\AgentRun;
 use App\Support\Runtime\AgentRunner;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -11,7 +12,7 @@ use Illuminate\Foundation\Queue\Queueable;
  * Continues a queued (asynchronous) run on a worker after a client-side tool
  * result has been accepted, advancing it from `running` to its next boundary.
  */
-class AdvanceAgentRun implements ShouldQueue
+class AdvanceAgentRun implements ShouldBeEncrypted, ShouldQueue
 {
     use Queueable;
 

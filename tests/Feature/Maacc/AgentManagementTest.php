@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\AgentStatus;
+use App\Enums\ApprovalType;
 use App\Enums\MaaccRole;
 use App\Models\Agent;
 use App\Models\Application;
+use App\Models\ApprovalRequest;
 use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\Team;
@@ -17,8 +19,9 @@ use App\Models\ToolContract;
 function projectWithModel(Team $team): array
 {
     $application = Application::factory()->for($team)->create();
-    $project = Project::factory()->for($application)->create();
+    $project = Project::factory()->for($application)->create(['environment' => 'production']);
     $llm = LlmProvider::factory()->for($team)->create();
+    $project->llmProviders()->attach($llm);
 
     return [$project, $llm];
 }
@@ -26,7 +29,7 @@ function projectWithModel(Team $team): array
 test('a platform admin can create a draft agent with an initial version', function () {
     [$owner, $team] = ownerAndTeam();
     [$project, $llm] = projectWithModel($team);
-    $tool = ToolContract::factory()->for($team)->create();
+    $tool = ToolContract::factory()->for($team)->for($project->application)->create();
 
     $this->actingAs($owner)
         ->post(route('agents.store', ['current_team' => $team->slug]), [
@@ -39,6 +42,7 @@ test('a platform admin can create a draft agent with an initial version', functi
             'max_tokens' => 1500,
             'tool_ids' => [$tool->id],
         ])
+        ->assertSessionHasNoErrors()
         ->assertRedirect();
 
     $agent = Agent::firstWhere('agent_slug', 'operations-summary');
@@ -78,11 +82,17 @@ test('a non-admin without a project role cannot create an agent', function () {
 
 test('publishing an agent snapshots a new version and bumps the version label', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = teamAdminReviewer($team);
     [$project, $llm] = projectWithModel($team);
     $agent = Agent::factory()->for($project)->for($llm, 'llmProvider')->create(['version' => 'v1']);
 
     $this->actingAs($owner)
         ->post(route('agents.publish', ['current_team' => $team->slug, 'agent' => $agent->slug]))
+        ->assertRedirect();
+
+    $approval = ApprovalRequest::query()->pending()->where('type', ApprovalType::AgentPublication)->firstOrFail();
+    $this->actingAs($reviewer)
+        ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $approval->id]))
         ->assertRedirect();
 
     $agent->refresh();
@@ -110,6 +120,7 @@ test('a developer can create an agent in a project they belong to', function () 
             'temperature' => 0.4,
             'max_tokens' => 1200,
         ])
+        ->assertSessionHasNoErrors()
         ->assertRedirect();
 
     expect(Agent::whereAgentSlug('dev-agent')->exists())->toBeTrue();

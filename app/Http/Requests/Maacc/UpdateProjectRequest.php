@@ -16,6 +16,8 @@ class UpdateProjectRequest extends FormRequest
      */
     public function rules(): array
     {
+        $teamId = $this->user()?->currentTeam()->value('id');
+
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'environment' => ['sometimes', 'required', Rule::enum(Environment::class)],
@@ -24,7 +26,7 @@ class UpdateProjectRequest extends FormRequest
             'technical_owner' => ['nullable', 'string', 'max:255'],
             'status' => ['sometimes', 'required', Rule::enum(ProjectStatus::class)],
             'llm_provider_ids' => ['sometimes', 'array'],
-            'llm_provider_ids.*' => ['string', Rule::exists('llm_providers', 'id')],
+            'llm_provider_ids.*' => ['string', Rule::exists('llm_providers', 'id')->where('team_id', $teamId)->where('status', 'approved')],
         ];
     }
 }

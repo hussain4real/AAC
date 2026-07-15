@@ -9,6 +9,8 @@ use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
 use App\Enums\ToolCallStatus;
 use App\Enums\TraceEventType;
+use App\Enums\WebhookEventType;
+use App\Jobs\DeliverWebhook;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
@@ -20,6 +22,8 @@ use App\Models\Project;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
 use App\Models\ToolImplementation;
+use App\Models\WebhookDelivery;
+use App\Models\WebhookEndpoint;
 use App\Support\Governance\PayloadMasker;
 use App\Support\Runtime\Contracts\HostedTool;
 use App\Support\Runtime\Contracts\LlmRouter;
@@ -27,8 +31,10 @@ use App\Support\Runtime\HostedTools\HostedToolRegistry;
 use App\Support\Runtime\LlmCompletion;
 use App\Support\Runtime\LlmProviderToolDefinition;
 use App\Support\Runtime\LlmRequest;
+use App\Support\Runtime\RunStateStore;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 use Laravel\Passport\Passport;
 use Tests\Support\Mcp\FakeMcpServer;
@@ -86,6 +92,17 @@ function assignTool(array $attributes): ToolContract
         ->create($attributes);
 
     ToolAssignment::factory()->forAgent(test()->agent)->create(['tool_contract_id' => $tool->id]);
+
+    if ($tool->execution_mode === ExecMode::Client && $tool->status === 'Active') {
+        ToolImplementation::factory()->for($tool)->for(test()->application)->create([
+            'environment' => Environment::Production,
+            'status' => ImplStatus::Implemented,
+            'implemented_version' => $tool->version,
+            'schema_fingerprint' => $tool->schemaFingerprint(),
+        ]);
+    }
+
+    approveCurrentAgentConfiguration(test()->agent);
 
     return $tool;
 }
@@ -363,7 +380,8 @@ test('a run fails when the model requests an unknown tool', function () {
     $response = invokeAgent()->assertCreated();
 
     $response->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'not assigned'));
+        ->assertJsonPath('error_code', 'unknown_tool')
+        ->assertJsonPath('correlation_id', fn ($value) => is_string($value) && str_starts_with($value, 'corr_'));
 });
 
 test('a run fails when the model produces invalid tool arguments', function () {
@@ -393,7 +411,7 @@ test('a run fails when a hosted tool has no registered handler', function () {
 
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'No hosted handler'));
+        ->assertJsonPath('error_code', 'hosted_tool_unavailable');
 });
 
 test('a run fails when a hosted tool throws', function () {
@@ -416,7 +434,51 @@ test('a run fails when a hosted tool throws', function () {
 
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', 'hosted blew up');
+        ->assertJsonPath('error_code', 'hosted_tool_failed')
+        ->assertJsonPath('error', 'A requested tool could not be executed.');
+});
+
+test('sensitive sentinels never cross retained runtime trace webhook queue or response boundaries', function () {
+    Queue::fake();
+    $sentinel = 'enterprise-secret-sentinel-9f4d';
+    app(HostedToolRegistry::class)->register('secure_boom', new class($sentinel) implements HostedTool
+    {
+        public function __construct(private readonly string $sentinel) {}
+
+        public function handle(array $arguments): array
+        {
+            throw new RuntimeException("Provider leaked {$this->sentinel}");
+        }
+    });
+    assignTool([
+        'slug' => 'secure_boom',
+        'execution_mode' => ExecMode::Hosted,
+        'sensitivity' => Sensitivity::Confidential,
+        'input_schema' => ['note' => 'string'],
+        'output_schema' => ['ok' => 'boolean'],
+    ]);
+    WebhookEndpoint::factory()->for($this->application)->create([
+        'environment' => Environment::Production,
+        'events' => [WebhookEventType::RunFailed->value],
+    ]);
+    fakeRouter()->toolCallThen('secure_boom', ['note' => $sentinel]);
+
+    $response = invokeAgent(['input' => $sentinel, 'caller' => $sentinel])->assertCreated();
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+    $delivery = WebhookDelivery::firstOrFail();
+    $surfaces = (string) json_encode([
+        'response' => $response->json(),
+        'run' => $run->getAttributes(),
+        'tool_calls' => $run->toolCalls()->get()->map->getAttributes()->all(),
+        'traces' => $run->traceEvents()->get()->map->getAttributes()->all(),
+        'webhook' => $delivery->getAttributes(),
+    ], JSON_THROW_ON_ERROR);
+
+    expect($surfaces)->not->toContain($sentinel)
+        ->and($run->state)->toBeNull()
+        ->and(cache()->has(app(RunStateStore::class)->key($run)))->toBeFalse();
+
+    Queue::assertPushed(DeliverWebhook::class, fn (DeliverWebhook $job): bool => ! str_contains(serialize($job), $sentinel));
 });
 
 test('a run fails when a hosted tool returns invalid output', function () {
@@ -431,7 +493,7 @@ test('a run fails when a hosted tool returns invalid output', function () {
 
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'does not satisfy'));
+        ->assertJsonPath('error_code', 'hosted_tool_invalid_output');
 });
 
 test('a run fails with a controlled code when a db tool is not mapped to a data source', function () {
@@ -443,9 +505,11 @@ test('a run fails with a controlled code when a db tool is not mapped to a data 
 
     fakeRouter()->toolCallThen('db_lookup', []);
 
-    invokeAgent()->assertCreated()
-        ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'not mapped to a data source'));
+    invokeAgent()->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration')
+        ->assertJsonPath('correlation_id', fn ($value) => is_string($value) && str_starts_with($value, 'corr_'));
+
+    expect(AgentRun::query()->count())->toBe(0);
 });
 
 test('a run fails safely when the model call errors', function () {
@@ -460,7 +524,8 @@ test('a run fails safely when the model call errors', function () {
     $response = invokeAgent()->assertCreated();
 
     $response->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', 'provider unreachable');
+        ->assertJsonPath('error_code', 'model_error')
+        ->assertJsonPath('error', 'The model provider could not complete this run.');
 });
 
 test('a run fails when the agent model is not available in the environment', function () {
@@ -468,14 +533,31 @@ test('a run fails when the agent model is not available in the environment', fun
 
     fakeRouter()->textThen('unused');
 
-    $response = invokeAgent()->assertCreated();
+    invokeAgent()->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration')
+        ->assertJsonPath('correlation_id', fn ($value) => is_string($value) && str_starts_with($value, 'corr_'));
 
-    $response->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'not approved'));
+    expect(AgentRun::query()->count())->toBe(0);
+});
 
-    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+test('a published status without an approved immutable version cannot start a run', function () {
+    $this->agent->update(['current_version_id' => null]);
+    fakeRouter()->textThen('unused');
 
-    expect($run->traceEvents()->where('type', TraceEventType::ModelSelected)->exists())->toBeFalse();
+    invokeAgent()->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration');
+
+    expect(AgentRun::query()->count())->toBe(0);
+});
+
+test('a material change after publication invalidates runtime readiness', function () {
+    $this->agent->update(['system_prompt' => 'Changed without approval.']);
+    fakeRouter()->textThen('unused');
+
+    invokeAgent()->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration');
+
+    expect(AgentRun::query()->count())->toBe(0);
 });
 
 test('a run is cancelled when the agent is unpublished before resuming', function () {
@@ -512,7 +594,7 @@ test('a run that exceeds the step limit fails', function () {
 
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'maximum number of steps'));
+        ->assertJsonPath('error_code', 'step_limit_exceeded');
 });
 
 test('a run expires immediately when started past its deadline', function () {
@@ -634,7 +716,7 @@ test('confidential run input and tool results are masked at rest', function () {
     test()->postJson("/api/v1/runs/{$runId}/tool-results", [
         'tool_call_id' => $start->json('tool_call.id'),
         'result' => ['results' => ['x'], 'total' => 1],
-    ])->assertOk()->assertJsonPath('response', 'done');
+    ])->assertOk()->assertJsonPath('response', PayloadMasker::REDACTED);
 
     $call = AgentRun::firstWhere('slug', $runId)->toolCalls()->first();
 
@@ -830,10 +912,10 @@ test('a server-side tool requiring approval is blocked at runtime until activate
 
     fakeRouter()->toolCallThen('gated_tool', []);
 
-    $response = invokeAgent()->assertCreated();
-    $response->assertJsonPath('status', RunStatus::Failed->value);
+    invokeAgent()->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration');
 
-    expect(AgentRun::firstWhere('slug', $response->json('run_id'))->failure_reason)->toBe('tool_requires_approval');
+    expect(AgentRun::query()->count())->toBe(0);
     Http::assertNothingSent();
 });
 
@@ -858,9 +940,9 @@ test('a connector tool requiring approval is blocked at runtime until activated'
 
     fakeRouter()->toolCallThen('gated_connector', []);
 
-    $response = invokeAgent()->assertCreated();
-    $response->assertJsonPath('status', RunStatus::Failed->value);
+    invokeAgent()->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration');
 
-    expect(AgentRun::firstWhere('slug', $response->json('run_id'))->failure_reason)->toBe('tool_requires_approval');
+    expect(AgentRun::query()->count())->toBe(0);
     Http::assertNothingSent();
 });

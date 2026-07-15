@@ -1,16 +1,20 @@
 <?php
 
 use App\Enums\AgentStatus;
+use App\Enums\ApprovalType;
 use App\Enums\LlmStatus;
 use App\Enums\RunStatus;
+use App\Enums\TeamRole;
 use App\Enums\TraceEventType;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
+use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
 use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
+use App\Models\User;
 use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Testing\TestResponse;
@@ -32,6 +36,9 @@ beforeEach(function () {
     }
 
     [$this->owner, $this->team] = ownerAndTeam();
+    $this->reviewer = User::factory()->create();
+    $this->team->members()->attach($this->reviewer, ['role' => TeamRole::Admin->value]);
+    $this->reviewer->switchTeam($this->team);
     $this->slug = $this->team->slug;
 
     // Fake-provider mode: publishing's live connection check resolves the
@@ -50,6 +57,23 @@ function consolePost(string $route, array $params, array $payload = []): TestRes
     return test()->actingAs(test()->owner)
         ->post(route($route, [...['current_team' => test()->slug], ...$params]), $payload)
         ->assertRedirect();
+}
+
+/**
+ * Approve the newest pending request through the governed console action.
+ */
+function consoleApprove(ApprovalType $type): ApprovalRequest
+{
+    $approval = ApprovalRequest::query()->pending()->where('type', $type)->latest()->firstOrFail();
+
+    test()->actingAs(test()->reviewer)
+        ->post(route('approvals.approve', [
+            'current_team' => test()->slug,
+            'approvalRequest' => $approval->id,
+        ]))
+        ->assertRedirect();
+
+    return $approval->fresh();
 }
 
 test('the full console setup to completed agent run works end to end', function () {
@@ -79,7 +103,9 @@ test('the full console setup to completed agent run works end to end', function 
         'environments' => ['production'],
     ]);
     $provider = LlmProvider::firstWhere('code', 'fake/e2e');
+    $provider->update(['platform_owned' => true]);
     consolePost('llm-providers.publish', ['llmProvider' => $provider->slug]);
+    consoleApprove(ApprovalType::ModelAccess);
     expect($provider->fresh()->status)->toBe(LlmStatus::Approved);
 
     // 3. Create a project under the application.
@@ -87,6 +113,7 @@ test('the full console setup to completed agent run works end to end', function 
         'application_id' => $application->id,
         'name' => 'Cargo Project',
         'environment' => 'production',
+        'llm_provider_ids' => [$provider->id],
     ]);
     $project = Project::firstWhere('application_id', $application->id);
 
@@ -118,30 +145,27 @@ test('the full console setup to completed agent run works end to end', function 
     $agent = Agent::firstWhere('agent_slug', 'ops-agent');
     expect($agent->tools()->pluck('tool_contracts.id')->all())->toBe([$tool->id]);
 
-    // 6. Publish the agent so the runtime will accept invocations.
-    consolePost('agents.publish', ['agent' => $agent->slug]);
-    expect($agent->refresh()->status)->toBe(AgentStatus::Published);
-
-    // 7. Generate a credential and capture the one-time secret from the flash.
+    // 6. Generate a staged production credential and capture its one-time secret.
     $secretFlash = consolePost('applications.credentials.store', ['application' => $application->slug], [
         'environment' => 'production',
     ])->getSession()->get('inertia.flash_data')['credentialSecret'];
+    consoleApprove(ApprovalType::CredentialChange);
 
-    // 8. Exchange the credential for a short-lived SDK access token.
+    // 7. Exchange the approved credential for a short-lived SDK access token.
     $token = $this->post('/oauth/token', [
         'grant_type' => 'client_credentials',
         'client_id' => $secretFlash['clientId'],
         'client_secret' => $secretFlash['secret'],
     ])->assertOk()->json('access_token');
 
-    // 9. The manifest lists the agent and reports the tool as needing a handler.
+    // 8. The manifest withholds the unready agent and reports the missing handler.
     $this->withToken($token)->getJson('/api/v1/manifest')
         ->assertOk()
-        ->assertJsonPath('agents.0.slug', 'ops-agent')
+        ->assertJsonCount(0, 'agents')
         ->assertJsonPath('tools.0.name', $tool->slug)
         ->assertJsonPath('tools.0.implementation.status', 'required');
 
-    // 10. The application reports a compatible local handler.
+    // 9. The application reports a compatible local handler.
     $this->withToken($token)->postJson('/api/v1/tool-implementations', [
         'implementations' => [[
             'tool' => $tool->slug,
@@ -152,9 +176,16 @@ test('the full console setup to completed agent run works end to end', function 
         ]],
     ])->assertOk()->assertJsonPath('results.0.status', 'implemented');
 
-    // 11. The manifest now reports the tool implemented (the key transition).
+    // 10. Publication is requested only after dependencies are ready, then a
+    //     separate reviewer approves the immutable agent configuration.
+    consolePost('agents.publish', ['agent' => $agent->slug]);
+    consoleApprove(ApprovalType::AgentPublication);
+    expect($agent->refresh()->status)->toBe(AgentStatus::Published);
+
+    // 11. The manifest now exposes the ready agent and implemented tool.
     $this->withToken($token)->getJson('/api/v1/manifest')
         ->assertOk()
+        ->assertJsonPath('agents.0.slug', 'ops-agent')
         ->assertJsonPath('tools.0.implementation.status', 'implemented');
 
     // 12. Invoke the agent — the model requests the client tool and the run pauses.

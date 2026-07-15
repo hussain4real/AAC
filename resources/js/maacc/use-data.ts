@@ -84,6 +84,7 @@ const DEFAULT_SETTINGS: MaaccGovernanceSettings = {
     auditRetentionDays: 365,
     maskSensitiveInputs: true,
     maskSensitiveOutputs: true,
+    toolResultHandling: 'mask',
     blockRestrictedLogging: true,
     defaultDailyRunQuota: null,
 };

@@ -48,11 +48,16 @@ final class LlmProviderVerifier
     private function probe(LlmProvider $provider): LlmVerificationResult
     {
         $driver = $provider->driver();
-        $key = $provider->resolveApiKey($this->vault) ?? (string) config("ai.providers.{$driver}.key");
+        $key = $provider->resolveApiKey($this->vault);
+
+        if ($key === null && $provider->platform_owned) {
+            $configuredKey = config("ai.providers.{$driver}.key");
+            $key = is_string($configuredKey) ? $configuredKey : null;
+        }
 
         // The deterministic router (fake/validation mode) needs no real key, so
         // only a live provider is held to the missing-key check.
-        if (trim($key) === '' && ! $this->router instanceof DeterministicLlmRouter) {
+        if (trim((string) $key) === '' && ! $this->router instanceof DeterministicLlmRouter) {
             return new LlmVerificationResult(
                 LlmVerificationOutcome::MissingKey,
                 LlmVerificationOutcome::MissingKey->defaultMessage(),
@@ -90,6 +95,7 @@ final class LlmProviderVerifier
             maxTokens: 16,
             timeoutSeconds: (int) config('maacc.runtime.verify_timeout_seconds', 15),
             apiKey: $key !== '' ? $key : null,
+            platformOwned: $provider->platform_owned,
         );
     }
 

@@ -104,7 +104,7 @@ class EvaluationRunner
      */
     private function driveRun(Evaluation $evaluation, Agent $agent, Application $application, Environment $environment, EvaluationCase $case): AgentRun
     {
-        $run = $this->runner->createRun($agent, $application, $environment, $case->input, 'evaluation:'.$evaluation->id, RunMode::Sync);
+        $run = $this->runner->createRun($agent, $application, $environment, $case->input, 'evaluation:'.$evaluation->id, RunMode::Sync, candidateEvaluation: true);
         $run->update(['evaluation_id' => $evaluation->id]);
         $run = $this->runner->process($run);
 

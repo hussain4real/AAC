@@ -16,6 +16,7 @@ use App\Models\Team;
 use App\Models\ToolContract;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Opens governance approval requests for the changes the BRS gates behind owner
@@ -26,33 +27,36 @@ use Illuminate\Database\Eloquent\Model;
  */
 class ApprovalManager
 {
+    public function __construct(
+        private readonly AgentReadinessGate $readiness,
+        private readonly ApprovalVersion $versions,
+    ) {}
+
     /**
      * Open (or return the existing pending) approval request for a subject.
      *
      * @param  array<string, mixed>  $attributes
      */
-    public function open(Team $team, ApprovalType $type, ?Model $subject, array $attributes = []): ApprovalRequest
+    public function open(Team $team, ApprovalType $type, Model $subject, array $attributes = []): ApprovalRequest
     {
-        $query = $team->approvalRequests()->pending()->where('type', $type);
+        $subjectVersionHash = $attributes['subject_version_hash'] ?? null;
+        $subjectVersionHash = is_string($subjectVersionHash) ? $subjectVersionHash : null;
+        $pendingKey = $this->pendingKey($team, $type, $subject, $subjectVersionHash);
 
-        if ($subject !== null) {
-            $query->where('subject_type', $subject->getMorphClass())
-                ->where('subject_id', $subject->getKey());
-        }
-
-        $existing = $query->first();
-
-        if ($existing instanceof ApprovalRequest) {
-            return $existing;
-        }
-
-        return $team->approvalRequests()->create([
-            ...$attributes,
-            'type' => $type,
-            'status' => ApprovalStatus::Pending,
-            'subject_type' => $subject?->getMorphClass(),
-            'subject_id' => $subject?->getKey(),
-        ]);
+        return DB::transaction(
+            fn (): ApprovalRequest => $team->approvalRequests()->firstOrCreate(
+                ['pending_key' => $pendingKey],
+                [
+                    ...$attributes,
+                    'type' => $type,
+                    'status' => ApprovalStatus::Pending,
+                    'subject_type' => $subject->getMorphClass(),
+                    'subject_id' => $subject->getKey(),
+                    'subject_version_hash' => $subjectVersionHash,
+                    'pending_key' => $pendingKey,
+                ],
+            ),
+        );
     }
 
     /**
@@ -62,6 +66,23 @@ class ApprovalManager
     {
         $agent->loadMissing('project.application');
         $application = $agent->project->application;
+        $configurationHash = $this->readiness->configurationHash($agent);
+
+        ApprovalRequest::query()
+            ->where('team_id', $application->team_id)
+            ->where('type', ApprovalType::AgentPublication)
+            ->where('status', ApprovalStatus::Pending)
+            ->where('subject_type', $agent->getMorphClass())
+            ->where('subject_id', $agent->id)
+            ->where(fn ($query) => $query
+                ->whereNull('subject_version_hash')
+                ->orWhere('subject_version_hash', '!=', $configurationHash))
+            ->update([
+                'status' => ApprovalStatus::Cancelled,
+                'pending_key' => null,
+                'decision_note' => 'Automatically invalidated by a material configuration change.',
+                'decided_at' => now(),
+            ]);
 
         return $this->open($application->team, ApprovalType::AgentPublication, $agent, [
             'application_id' => $application->id,
@@ -72,6 +93,7 @@ class ApprovalManager
             'environment' => $target,
             'requested_by' => $requester->id,
             'requested_label' => $requester->name,
+            'subject_version_hash' => $configurationHash,
         ]);
     }
 
@@ -95,6 +117,24 @@ class ApprovalManager
      */
     public function requestModelAccess(LlmProvider $model, User $requester, Environment $target): ApprovalRequest
     {
+        $versionHash = $this->versions->model($model);
+
+        ApprovalRequest::query()
+            ->where('team_id', $model->team_id)
+            ->where('type', ApprovalType::ModelAccess)
+            ->where('status', ApprovalStatus::Pending)
+            ->where('subject_type', $model->getMorphClass())
+            ->where('subject_id', $model->id)
+            ->where(fn ($query) => $query
+                ->whereNull('subject_version_hash')
+                ->orWhere('subject_version_hash', '!=', $versionHash))
+            ->update([
+                'status' => ApprovalStatus::Cancelled,
+                'pending_key' => null,
+                'decision_note' => 'Automatically invalidated by a material model change.',
+                'decided_at' => now(),
+            ]);
+
         return $this->open($model->team, ApprovalType::ModelAccess, $model, [
             'title' => "{$model->name} → {$target->label()}",
             'summary' => "Promote {$model->name} to {$target->label()}.",
@@ -102,6 +142,7 @@ class ApprovalManager
             'environment' => $target,
             'requested_by' => $requester->id,
             'requested_label' => $requester->name,
+            'subject_version_hash' => $versionHash,
         ]);
     }
 
@@ -153,8 +194,12 @@ class ApprovalManager
     /**
      * Request approval for a production credential change.
      */
-    public function requestCredentialChange(Credential $credential, User $requester, string $change): ApprovalRequest
-    {
+    public function requestCredentialChange(
+        Credential $credential,
+        User $requester,
+        string $change,
+        ?string $stagedSecret = null,
+    ): ApprovalRequest {
         $credential->loadMissing('application');
         $application = $credential->application;
 
@@ -166,6 +211,23 @@ class ApprovalManager
             'environment' => $credential->environment,
             'requested_by' => $requester->id,
             'requested_label' => $requester->name,
+            'subject_version_hash' => $this->versions->credential($credential),
+            'metadata' => ['change' => $change],
+            'encrypted_payload' => $stagedSecret === null ? null : ['secret' => $stagedSecret],
         ]);
+    }
+
+    /**
+     * Unique key for the one pending request allowed per subject configuration.
+     */
+    private function pendingKey(Team $team, ApprovalType $type, Model $subject, ?string $versionHash): string
+    {
+        return hash('sha256', implode(':', [
+            (string) $team->id,
+            $type->value,
+            $subject->getMorphClass(),
+            (string) $subject->getKey(),
+            $versionHash ?? 'unversioned',
+        ]));
     }
 }

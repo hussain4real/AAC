@@ -2,6 +2,7 @@
 
 namespace App\Support\Sso;
 
+use App\Enums\SsoFailureCode;
 use App\Enums\TeamRole;
 use App\Models\AuditEvent;
 use App\Models\Project;
@@ -9,7 +10,6 @@ use App\Models\SsoConnection;
 use App\Models\SsoIdentity;
 use App\Models\Team;
 use App\Models\User;
-use App\Support\Platform\PlatformAccessManager;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -23,8 +23,6 @@ use Illuminate\Support\Str;
  */
 class SsoUserResolver
 {
-    public function __construct(private readonly PlatformAccessManager $platformAccess = new PlatformAccessManager) {}
-
     /**
      * Resolve (and provision/role-map) the local user for an SSO identity.
      *
@@ -36,16 +34,27 @@ class SsoUserResolver
             $identity = SsoIdentity::query()
                 ->where('sso_connection_id', $connection->id)
                 ->where('subject', $payload->subject)
+                ->lockForUpdate()
                 ->first();
 
-            $existing = $identity !== null
-                ? $identity->user
-                : User::query()->where('email', $payload->email)->first();
+            $existing = $identity?->user;
+
+            if ($existing !== null && $existing->isPlatformAdministrator()) {
+                throw new SsoException('tenant SSO cannot authenticate a platform administrator', SsoFailureCode::PlatformAdministratorIdentity);
+            }
+
+            if ($existing !== null && strcasecmp($existing->email, $payload->email) !== 0) {
+                throw new SsoException('the identity email no longer matches its provisioned account', SsoFailureCode::IdentityEmailMismatch);
+            }
 
             $provisioned = $existing === null;
 
             if ($provisioned && ! $connection->auto_provision) {
-                throw new SsoException('no MAACC account is provisioned for this identity');
+                throw new SsoException('no MAACC account is provisioned for this identity', SsoFailureCode::IdentityNotProvisioned);
+            }
+
+            if ($provisioned && User::query()->where('email', $payload->email)->lockForUpdate()->exists()) {
+                throw new SsoException('an account with this email already exists and cannot be linked automatically', SsoFailureCode::EmailCollision);
             }
 
             $user = $existing ?? User::create([
@@ -58,30 +67,59 @@ class SsoUserResolver
                 $user->forceFill(['email_verified_at' => Date::now()])->save();
             }
 
-            $connection->identities()->updateOrCreate(
-                ['subject' => $payload->subject],
-                ['user_id' => $user->id, 'email' => $payload->email, 'raw_claims' => $payload->rawClaims, 'last_login_at' => Date::now()],
-            );
+            $identity ??= new SsoIdentity([
+                'sso_connection_id' => $connection->id,
+                'subject' => $payload->subject,
+                'user_id' => $user->id,
+            ]);
+
+            $identity->fill([
+                'email' => $payload->email,
+                'raw_claims' => $payload->rawClaims,
+                'last_login_at' => Date::now(),
+            ]);
 
             $teamRole = $connection->resolveTeamRole($payload->groups);
             $this->syncTeamMembership($connection->team, $user, $teamRole);
 
-            foreach ($connection->resolveProjectRoles($payload->groups) as $assignment) {
-                $this->syncProjectRole($connection->team, $user, $assignment['project'], $assignment['role']);
-            }
-
-            // Map IdP group claims onto MAACC platform-admin roles (Phase 8B). A
-            // tenant user gets none unless a group is explicitly mapped, so SSO
-            // never grants platform-admin access by default.
-            foreach ($connection->resolvePlatformRoles($payload->groups) as $platformRole) {
-                $this->platformAccess->syncSsoRole($user, $platformRole, $connection->slug);
-            }
+            $managedProjectIds = $this->reconcileProjectRoles($connection->team, $user, $identity, $connection->resolveProjectRoles($payload->groups));
+            $identity->managed_project_ids = $managedProjectIds;
+            $identity->save();
 
             $user->switchTeam($connection->team);
             $this->audit($connection, $user, $provisioned, $teamRole);
 
             return $user;
         });
+    }
+
+    /**
+     * Make the connection authoritative for the project memberships it created:
+     * current mappings are applied and previously managed mappings that vanished
+     * from the IdP claims are removed.
+     *
+     * @param  array<int, array{project: string, role: string}>  $assignments
+     * @return array<int, string>
+     */
+    private function reconcileProjectRoles(Team $team, User $user, SsoIdentity $identity, array $assignments): array
+    {
+        $managedProjectIds = [];
+
+        foreach ($assignments as $assignment) {
+            $project = $this->syncProjectRole($team, $user, $assignment['project'], $assignment['role']);
+
+            if ($project !== null) {
+                $managedProjectIds[] = $project->id;
+            }
+        }
+
+        $removedProjectIds = array_diff($identity->managed_project_ids ?? [], $managedProjectIds);
+
+        if ($removedProjectIds !== []) {
+            $user->projectMemberships()->whereIn('project_id', $removedProjectIds)->delete();
+        }
+
+        return array_values(array_unique($managedProjectIds));
     }
 
     /**
@@ -101,7 +139,7 @@ class SsoUserResolver
     /**
      * Attach or update the user's MAACC role on a mapped project.
      */
-    private function syncProjectRole(Team $team, User $user, string $projectSlug, string $maaccRole): void
+    private function syncProjectRole(Team $team, User $user, string $projectSlug, string $maaccRole): ?Project
     {
         $project = Project::query()
             ->whereHas('application', fn ($query) => $query->where('team_id', $team->id))
@@ -109,16 +147,18 @@ class SsoUserResolver
             ->first();
 
         if (! $project instanceof Project) {
-            return;
+            return null;
         }
 
         if ($project->members()->whereKey($user->id)->exists()) {
             $project->members()->updateExistingPivot($user->id, ['maacc_role' => $maaccRole]);
 
-            return;
+            return $project;
         }
 
         $project->members()->attach($user->id, ['maacc_role' => $maaccRole]);
+
+        return $project;
     }
 
     /**

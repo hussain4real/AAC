@@ -4,7 +4,6 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
-use App\Enums\SsoConnectionStatus;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\PasskeyLoginResponse;
 use App\Http\Responses\RegisterResponse;
@@ -68,7 +67,7 @@ class FortifyServiceProvider extends ServiceProvider
             'canResetPassword' => Features::enabled(Features::resetPasswords()),
             'status' => $request->session()->get('status'),
             'teamInvitation' => $this->teamInvitation($request),
-            'ssoConnections' => $this->ssoConnections(),
+            'ssoConnections' => $this->ssoConnections($request),
         ]));
 
         Fortify::resetPasswordView(fn (Request $request) => Inertia::render('auth/reset-password', [
@@ -115,6 +114,13 @@ class FortifyServiceProvider extends ServiceProvider
                 ($credentialId ?: $request->session()->getId()).'|'.$request->ip(),
             );
         });
+
+        RateLimiter::for('sso', function (Request $request) {
+            $connection = $request->route('ssoConnection');
+            $connectionKey = $connection instanceof SsoConnection ? $connection->id : (string) $connection;
+
+            return Limit::perMinute(10)->by($connectionKey.'|'.$request->ip());
+        });
     }
 
     /**
@@ -122,10 +128,17 @@ class FortifyServiceProvider extends ServiceProvider
      *
      * @return array<int, array{name: string, loginUrl: string}>
      */
-    private function ssoConnections(): array
+    private function ssoConnections(Request $request): array
     {
+        $teamSlug = $request->query('team');
+
+        if (! is_string($teamSlug) || $teamSlug === '') {
+            return [];
+        }
+
         return SsoConnection::query()
-            ->where('status', SsoConnectionStatus::Active)
+            ->approvedForLogin()
+            ->whereHas('team', fn ($query) => $query->where('slug', $teamSlug))
             ->orderBy('name')
             ->get()
             ->map(fn (SsoConnection $connection): array => [

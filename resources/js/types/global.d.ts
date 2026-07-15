@@ -50,6 +50,15 @@ export interface MaaccDashboard {
     alerts: MaaccAlert[];
 }
 
+export interface EnterpriseReadinessState {
+    status: string;
+    message: string;
+    registrationEnabled: boolean;
+    teamCreationEnabled: boolean;
+    realSensitiveDataEnabled: boolean;
+    changeOwner: string | null;
+}
+
 /** Operational monitoring summary (Phase 5). */
 export interface MaaccOperational {
     totalRuns: number;
@@ -82,6 +91,7 @@ export interface MaaccGovernanceSettings {
     auditRetentionDays: number;
     maskSensitiveInputs: boolean;
     maskSensitiveOutputs: boolean;
+    toolResultHandling: 'store' | 'mask' | 'exclude';
     blockRestrictedLogging: boolean;
     defaultDailyRunQuota: number | null;
 }
@@ -461,15 +471,18 @@ export interface MaaccSsoConnection {
     name: string;
     provider: string;
     providerLabel: string;
+    issuer: string;
     authorizeUrl: string;
     tokenUrl: string;
     userinfoUrl: string;
+    jwksUrl: string;
     clientId: string;
     secretConfigured: boolean;
     scopes: string;
     emailClaim: string;
     nameClaim: string;
     groupsClaim: string;
+    allowedDomains: string[];
     defaultTeamRole: string;
     groupRoleMappings: Array<{
         group: string;
@@ -480,6 +493,10 @@ export interface MaaccSsoConnection {
     autoProvision: boolean;
     status: string;
     statusLabel: string;
+    testedAt: string | null;
+    approvedAt: string | null;
+    createdBy: number | null;
+    approvedBy: number | null;
     redirectUri: string;
     loginUrl: string;
     identityCount: number | null;
@@ -521,6 +538,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            readiness: EnterpriseReadinessState;
             sidebarOpen: boolean;
             currentTeam: Team | null;
             teams: Team[];

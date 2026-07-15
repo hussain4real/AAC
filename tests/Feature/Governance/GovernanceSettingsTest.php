@@ -2,6 +2,7 @@
 
 use App\Enums\Environment;
 use App\Enums\MaaccRole;
+use App\Enums\PayloadHandling;
 use App\Models\Application;
 use App\Models\AuditEvent;
 use App\Models\GovernanceSetting;
@@ -22,6 +23,7 @@ function settingsPayload(array $overrides = []): array
         'audit_retention_days' => 180,
         'mask_sensitive_inputs' => true,
         'mask_sensitive_outputs' => false,
+        'tool_result_handling' => 'exclude',
         'block_restricted_logging' => true,
         'default_daily_run_quota' => 1000,
     ], $overrides);
@@ -39,6 +41,7 @@ test('a platform admin can update governance settings and it is audited', functi
     expect($settings->exists)->toBeTrue()
         ->and($settings->retain_prompts_days)->toBe(7)
         ->and($settings->mask_sensitive_outputs)->toBeFalse()
+        ->and($settings->tool_result_handling)->toBe(PayloadHandling::Exclude)
         ->and($settings->default_daily_run_quota)->toBe(1000)
         ->and(AuditEvent::where('team_id', $team->id)->where('action', 'governance_settings.updated')->exists())->toBeTrue();
 });
@@ -77,6 +80,7 @@ test('settings resolve to a default unsaved instance and report retention per fi
         ->and($settings->retentionDaysFor('audit'))->toBe(365)
         ->and($settings->masksInputs())->toBeTrue()
         ->and($settings->masksOutputs())->toBeTrue()
+        ->and($settings->toolResultHandling())->toBe(PayloadHandling::Mask)
         ->and($settings->blocksRestrictedLogging())->toBeTrue()
         ->and($settings->dailyRunQuota())->toBeNull();
 });

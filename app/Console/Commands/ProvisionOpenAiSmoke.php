@@ -71,6 +71,7 @@ class ProvisionOpenAiSmoke extends Command
         $provider = $this->ensureProvider($team, $environment, $model);
         $application = $this->ensureApplication($team, $environment);
         $project = $this->ensureProject($application, $environment);
+        $project->llmProviders()->syncWithoutDetaching([$provider->id]);
         $vesselTool = $this->ensureVesselStatusTool($team, $application);
 
         $plainAgent = $this->ensureAgent(

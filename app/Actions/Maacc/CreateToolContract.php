@@ -6,13 +6,19 @@ use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
 use App\Models\Team;
 use App\Models\ToolContract;
+use App\Support\Governance\TenantRelationshipGuard;
 use App\Support\Sdk\ContractVersionRecorder;
 use App\Support\Slug;
 use App\Support\Tools\ToolConfigInput;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class CreateToolContract
 {
-    public function __construct(private readonly ContractVersionRecorder $versions) {}
+    public function __construct(
+        private readonly ContractVersionRecorder $versions,
+        private readonly TenantRelationshipGuard $relationships,
+    ) {}
 
     /**
      * Create a MAACC tool contract and snapshot its initial version.
@@ -21,28 +27,32 @@ class CreateToolContract
      */
     public function handle(Team $team, array $data): ToolContract
     {
-        $data = ToolConfigInput::normalize($data);
+        $data = ToolConfigInput::normalize(Arr::only($data, ToolConfigInput::writableAttributes()));
 
-        $requiresApproval = $data['requires_approval'] ?? false;
-        $implementationStatus = $data['execution_mode'] === ExecMode::Client->value
-            ? ImplStatus::Required->value
-            : ImplStatus::Ready->value;
+        return DB::transaction(function () use ($team, $data): ToolContract {
+            $this->relationships->assertToolContractRelationships($team, $data);
 
-        $contract = ToolContract::create([
-            ...$data,
-            'team_id' => $team->id,
-            'slug' => Slug::unique('tool_contracts', (string) $data['name']),
-            // A server-side egress tool that needs approval starts inactive so the
-            // runtime gate blocks it until it is granted (which flips it to Active).
-            'status' => $this->initialStatus($data, $requiresApproval),
-            'implementation_status' => $implementationStatus,
-            'version' => $data['version'] ?? '1.0.0',
-            'requires_approval' => $requiresApproval,
-        ]);
+            $requiresApproval = $data['requires_approval'] ?? false;
+            $implementationStatus = $data['execution_mode'] === ExecMode::Client->value
+                ? ImplStatus::Required->value
+                : ImplStatus::Ready->value;
 
-        $this->versions->recordInitial($contract);
+            $contract = ToolContract::create([
+                ...$data,
+                'team_id' => $team->id,
+                'slug' => Slug::unique('tool_contracts', (string) $data['name']),
+                // A server-side egress tool that needs approval starts inactive so the
+                // runtime gate blocks it until it is granted (which flips it to Active).
+                'status' => $this->initialStatus($data, $requiresApproval),
+                'implementation_status' => $implementationStatus,
+                'version' => $data['version'] ?? '1.0.0',
+                'requires_approval' => $requiresApproval,
+            ]);
 
-        return $contract;
+            $this->versions->recordInitial($contract);
+
+            return $contract;
+        });
     }
 
     /**

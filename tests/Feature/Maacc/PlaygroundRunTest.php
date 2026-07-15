@@ -3,6 +3,7 @@
 use App\Enums\AgentStatus;
 use App\Enums\Environment;
 use App\Enums\ExecMode;
+use App\Enums\ImplStatus;
 use App\Enums\LlmStatus;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
@@ -15,6 +16,7 @@ use App\Models\Project;
 use App\Models\Team;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
+use App\Models\ToolImplementation;
 
 /**
  * Build a published agent on an approved OpenAI-style model, with its
@@ -72,6 +74,13 @@ function assignPlaygroundClientTool(Agent $agent, Team $team): ToolContract
         ]);
 
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    ToolImplementation::factory()->for($tool)->for($agent->project->application)->create([
+        'environment' => $agent->project->environment,
+        'status' => ImplStatus::Implemented,
+        'implemented_version' => $tool->version,
+        'schema_fingerprint' => $tool->schemaFingerprint(),
+    ]);
+    approveCurrentAgentConfiguration($agent);
 
     return $tool;
 }
@@ -92,6 +101,7 @@ function assignPlaygroundHostedTool(Agent $agent, Team $team): ToolContract
         ]);
 
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     return $tool;
 }
@@ -203,31 +213,26 @@ test('a console run executes in the selected matching environment', function () 
     expect($run->environment)->toBe(Environment::Development);
 });
 
-test('a console run may use a project environment that differs from the application environment', function () {
+test('a console run rejects a project environment that differs from the application environment', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = playgroundAgent($team, [], Environment::Staging);
     $agent->project->application->update(['environment' => Environment::Production]);
     bindFakeRouter()->textThen('Staging project run complete.');
 
-    $response = $this->actingAs($owner)
+    $this->actingAs($owner)
         ->postJson(route('playground.runs.store', ['current_team' => $team->slug, 'agent' => $agent->slug]), playgroundRunPayload([
             'environment' => Environment::Staging->value,
             'input' => 'Run the staging project',
         ]))
-        ->assertCreated()
-        ->assertJsonPath('status', RunStatus::Completed->value);
+        ->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration');
 
-    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
-
-    expect($run->environment)->toBe(Environment::Staging)
-        ->and($run->application_id)->toBe($agent->project->application_id)
-        ->and($run->project_id)->toBe($agent->project_id);
+    expect(AgentRun::query()->count())->toBe(0);
 });
 
 test('a console run can route to an eligible fallback when the agent model is unavailable', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = playgroundAgent($team, [], Environment::Staging);
-    $agent->project->application->update(['environment' => Environment::Production]);
     $agent->llmProvider->update(['environments' => [Environment::Production->value]]);
     $fallback = LlmProvider::factory()->for($team)->create([
         'provider' => 'OpenAI',
@@ -238,9 +243,11 @@ test('a console run can route to an eligible fallback when the agent model is un
         'input_cost' => 0.5,
         'output_cost' => 1.5,
     ]);
+    $agent->project->llmProviders()->attach($fallback);
     ModelRoutingPolicy::factory()->for($team)->for($agent)->create([
         'fallback_provider_ids' => [$fallback->id],
     ]);
+    approveCurrentAgentConfiguration($agent);
     bindFakeRouter()->textThen('Routed fallback run complete.');
 
     $response = $this->actingAs($owner)
@@ -280,12 +287,12 @@ test('a member of another team cannot run this team\'s agent (tenant isolation)'
     bindFakeRouter()->textThen('Nope.');
 
     // The intruder posts to their own team URL (passes membership) but targets
-    // the victim team's agent slug — the policy must deny it.
+    // the victim team's agent slug — the current-team boundary hides it.
     $this->actingAs($intruder)
         ->postJson(route('playground.runs.store', ['current_team' => $intruderTeam->slug, 'agent' => $agent->slug]), playgroundRunPayload([
             'input' => 'Steal data',
         ]))
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 test('a frozen application blocks a console run', function () {
@@ -374,7 +381,7 @@ test('another team cannot resume this team\'s paused run', function () {
             'tool_call_id' => $paused->json('tool_call.id'),
             'result' => ['total' => 1],
         ])
-        ->assertForbidden();
+        ->assertNotFound();
 });
 
 test('a MAACC-hosted tool call executes inline and the run completes in one console request', function () {

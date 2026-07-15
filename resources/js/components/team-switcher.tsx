@@ -23,6 +23,7 @@ export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
     const isMobile = useIsMobile();
     const currentTeam = page.props.currentTeam;
     const teams = page.props.teams ?? [];
+    const teamCreationEnabled = page.props.readiness.teamCreationEnabled;
 
     const switchTeam = (team: Team) => {
         const previousTeamSlug = currentTeam?.slug;
@@ -132,21 +133,29 @@ export function TeamSwitcher({ inHeader = false }: TeamSwitcherProps) {
                         )}
                     </DropdownMenuItem>
                 ))}
-                <DropdownMenuSeparator />
-                <CreateTeamModal>
-                    <DropdownMenuItem
-                        data-test="team-switcher-new-team"
-                        className={
-                            inHeader
-                                ? 'cursor-pointer gap-2'
-                                : 'cursor-pointer gap-2 p-2'
-                        }
-                        onSelect={(event) => event.preventDefault()}
-                    >
-                        <Plus className={inHeader ? 'size-4' : 'h-4 w-4'} />
-                        <span className="text-muted-foreground">New team</span>
-                    </DropdownMenuItem>
-                </CreateTeamModal>
+                {teamCreationEnabled ? (
+                    <>
+                        <DropdownMenuSeparator />
+                        <CreateTeamModal>
+                            <DropdownMenuItem
+                                data-test="team-switcher-new-team"
+                                className={
+                                    inHeader
+                                        ? 'cursor-pointer gap-2'
+                                        : 'cursor-pointer gap-2 p-2'
+                                }
+                                onSelect={(event) => event.preventDefault()}
+                            >
+                                <Plus
+                                    className={inHeader ? 'size-4' : 'h-4 w-4'}
+                                />
+                                <span className="text-muted-foreground">
+                                    New team
+                                </span>
+                            </DropdownMenuItem>
+                        </CreateTeamModal>
+                    </>
+                ) : null}
             </DropdownMenuContent>
         </DropdownMenu>
     );

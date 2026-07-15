@@ -53,6 +53,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use LogicException;
 
 /**
  * Seeds the MAACC demo team with the Phase 1 console fixture
@@ -69,6 +70,10 @@ class MaaccDemoSeeder extends Seeder
      */
     public function run(): void
     {
+        if (! app()->environment(['local', 'testing'])) {
+            throw new LogicException('MAACC demo data may only be seeded in local or testing environments.');
+        }
+
         $user = User::firstWhere('email', 'demo@milaha.com')
             ?? User::factory()->create(['name' => 'Layla Hassan', 'email' => 'demo@milaha.com']);
 
@@ -285,7 +290,7 @@ class MaaccDemoSeeder extends Seeder
     private function seedProjects(array $apps, array $llms): array
     {
         $rows = [
-            ['prj_mop_ops', 'MOP', 'Fleet Operations Intelligence', 'production', 'Operational summaries and exception detection across active voyages.', 'Khalid Al-Mansoori', 'Reema Saleh', 'active', ['gpt-4o', 'claude-37-sonnet'], 2, 5, 1840],
+            ['prj_mop_ops', 'MOP', 'Fleet Operations Intelligence', 'production', 'Operational summaries and exception detection across active voyages.', 'Khalid Al-Mansoori', 'Reema Saleh', 'active', ['gpt-4o', 'gpt-4o-mini', 'claude-37-sonnet'], 2, 5, 1840],
             ['prj_mop_berth', 'MOP', 'Berth & Schedule Advisor', 'production', 'Decision support for berth allocation and schedule conflicts.', 'Khalid Al-Mansoori', 'Reema Saleh', 'active', ['gpt-4o', 'gpt-4o-mini'], 1, 3, 760],
             ['prj_mop_docs', 'MOP', 'Marine Document Review', 'staging', 'Reviews bills of lading and shipping documents for completeness.', 'Noura Adel', 'Reema Saleh', 'active', ['claude-37-sonnet'], 1, 2, 210],
             ['prj_fws_appr', 'FWS', 'Approval & Exception Desk', 'production', 'Reviews pending approvals and surfaces financial exceptions.', 'Aisha Rahman', 'Tariq Nabil', 'active', ['gpt-4o', 'claude-37-sonnet'], 2, 4, 1320],
@@ -440,7 +445,7 @@ class MaaccDemoSeeder extends Seeder
             ['ag_maint_risk', 'Maintenance Risk Agent', 'prj_vms_risk', 'llama3-70b', 'v1', 'draft', 0, '—', 0, 'Flags assets at elevated risk based on maintenance history and overdue work orders.', ['getMaintenanceSchedules', 'searchPolicyDocuments'], 'maintenance-risk', 0.3, 1400, 'You are the Maintenance Risk Agent. Assess asset risk from maintenance schedules and overdue work orders. Rank assets by risk and recommend prioritized maintenance actions.'],
             ['ag_doc_review', 'Document Review Agent', 'prj_mop_docs', 'claude-37-sonnet', 'v2', 'testing', 95.5, '35 min ago', 180, 'Reviews shipping documents for completeness and policy compliance.', ['summarizeUploadedDocument', 'searchPolicyDocuments', 'getOperationalRecords'], 'document-review', 0.2, 1800, 'You are the Document Review Agent. Review shipping documents for missing fields and policy compliance. List issues found and cite the relevant policy section.'],
             ['ag_port_metrics', 'Port Metrics Agent', 'prj_mop_ops', 'gpt-4o', 'v1', 'published', 97.6, '5 min ago', 210, 'Answers port-call reporting questions from the governed read-only reporting replica.', ['getPortCallMetrics'], 'port-metrics', 0.2, 1200, 'You are the Port Metrics Agent. Answer questions about port-call volumes strictly from the governed read-only reporting data returned by the getPortCallMetrics tool. Report figures exactly as returned; never invent numbers.'],
-            ['ag_compliance', 'Compliance Assistant Agent', 'prj_fws_close', 'gpt-4o', 'v1', 'disabled', 92.0, '2 days ago', 0, 'Answers compliance questions grounded in company policy documents.', ['searchPolicyDocuments', 'summarizeUploadedDocument'], 'compliance-assistant', 0.1, 1500, 'You are the Compliance Assistant Agent. Answer compliance questions strictly from indexed policy documents. Always cite the policy reference. If the answer is not in policy, say so.'],
+            ['ag_compliance', 'Compliance Assistant Agent', 'prj_fws_close', 'claude-37-sonnet', 'v1', 'disabled', 92.0, '2 days ago', 0, 'Answers compliance questions grounded in company policy documents.', ['searchPolicyDocuments', 'summarizeUploadedDocument'], 'compliance-assistant', 0.1, 1500, 'You are the Compliance Assistant Agent. Answer compliance questions strictly from indexed policy documents. Always cite the policy reference. If the answer is not in policy, say so.'],
         ];
 
         $out = [];

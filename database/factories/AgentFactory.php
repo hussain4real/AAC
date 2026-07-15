@@ -5,8 +5,10 @@ namespace Database\Factories;
 use App\Enums\AgentStatus;
 use App\Enums\Sensitivity;
 use App\Models\Agent;
+use App\Models\AgentVersion;
 use App\Models\LlmProvider;
 use App\Models\Project;
+use App\Support\Governance\AgentReadinessGate;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -21,6 +23,30 @@ class AgentFactory extends Factory
      * @var class-string<Agent>
      */
     protected $model = Agent::class;
+
+    /**
+     * Keep ordinary test agents aligned with the production project/model
+     * invariant. Adversarial tests can still corrupt the persisted tuple after
+     * creation to prove fail-closed behavior.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Agent $agent): void {
+            $project = Project::query()->with('application.team')->find($agent->project_id);
+            $provider = LlmProvider::query()->find($agent->llm_provider_id);
+
+            if (! $project instanceof Project || ! $provider instanceof LlmProvider) {
+                return;
+            }
+
+            if ((string) $provider->team_id !== (string) $project->application->team_id) {
+                $provider = LlmProvider::factory()->for($project->application->team)->create();
+                $agent->llm_provider_id = $provider->id;
+            }
+
+            $project->llmProviders()->syncWithoutDetaching([$provider->id]);
+        });
+    }
 
     /**
      * Define the model's default state.
@@ -58,10 +84,28 @@ class AgentFactory extends Factory
      */
     public function published(): static
     {
-        return $this->state(fn (array $attributes): array => [
-            'status' => AgentStatus::Published,
-            'published_at' => now(),
-        ]);
+        return $this
+            ->state(fn (array $attributes): array => [
+                'status' => AgentStatus::Published,
+                'published_at' => now(),
+            ])
+            ->afterCreating(function (Agent $agent): void {
+                $version = AgentVersion::factory()->for($agent)->published()->create([
+                    'version' => $agent->version,
+                    'system_prompt' => $agent->system_prompt,
+                    'llm_provider_id' => $agent->llm_provider_id,
+                    'temperature' => $agent->temperature,
+                    'max_tokens' => $agent->max_tokens,
+                    'settings' => [
+                        'temperature' => $agent->temperature,
+                        'max_tokens' => $agent->max_tokens,
+                        'configuration_hash' => app(AgentReadinessGate::class)->configurationHash($agent),
+                    ],
+                    'published_at' => $agent->published_at,
+                ]);
+
+                $agent->update(['current_version_id' => $version->id]);
+            });
     }
 
     /**

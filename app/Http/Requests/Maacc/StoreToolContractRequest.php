@@ -21,9 +21,11 @@ class StoreToolContractRequest extends FormRequest
      */
     public function rules(): array
     {
+        $teamId = $this->user()?->currentTeam()->value('id');
+
         return [
             'name' => ['required', 'string', 'max:255'],
-            'application_id' => ['nullable', 'string', Rule::exists('applications', 'id')],
+            'application_id' => ['nullable', 'string', Rule::exists('applications', 'id')->where('team_id', $teamId)->where('status', 'active')],
             'description' => ['nullable', 'string'],
             'scope' => ['required', Rule::enum(ToolScope::class)],
             'execution_mode' => ['required', Rule::enum(ExecMode::class)],
@@ -37,7 +39,7 @@ class StoreToolContractRequest extends FormRequest
             'input_schema.*' => ['required', 'string', 'max:64'],
             'output_schema' => ['required', 'array', new ValidToolSchema],
             'output_schema.*' => ['required', 'string', 'max:64'],
-            ...$this->toolConfigRules($this->user()?->currentTeam()->value('id')),
+            ...$this->toolConfigRules($teamId),
         ];
     }
 

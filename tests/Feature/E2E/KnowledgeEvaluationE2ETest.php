@@ -1,11 +1,14 @@
 <?php
 
 use App\Enums\AgentStatus;
+use App\Enums\ApprovalType;
 use App\Enums\EvaluationStatus;
 use App\Enums\RunStatus;
+use App\Enums\TeamRole;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
+use App\Models\ApprovalRequest;
 use App\Models\AuditEvent;
 use App\Models\Evaluation;
 use App\Models\EvaluationDataset;
@@ -13,6 +16,7 @@ use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
+use App\Models\User;
 
 /**
  * End-to-end proof of the Phase 6F surface, driven entirely through the
@@ -22,6 +26,9 @@ use App\Models\ToolContract;
  */
 beforeEach(function () {
     [$this->owner, $this->team] = ownerAndTeam();
+    $this->reviewer = User::factory()->create();
+    $this->team->members()->attach($this->reviewer, ['role' => TeamRole::Admin->value]);
+    $this->reviewer->switchTeam($this->team);
     $this->slug = $this->team->slug;
 
     // Fake-provider mode: publishing's live connection check resolves the
@@ -33,6 +40,18 @@ function e2ePost(string $name, array $params, array $payload)
 {
     return test()->actingAs(test()->owner)
         ->post(route($name, [...['current_team' => test()->slug], ...$params]), $payload)
+        ->assertRedirect();
+}
+
+function e2eApprove(ApprovalType $type): void
+{
+    $approval = ApprovalRequest::query()->pending()->where('type', $type)->latest()->firstOrFail();
+
+    test()->actingAs(test()->reviewer)
+        ->post(route('approvals.approve', [
+            'current_team' => test()->slug,
+            'approvalRequest' => $approval->id,
+        ]))
         ->assertRedirect();
 }
 
@@ -59,12 +78,15 @@ it('indexes a source, runs a RAG agent through an evaluation, and audits it', fu
         'environments' => ['production'],
     ]);
     $provider = LlmProvider::firstWhere('code', 'fake/e2e');
+    $provider->update(['platform_owned' => true]);
     e2ePost('llm-providers.publish', ['llmProvider' => $provider->slug], []);
+    e2eApprove(ApprovalType::ModelAccess);
 
     e2ePost('projects.store', [], [
         'application_id' => $application->id,
         'name' => 'Cargo Project',
         'environment' => 'production',
+        'llm_provider_ids' => [$provider->id],
     ]);
     $project = Project::firstWhere('application_id', $application->id);
 
@@ -161,5 +183,6 @@ it('indexes a source, runs a RAG agent through an evaluation, and audits it', fu
 
     // The promotion gate now permits publication; publishing succeeds.
     e2ePost('agents.publish', ['agent' => $agent->slug], []);
+    e2eApprove(ApprovalType::AgentPublication);
     expect($agent->fresh()->status)->toBe(AgentStatus::Published);
 });

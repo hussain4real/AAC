@@ -4,6 +4,7 @@ namespace App\Actions\Maacc;
 
 use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalType;
+use App\Enums\CredentialStatus;
 use App\Enums\DataSourceStatus;
 use App\Enums\KnowledgeSourceStatus;
 use App\Enums\LlmStatus;
@@ -11,6 +12,7 @@ use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\ApprovalRequest;
+use App\Models\Credential;
 use App\Models\DataSource;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
@@ -18,6 +20,7 @@ use App\Models\ToolContract;
 use App\Models\User;
 use App\Support\Governance\ApprovalGate;
 use App\Support\Runtime\AgentRunner;
+use App\Support\Sdk\SdkClientManager;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -31,6 +34,7 @@ class ApproveApprovalRequest
     public function __construct(
         private readonly PublishAgent $publisher,
         private readonly ApprovalGate $gate,
+        private readonly SdkClientManager $sdkClients,
     ) {}
 
     /**
@@ -40,20 +44,30 @@ class ApproveApprovalRequest
      */
     public function handle(ApprovalRequest $request, User $decider, ?string $note = null): ApprovalRequest
     {
-        $this->gate->ensureSatisfied($request);
-
         return DB::transaction(function () use ($request, $decider, $note): ApprovalRequest {
-            $this->applyEffect($request, $decider);
+            $locked = ApprovalRequest::query()->lockForUpdate()->findOrFail($request->id);
 
-            $request->update([
+            if (! $locked->isPending()) {
+                return $locked;
+            }
+
+            if ($locked->requested_by !== null && $locked->requested_by === $decider->id) {
+                throw new ApprovalBlockedException(['The requester cannot approve their own change.']);
+            }
+
+            $this->gate->ensureSatisfied($locked);
+            $this->applyEffect($locked, $decider);
+
+            $locked->update([
                 'status' => ApprovalStatus::Approved,
+                'pending_key' => null,
                 'decided_by' => $decider->id,
                 'decided_label' => $decider->name,
                 'decision_note' => $note,
                 'decided_at' => Carbon::now(),
             ]);
 
-            return $request;
+            return $locked;
         });
     }
 
@@ -69,8 +83,45 @@ class ApproveApprovalRequest
             ApprovalType::KnowledgeIngestion => $this->activateSource($request),
             ApprovalType::DataSourceAccess => $this->activateDataSource($request),
             ApprovalType::RuntimeAction => $this->resumeRun($request),
-            ApprovalType::CredentialChange => null,
+            ApprovalType::CredentialChange => $this->applyCredentialChange($request),
         };
+    }
+
+    /**
+     * Apply a staged credential creation or rotation only after approval.
+     */
+    private function applyCredentialChange(ApprovalRequest $request): void
+    {
+        $credential = $request->subject;
+
+        if (! $credential instanceof Credential) {
+            return;
+        }
+
+        $change = ($request->metadata ?? [])['change'] ?? null;
+
+        if ($change === 'creation') {
+            $this->sdkClients->activate($credential);
+            $credential->update([
+                'status' => CredentialStatus::Active,
+                'revoked_at' => null,
+            ]);
+        }
+
+        if ($change === 'rotation') {
+            $secret = ($request->encrypted_payload ?? [])['secret'] ?? null;
+
+            if (is_string($secret)) {
+                $this->sdkClients->applyApprovedSecret($credential, $secret);
+                $credential->update([
+                    'status' => CredentialStatus::Active,
+                    'rotated_at' => Carbon::now(),
+                    'revoked_at' => null,
+                ]);
+            }
+        }
+
+        $request->update(['encrypted_payload' => null]);
     }
 
     /**

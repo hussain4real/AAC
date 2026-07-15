@@ -174,10 +174,11 @@ test('a data source can be deleted', function () {
 
 test('approving a data source access request activates the source', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = teamAdminReviewer($team);
     $source = DataSource::factory()->for($team)->draft()->requiresApproval()->create();
     $request = app(ApprovalManager::class)->requestDataSourceAccess($source, $owner);
 
-    $this->actingAs($owner)
+    $this->actingAs($reviewer)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
         ->assertRedirect();
 

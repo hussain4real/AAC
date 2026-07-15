@@ -562,7 +562,9 @@ function DatasetsTab() {
     const teamSlug = currentTeam?.slug ?? '';
     const datasets = MAACC.evaluationDatasets;
     const [formOpen, setFormOpen] = useState(false);
-    const [editing, setEditing] = useState<MaaccEvaluationDataset | undefined>();
+    const [editing, setEditing] = useState<
+        MaaccEvaluationDataset | undefined
+    >();
     const [caseOpen, setCaseOpen] = useState(false);
     const [runOpen, setRunOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);

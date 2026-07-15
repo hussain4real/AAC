@@ -27,10 +27,11 @@ test('requesting data source access opens an idempotent pending approval', funct
 
 test('approving a data source access request activates the source', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = teamAdminReviewer($team);
     $source = DataSource::factory()->for($team)->draft()->sensitive()->create();
     $request = app(ApprovalManager::class)->requestDataSourceAccess($source, $owner);
 
-    $this->actingAs($owner)
+    $this->actingAs($reviewer)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
         ->assertRedirect();
 

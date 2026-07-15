@@ -23,10 +23,11 @@ test('requesting knowledge ingestion opens an idempotent pending approval', func
 
 test('approving a knowledge ingestion request activates the source', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = teamAdminReviewer($team);
     $source = KnowledgeSource::factory()->for($team)->sensitive()->create();
     $request = app(ApprovalManager::class)->requestKnowledgeIngestion($source, $owner);
 
-    $this->actingAs($owner)
+    $this->actingAs($reviewer)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
         ->assertRedirect();
 

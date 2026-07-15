@@ -68,8 +68,9 @@ export function CredentialSecretGate() {
                         fontWeight: 600,
                     }}
                 >
-                    Store these in your application's secret manager. MAACC keeps
-                    only a hashed copy and cannot recover the secret later.
+                    Store these in your application's secret manager. MAACC
+                    keeps only a hashed copy and cannot recover the secret
+                    later.
                 </div>
             </div>
         </Modal>

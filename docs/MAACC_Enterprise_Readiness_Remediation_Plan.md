@@ -40,7 +40,7 @@ The timing assumes the staffing model in the readiness review: two backend engin
 
 ## Phase 1: Containment, Baseline Decisions, and Critical Trust Boundaries
 
-> **Status: ⬜ Not started — release and real-data onboarding remain blocked.**
+> **Status: 🟨 Core engineering controls implemented and locally verified — phase acceptance remains blocked by controlled-environment evidence and named gate approvals. Enterprise release and real-data onboarding remain NO-GO. See the [Phase 1 engineering evidence](enterprise-readiness-evidence/Phase_1_Engineering_Evidence_2026-07-15.md).**
 
 ### Goal
 
@@ -50,59 +50,59 @@ Remove the immediate account-takeover, cross-tenant, credential-isolation, sensi
 
 #### Immediate containment and governance baseline
 
-- [ ] Freeze onboarding of new tenants and real sensitive data; publish the current non-enterprise status and identify an accountable incident/change owner.
-- [ ] Disable tenant-created SSO connection activation, remove the global cross-tenant connection list, audit privileged `sso_identities` and sessions, and revoke suspicious links/sessions.
-- [ ] Decide whether public repository visibility is approved. If not, make it private and complete a credential, signing-key, webhook-secret, SSO-secret, deployment-key, session, and Git-history exposure review and rotation.
-- [ ] Run a read-only tenant-association integrity scan, quarantine mismatches, and record any necessary remediation before credential rotation or runtime re-enable.
-- [ ] Remove ordinary agent create/update access to privileged publication statuses and add fail-closed guards for suspended applications and mismatched runtime relationships.
-- [ ] Repair the known formatting failures, run `composer ci:check` from a clean checkout, and make the non-mutating aggregate gate a required release signal.
-- [ ] Approve BRS v1 and the required ADRs for ownership, environments, OIDC/account linking, data classification/storage, retention/legal hold, schemas, run statuses, caller context, approval rules, currency, SDK compatibility, SLO/RPO/RTO, external platform services, and release controls.
-- [ ] Produce an updated threat model, data inventory, trust-boundary map, risk register, control owners, and evidence locations.
+- [x] Freeze onboarding of new tenants and real sensitive data; publish the current non-enterprise status and identify an accountable incident/change owner. Registration and tenant creation fail closed, the persistent UI notice identifies the non-enterprise state, and the 15 July 2026 owner attestation classifies the current production deployment as a synthetic demo with no real data. Real sensitive-data onboarding remains prohibited and Aminu Hussain is the accountable change owner.
+- [ ] Disable tenant-created SSO connection activation, remove the global cross-tenant connection list, audit privileged `sso_identities` and sessions, and revoke suspicious links/sessions. The controls and [read-only audit command/local result](enterprise-readiness-evidence/Phase_1_Privileged_SSO_Access_Audit_2026-07-15.md) are implemented; real-environment review, revocation evidence, and Security/IAM sign-off remain required.
+- [ ] Decide whether public repository visibility is approved. If not, make it private and complete a credential, signing-key, webhook-secret, SSO-secret, deployment-key, session, and Git-history exposure review and rotation. A [read-only repository/history inventory](enterprise-readiness-evidence/Phase_1_Repository_Exposure_Review_2026-07-15.md) found no open GitHub alert or high-confidence production credential, but owner approval, full organizational scanning, and rotation/revocation evidence remain required.
+- [x] Run a read-only tenant-association integrity scan, quarantine mismatches, and record any necessary remediation before credential rotation or runtime re-enable.
+- [x] Remove ordinary agent create/update access to privileged publication statuses and add fail-closed guards for suspended applications and mismatched runtime relationships.
+- [ ] Repair the known formatting failures, run `composer ci:check` from a clean checkout, and make the non-mutating aggregate gate a required release signal. Local aggregate CI and exact 100% coverage pass; the hardened two-version workflow preserves the active `main` ruleset's required `ci (8.4)` and `ci (8.5)` contexts, and deployment waits for the successful workflow. Clean-checkout hosted proof and stronger review/up-to-date policy remain required.
+- [ ] Approve BRS v1 and the required ADRs for ownership, environments, OIDC/account linking, data classification/storage, retention/legal hold, schemas, run statuses, caller context, approval rules, currency, SDK compatibility, SLO/RPO/RTO, external platform services, and release controls. The version-locked [BRS approval baseline](MAACC_BRS_v1_Approval_Baseline.md) and [14-decision ADR package](MAACC_Phase_1_Decision_Baseline_v1.md) are prepared; named owner decisions and signatures remain required.
+- [x] Produce an updated [threat model, data inventory, trust-boundary map, risk register, control-owner and evidence register](enterprise-readiness-evidence/MAACC_Phase_1_Threat_Model_and_Control_Register_v1.md). Formal G0/G1/G3 review and residual-risk acceptance remain open acceptance criteria.
 
 #### Tenant and parent ownership invariants — ER-01
 
-- [ ] Centralize same-team, approved-parent, project, environment, active-state, and assignment eligibility checks in domain services used by HTTP, console, API, jobs, imports, and runtime paths.
-- [ ] Scope every relationship-bearing validation query and resolved model to the authorized tenant and parent before persistence.
-- [ ] Authorize creation and mutation against resolved parent objects, not only a model class or current-team flag.
-- [ ] Enforce tool, connector, data source, implementation, model, routing, approval subject, and quota subject ownership at both management and runtime boundaries.
-- [ ] Add transactions, row locks, composite constraints, or invariant triggers where practical; document and test every invariant that must remain application-enforced.
-- [ ] Make legacy/null role data defensive so inconsistent imports cannot crash governance surfaces.
-- [ ] Add a two-tenant adversarial matrix for create, update, import, manifest, publish, execute, export, and direct-object access paths.
+- [x] Centralize same-team, approved-parent, project, environment, active-state, and assignment eligibility checks in domain services used by HTTP, console, API, jobs, imports, and runtime paths.
+- [x] Scope every relationship-bearing validation query and resolved model to the authorized tenant and parent before persistence.
+- [x] Authorize creation and mutation against resolved parent objects, not only a model class or current-team flag.
+- [x] Enforce tool, connector, data source, implementation, model, routing, approval subject, and quota subject ownership at both management and runtime boundaries.
+- [x] Add transactions, row locks, composite constraints, or invariant triggers where practical; document and test every invariant that must remain application-enforced.
+- [x] Make legacy/null role data defensive so inconsistent imports cannot crash governance surfaces.
+- [x] Add a [two-tenant adversarial matrix](enterprise-readiness-evidence/Phase_1_Two_Tenant_Adversarial_Matrix_2026-07-15.md) for create, update, import, manifest, publish, execute, export, and direct-object access paths.
 
 #### Standards-compliant identity and account linking — ER-02, EC-17–EC-19
 
-- [ ] Restrict SSO connection creation and activation to global Security/IAM administrators with separate, audited approval and test-before-enable.
-- [ ] Implement OIDC authorization code with PKCE using pinned discovery/JWKS and signed ID-token validation.
-- [ ] Validate issuer, audience, authorized party, algorithm, expiry, nonce, state, and callback connection identity in one single-use transaction.
-- [ ] Require verified email and approved tenant/domain claims where email participates in provisioning.
-- [ ] Remove automatic linking of an external subject to an existing global user by email; require exact `(issuer, subject)`, approved pre-provisioning, or a pre-authenticated MFA-backed linking ceremony.
-- [ ] Prevent tenant IdPs from provisioning, linking, or inheriting global platform-administrator access.
-- [ ] Reconcile SSO-sourced project/platform entitlements authoritatively, including removals, while preserving independent human grants.
-- [ ] Add tenant-scoped discovery, dedicated throttling, anomaly alerts, staged activation, IdP-outage behavior, and break-glass recovery.
-- [ ] Add replay, mix-up, unsigned token, wrong issuer/audience/nonce/expiry, unverified email, privileged-email collision, connection mismatch, group removal, and rate-limit tests.
+- [x] Restrict SSO connection creation and activation to global Security/IAM administrators with separate, audited approval and test-before-enable.
+- [x] Implement OIDC authorization code with PKCE using pinned discovery/JWKS and signed ID-token validation.
+- [x] Validate issuer, audience, authorized party, algorithm, expiry, nonce, state, and callback connection identity in one single-use transaction.
+- [x] Require verified email and approved tenant/domain claims where email participates in provisioning.
+- [x] Remove automatic linking of an external subject to an existing global user by email; require exact `(issuer, subject)`, approved pre-provisioning, or a pre-authenticated MFA-backed linking ceremony.
+- [x] Prevent tenant IdPs from provisioning, linking, or inheriting global platform-administrator access.
+- [x] Reconcile SSO-sourced project/platform entitlements authoritatively, including removals, while preserving independent human grants.
+- [x] Add tenant-scoped discovery, dedicated throttling, durable tenant-scoped anomaly alerts, staged activation, controlled IdP-outage behavior, and audited time-boxed break-glass recovery. Target-environment SIEM/on-call delivery, local-MFA custody, and outage exercise remain open operational evidence.
+- [x] Add replay, mix-up, unsigned token, wrong issuer/audience/nonce/expiry, unverified email, privileged-email collision, connection mismatch, group removal, and rate-limit tests.
 
 #### Data and provider credential isolation — ER-03, ER-05, EC-01
 
-- [ ] Separate transient execution state from retained audit records and store transient state only in a short-lived encrypted tenant-scoped store with explicit TTL.
-- [ ] Apply the effective policy before every database, state, trace, audit, queue, failed-job, cache, webhook, export, log, browser-prop, and error boundary.
-- [ ] Make `exclude` mean never persisted or emitted; make masking/classification consistent across all duplicate copies.
-- [ ] Redact provider, tool, connector, database, and validation exceptions into stable public codes plus correlation IDs.
-- [ ] Replace process-global AI-provider configuration mutation with request-scoped provider clients and credentials.
-- [ ] Where upstream mutation is unavoidable, snapshot and restore configuration in `finally`, clear provider instances before and after every branch, and cover null-key, exception, retry, and failover paths.
-- [ ] Reserve environment fallback for an explicitly platform-owned provider; require vault-bound credentials for tenant-owned provider billing boundaries.
-- [ ] Review all long-lived workers, singletons, caches, and retry payloads for tenant state leakage.
-- [ ] Add recursive sentinel tests and sequential/concurrent A→B credential-isolation tests for queue and Octane-style workers.
+- [x] Separate transient execution state from retained audit records and store transient state only in a short-lived encrypted tenant-scoped store with explicit TTL.
+- [x] Apply the effective policy before every database, state, trace, audit, queue, failed-job, cache, webhook, export, log, browser-prop, and error boundary.
+- [x] Make `exclude` mean never persisted or emitted; make masking/classification consistent across all duplicate copies.
+- [x] Redact provider, tool, connector, database, and validation exceptions into stable public codes plus correlation IDs.
+- [x] Replace process-global AI-provider configuration mutation with request-scoped provider clients and credentials.
+- [x] Where upstream mutation is unavoidable, snapshot and restore configuration in `finally`, clear provider instances before and after every branch, and cover null-key, exception, retry, and failover paths. _(Superseded: MAACC no longer mutates upstream global provider configuration.)_
+- [x] Reserve environment fallback for an explicitly platform-owned provider; require vault-bound credentials for tenant-owned provider billing boundaries.
+- [x] Review all long-lived workers, singletons, caches, and retry payloads for tenant state leakage.
+- [x] Add recursive sentinel tests and sequential/concurrent A→B credential-isolation tests for queue and Octane-style workers.
 
 #### One authoritative readiness state machine — ER-04
 
-- [ ] Implement a single `AgentReadinessGate` used by direct publish, approval, manifest, playground, evaluation, runtime start, resume, and jobs.
-- [ ] Require same-tenant/project-approved models, correct environment, active dependencies, compatible implementations, required approvals, evaluations, safety policy, and current immutable configuration at every gate.
-- [ ] Define and enforce legal status transitions; remove privileged statuses from ordinary request payloads.
-- [ ] Bind approval to an immutable configuration/version hash and invalidate it after any material prompt, tool, model, routing, source, connector, environment, or credential change.
-- [ ] Enforce four-eyes separation, one pending request per subject/version, row-locked decisions, and idempotent duplicate handling.
-- [ ] Stage production credential and high-risk mutations until approval instead of approving an already-applied change.
-- [ ] Reject suspended/archived applications and inactive tools/models/connectors/sources before manifest exposure and again before execution.
-- [ ] Add concurrency, self-approval, stale-approval, double-submit, material-change, disabled-dependency, and bypass-path tests.
+- [x] Implement a single `AgentReadinessGate` used by direct publish, approval, manifest, playground, evaluation, runtime start, resume, and jobs.
+- [x] Require same-tenant/project-approved models, correct environment, active dependencies, compatible implementations, required approvals, evaluations, safety policy, and current immutable configuration at every gate.
+- [x] Define and enforce legal status transitions; remove privileged statuses from ordinary request payloads.
+- [x] Bind approval to an immutable configuration/version hash and invalidate it after any material prompt, tool, model, routing, source, connector, environment, or credential change.
+- [x] Enforce four-eyes separation, one pending request per subject/version, row-locked decisions, and idempotent duplicate handling.
+- [x] Stage production credential and high-risk mutations until approval instead of approving an already-applied change.
+- [x] Reject suspended/archived applications and inactive tools/models/connectors/sources before manifest exposure and again before execution.
+- [x] Add concurrency, self-approval, stale-approval, double-submit, material-change, disabled-dependency, and bypass-path tests.
 
 ### Deliverables
 
@@ -440,12 +440,12 @@ All 56 functional requirements remain regression scope. The table below gives th
 
 Use this table as the release ledger. A phase is complete only when its acceptance criteria and mapped gates are evidenced.
 
-| Phase | Implementation PRs | Automated evidence | Operational evidence | Approvals | Status         |
-| ----- | ------------------ | ------------------ | -------------------- | --------- | -------------- |
-| 1     | _Pending_          | _Pending_          | _Pending_            | _Pending_ | ⬜ Not started |
-| 2     | _Pending_          | _Pending_          | _Pending_            | _Pending_ | ⬜ Not started |
-| 3     | _Pending_          | _Pending_          | _Pending_            | _Pending_ | ⬜ Not started |
-| 4     | _Pending_          | _Pending_          | _Pending_            | _Pending_ | ⬜ Not started |
+| Phase | Implementation PRs                                                | Automated evidence                                                                                                                                                                                                                                                                                                               | Operational evidence                                                                                                                                                                                                                                   | Approvals | Status                                      |
+| ----- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------------------- |
+| 1     | Local Phase 1 remediation working tree; implementation PR pending | [Phase 1 engineering evidence](enterprise-readiness-evidence/Phase_1_Engineering_Evidence_2026-07-15.md); [two-tenant matrix](enterprise-readiness-evidence/Phase_1_Two_Tenant_Adversarial_Matrix_2026-07-15.md); [threat/control register](enterprise-readiness-evidence/MAACC_Phase_1_Threat_Model_and_Control_Register_v1.md) | [Local tenant scan](enterprise-readiness-evidence/ER-01_Tenant_Integrity_Scan_2026-07-15.md); [local privileged SSO/session audit](enterprise-readiness-evidence/Phase_1_Privileged_SSO_Access_Audit_2026-07-15.md); real-environment evidence pending | _Pending_ | 🟨 Engineering verified; acceptance blocked |
+| 2     | _Pending_                                                         | _Pending_                                                                                                                                                                                                                                                                                                                        | _Pending_                                                                                                                                                                                                                                              | _Pending_ | ⬜ Not started                              |
+| 3     | _Pending_                                                         | _Pending_                                                                                                                                                                                                                                                                                                                        | _Pending_                                                                                                                                                                                                                                              | _Pending_ | ⬜ Not started                              |
+| 4     | _Pending_                                                         | _Pending_                                                                                                                                                                                                                                                                                                                        | _Pending_                                                                                                                                                                                                                                              | _Pending_ | ⬜ Not started                              |
 
 ## Validation for This Document
 

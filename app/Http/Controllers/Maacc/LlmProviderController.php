@@ -4,12 +4,13 @@ namespace App\Http\Controllers\Maacc;
 
 use App\Actions\Maacc\CreateLlmProvider;
 use App\Actions\Maacc\DeleteLlmProvider;
-use App\Actions\Maacc\PublishLlmProvider;
 use App\Actions\Maacc\UpdateLlmProvider;
+use App\Enums\Environment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreLlmProviderRequest;
 use App\Http\Requests\Maacc\UpdateLlmProviderRequest;
 use App\Models\LlmProvider;
+use App\Support\Governance\ApprovalManager;
 use App\Support\Runtime\LlmProviderVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -89,7 +90,7 @@ class LlmProviderController extends Controller
      * check first and refuses to approve a model that does not pass, so a broken
      * key or model code can never reach production traffic.
      */
-    public function publish(string $currentTeam, LlmProvider $llmProvider, LlmProviderVerifier $verifier, PublishLlmProvider $publishLlmProvider): RedirectResponse
+    public function publish(Request $request, string $currentTeam, LlmProvider $llmProvider, LlmProviderVerifier $verifier, ApprovalManager $approvals): RedirectResponse
     {
         Gate::authorize('publish', $llmProvider);
 
@@ -101,9 +102,11 @@ class LlmProviderController extends Controller
             return back();
         }
 
-        $publishLlmProvider->handle($llmProvider);
+        $environment = Environment::tryFrom((string) ($llmProvider->environments[0] ?? ''))
+            ?? Environment::Production;
+        $approvals->requestModelAccess($llmProvider, $request->user(), $environment);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Model published.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Model publication submitted for approval.']);
 
         return back();
     }

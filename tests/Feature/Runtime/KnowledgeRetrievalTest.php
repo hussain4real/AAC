@@ -7,7 +7,9 @@ use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Enums\TraceEventType;
+use App\Exceptions\Sdk\RuntimeRequestException;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
@@ -156,6 +158,7 @@ it('drives a full RAG run through the runtime with citations and a trace', funct
     ]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()
         ->toolCallThen('searchPolicy', ['query' => 'berth allocation'])
@@ -171,7 +174,7 @@ it('drives a full RAG run through the runtime with citations and a trace', funct
         ->and($run->traceEvents()->where('type', TraceEventType::ToolResultReceived)->exists())->toBeTrue();
 });
 
-it('fails the run when a knowledge tool requires approval but is not active', function () {
+it('rejects a run before creation when a knowledge tool requires approval but is not active', function () {
     $tool = knowledgeTool($this->source, [
         'slug' => 'gatedKnowledge',
         'requires_approval' => true,
@@ -184,13 +187,14 @@ it('fails the run when a knowledge tool requires approval but is not active', fu
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('gatedKnowledge', ['query' => 'berth']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('tool_requires_approval');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
 it('returns no matches for a stopword-only query or a zero limit', function () {
@@ -227,7 +231,7 @@ it('produces no chunks for a whitespace-only document body', function () {
         ->and($document->indexed_at)->not->toBeNull();
 });
 
-it('fails the run when the knowledge source is unavailable', function () {
+it('rejects a run before creation when the knowledge source is unavailable', function () {
     $this->source->update(['status' => KnowledgeSourceStatus::Disabled]);
     $tool = knowledgeTool($this->source, ['slug' => 'searchDisabled']);
 
@@ -236,13 +240,14 @@ it('fails the run when the knowledge source is unavailable', function () {
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('searchDisabled', ['query' => 'berth']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('knowledge_unavailable');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
 it('reindexes a source and rebuilds its chunks', function () {

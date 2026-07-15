@@ -8,8 +8,11 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
+    approve as approveConnection,
+    disable as disableConnection,
     destroy as destroyConnection,
     store as storeConnection,
+    test as testConnection,
     update as updateConnection,
 } from '@/actions/App/Http/Controllers/Maacc/SsoConnectionController';
 import {
@@ -33,14 +36,10 @@ import { Icon } from '@/maacc/icons';
 import { useMaaccData } from '@/maacc/use-data';
 import type { MaaccSsoConnection } from '@/types/global';
 
-const PROVIDER_OPTIONS = [
-    { value: 'oidc', label: 'OpenID Connect' },
-    { value: 'oauth2', label: 'OAuth 2.0' },
-];
+const PROVIDER_OPTIONS = [{ value: 'oidc', label: 'OpenID Connect' }];
 const TEAM_ROLE_OPTIONS = [
     { value: 'member', label: 'Member' },
     { value: 'admin', label: 'Admin' },
-    { value: 'owner', label: 'Owner' },
 ];
 const MAACC_ROLE_OPTIONS = [
     { value: 'none', label: '— (no project role)' },
@@ -72,31 +71,37 @@ function ConnectionFormModal({
     const form = useForm<{
         name: string;
         provider: string;
+        issuer: string;
         authorize_url: string;
         token_url: string;
         userinfo_url: string;
+        jwks_url: string;
         client_id: string;
         client_secret: string;
         scopes: string;
         groups_claim: string;
+        allowed_domains_text: string;
+        allowed_domains: string[];
         default_team_role: string;
         group_role_mappings: Mapping[];
         auto_provision: boolean;
-        status: string;
     }>({
         name: connection?.name ?? '',
         provider: connection?.provider ?? 'oidc',
+        issuer: connection?.issuer ?? '',
         authorize_url: connection?.authorizeUrl ?? '',
         token_url: connection?.tokenUrl ?? '',
         userinfo_url: connection?.userinfoUrl ?? '',
+        jwks_url: connection?.jwksUrl ?? '',
         client_id: connection?.clientId ?? '',
         client_secret: '',
         scopes: connection?.scopes ?? 'openid profile email groups',
         groups_claim: connection?.groupsClaim ?? 'groups',
+        allowed_domains_text: connection?.allowedDomains.join(', ') ?? '',
+        allowed_domains: connection?.allowedDomains ?? [],
         default_team_role: connection?.defaultTeamRole ?? 'member',
         group_role_mappings: connection?.groupRoleMappings ?? [],
         auto_provision: connection?.autoProvision ?? true,
-        status: connection?.status ?? 'active',
     });
 
     const close = () => {
@@ -117,6 +122,11 @@ function ConnectionFormModal({
 
         form.transform((data) => ({
             ...data,
+            allowed_domains: data.allowed_domains_text
+                .split(',')
+                .map((domain) => domain.trim().toLowerCase())
+                .filter(Boolean),
+            allowed_domains_text: undefined,
             group_role_mappings: data.group_role_mappings.map((m) => ({
                 group: m.group,
                 team_role: m.team_role,
@@ -157,7 +167,7 @@ function ConnectionFormModal({
                     ? 'Edit identity connection'
                     : 'Register identity connection'
             }
-            sub="Web users authenticate through this provider; the group → role rules map their identity onto MAACC roles."
+            sub="Connections are saved as drafts. Test the pinned signing keys, then have a separate security reviewer approve activation."
             width={640}
             footer={
                 <>
@@ -170,7 +180,7 @@ function ConnectionFormModal({
                         disabled={form.processing}
                         onClick={submit}
                     >
-                        {isEdit ? 'Save changes' : 'Register connection'}
+                        {isEdit ? 'Save as draft' : 'Register draft'}
                     </Btn>
                 </>
             }
@@ -196,6 +206,19 @@ function ConnectionFormModal({
                         <FieldError error={form.errors.provider} />
                     </Field>
                 </div>
+                <Field
+                    label="Pinned issuer"
+                    required
+                    hint="Must exactly match the signed ID token iss claim."
+                >
+                    <Input
+                        value={form.data.issuer}
+                        onChange={(e) => form.setData('issuer', e.target.value)}
+                        placeholder="https://login.example.com/tenant/v2.0"
+                        style={{ fontFamily: 'var(--mono)' }}
+                    />
+                    <FieldError error={form.errors.issuer} />
+                </Field>
                 <Field label="Authorize URL" required>
                     <Input
                         value={form.data.authorize_url}
@@ -231,6 +254,21 @@ function ConnectionFormModal({
                         <FieldError error={form.errors.userinfo_url} />
                     </Field>
                 </div>
+                <Field
+                    label="Pinned JWKS URL"
+                    required
+                    hint="MAACC retrieves signing keys only from this reviewed HTTPS endpoint."
+                >
+                    <Input
+                        value={form.data.jwks_url}
+                        onChange={(e) =>
+                            form.setData('jwks_url', e.target.value)
+                        }
+                        placeholder="https://login.example.com/.well-known/jwks.json"
+                        style={{ fontFamily: 'var(--mono)' }}
+                    />
+                    <FieldError error={form.errors.jwks_url} />
+                </Field>
                 <div style={half}>
                     <Field label="Client ID" required>
                         <Input
@@ -266,6 +304,21 @@ function ConnectionFormModal({
                         <FieldError error={form.errors.client_secret} />
                     </Field>
                 </div>
+                <Field
+                    label="Approved email domains"
+                    required={form.data.auto_provision}
+                    hint="Comma-separated. Auto-provisioning is rejected outside these domains."
+                >
+                    <Input
+                        value={form.data.allowed_domains_text}
+                        onChange={(e) =>
+                            form.setData('allowed_domains_text', e.target.value)
+                        }
+                        placeholder="corp.example, subsidiary.example"
+                    />
+                    <FieldError error={form.errors.allowed_domains_text} />
+                    <FieldError error={form.errors.allowed_domains} />
+                </Field>
                 <div style={half}>
                     <Field label="Scopes" hint="Space-separated.">
                         <Input
@@ -404,11 +457,17 @@ function ConnectionFormModal({
 
 export default function Identity() {
     const MAACC = useMaaccData();
-    const { currentTeam } = usePage().props;
+    const { auth, currentTeam } = usePage().props;
     const teamSlug = currentTeam?.slug ?? '';
     const connections = MAACC.ssoConnections;
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<MaaccSsoConnection | undefined>();
+    const canManage =
+        auth.platform.isSuperAdmin ||
+        auth.platform.permissions.includes('identity.manage');
+    const canApprove =
+        auth.platform.isSuperAdmin ||
+        auth.platform.permissions.includes('identity.approve');
 
     const active = connections.filter((c) => c.status === 'active').length;
     const users = connections.reduce(
@@ -416,12 +475,28 @@ export default function Identity() {
         0,
     );
 
-    const toggle = (connection: MaaccSsoConnection) => {
-        router.put(
-            updateConnection([teamSlug, connection.id]).url,
-            { status: connection.status === 'active' ? 'disabled' : 'active' },
+    const test = (connection: MaaccSsoConnection) => {
+        router.post(testConnection([teamSlug, connection.id]).url, undefined, {
+            preserveScroll: true,
+        });
+    };
+
+    const approve = (connection: MaaccSsoConnection) => {
+        router.post(
+            approveConnection([teamSlug, connection.id]).url,
+            undefined,
             { preserveScroll: true },
         );
+    };
+
+    const disable = (connection: MaaccSsoConnection) => {
+        if (window.confirm(`Disable SSO logins through ${connection.name}?`)) {
+            router.post(
+                disableConnection([teamSlug, connection.id]).url,
+                undefined,
+                { preserveScroll: true },
+            );
+        }
     };
 
     const remove = (connection: MaaccSsoConnection) => {
@@ -442,16 +517,18 @@ export default function Identity() {
                     title="Enterprise Identity"
                     sub="Register the OAuth 2.0 / OIDC providers your web users sign in through. Each connection maps external groups onto MAACC team and project roles; every SSO login is recorded in the audit log. Local password sign-in remains available."
                     actions={
-                        <Btn
-                            variant="primary"
-                            icon="plus"
-                            onClick={() => {
-                                setEditing(undefined);
-                                setModalOpen(true);
-                            }}
-                        >
-                            Register connection
-                        </Btn>
+                        canManage ? (
+                            <Btn
+                                variant="primary"
+                                icon="plus"
+                                onClick={() => {
+                                    setEditing(undefined);
+                                    setModalOpen(true);
+                                }}
+                            >
+                                Register connection
+                            </Btn>
+                        ) : undefined
                     }
                 />
 
@@ -489,16 +566,18 @@ export default function Identity() {
                             title="No identity connections yet"
                             desc="Register an enterprise identity provider so your team can sign in with SSO and receive roles mapped from their directory groups."
                             action={
-                                <Btn
-                                    variant="primary"
-                                    icon="plus"
-                                    onClick={() => {
-                                        setEditing(undefined);
-                                        setModalOpen(true);
-                                    }}
-                                >
-                                    Register connection
-                                </Btn>
+                                canManage ? (
+                                    <Btn
+                                        variant="primary"
+                                        icon="plus"
+                                        onClick={() => {
+                                            setEditing(undefined);
+                                            setModalOpen(true);
+                                        }}
+                                    >
+                                        Register connection
+                                    </Btn>
+                                ) : undefined
                             }
                         />
                     </Card>
@@ -509,7 +588,7 @@ export default function Identity() {
                             { label: 'Protocol' },
                             { label: 'Callback (register with IdP)' },
                             { label: 'Identities', align: 'center' },
-                            { label: 'Active', align: 'center' },
+                            { label: 'Status', align: 'center' },
                             { label: '', align: 'right' },
                         ]}
                     >
@@ -535,18 +614,19 @@ export default function Identity() {
                                 </Td>
                                 <Td align="center">{c.identityCount ?? 0}</Td>
                                 <Td align="center">
-                                    <div
-                                        style={{
-                                            display: 'inline-flex',
-                                            justifyContent: 'center',
-                                        }}
+                                    <Badge
+                                        tone={
+                                            c.status === 'active'
+                                                ? 'teal'
+                                                : c.status ===
+                                                    'pending_approval'
+                                                  ? 'amber'
+                                                  : 'neutral'
+                                        }
+                                        dot
                                     >
-                                        <Toggle
-                                            on={c.status === 'active'}
-                                            onChange={() => toggle(c)}
-                                            size="sm"
-                                        />
-                                    </div>
+                                        {c.statusLabel}
+                                    </Badge>
                                 </Td>
                                 <Td align="right">
                                     <div
@@ -556,20 +636,59 @@ export default function Identity() {
                                             justifyContent: 'flex-end',
                                         }}
                                     >
-                                        <IconBtn
-                                            icon="edit"
-                                            title="Edit"
-                                            onClick={() => {
-                                                setEditing(c);
-                                                setModalOpen(true);
-                                            }}
-                                        />
-                                        <IconBtn
-                                            icon="trash"
-                                            title="Delete"
-                                            danger
-                                            onClick={() => remove(c)}
-                                        />
+                                        {canManage && c.status !== 'active' && (
+                                            <Btn
+                                                size="sm"
+                                                variant="soft"
+                                                icon="flask"
+                                                onClick={() => test(c)}
+                                            >
+                                                Test
+                                            </Btn>
+                                        )}
+                                        {canApprove &&
+                                            c.status === 'pending_approval' && (
+                                                <Btn
+                                                    size="sm"
+                                                    variant="primary"
+                                                    icon="check2"
+                                                    disabled={
+                                                        c.createdBy ===
+                                                        auth.user.id
+                                                    }
+                                                    onClick={() => approve(c)}
+                                                >
+                                                    Approve
+                                                </Btn>
+                                            )}
+                                        {canManage && c.status === 'active' && (
+                                            <Btn
+                                                size="sm"
+                                                variant="danger"
+                                                icon="power"
+                                                onClick={() => disable(c)}
+                                            >
+                                                Disable
+                                            </Btn>
+                                        )}
+                                        {canManage && (
+                                            <>
+                                                <IconBtn
+                                                    icon="edit"
+                                                    title="Edit (returns to draft)"
+                                                    onClick={() => {
+                                                        setEditing(c);
+                                                        setModalOpen(true);
+                                                    }}
+                                                />
+                                                <IconBtn
+                                                    icon="trash"
+                                                    title="Delete"
+                                                    danger
+                                                    onClick={() => remove(c)}
+                                                />
+                                            </>
+                                        )}
                                     </div>
                                 </Td>
                             </Tr>
@@ -577,11 +696,13 @@ export default function Identity() {
                     </Table>
                 )}
 
-                <ConnectionFormModal
-                    connection={editing}
-                    open={modalOpen}
-                    onClose={() => setModalOpen(false)}
-                />
+                {canManage && (
+                    <ConnectionFormModal
+                        connection={editing}
+                        open={modalOpen}
+                        onClose={() => setModalOpen(false)}
+                    />
+                )}
             </div>
         </>
     );

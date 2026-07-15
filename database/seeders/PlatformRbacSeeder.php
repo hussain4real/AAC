@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\PlatformPermission;
 use App\Enums\PlatformRole;
 use App\Models\User;
+use App\Support\Platform\PlatformAccessManager;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -57,7 +58,13 @@ class PlatformRbacSeeder extends Seeder
         foreach ($emails as $email) {
             $user = User::firstWhere('email', $email);
 
-            $user?->assignRole(PlatformRole::SuperAdmin->value);
+            if ($user instanceof User) {
+                app(PlatformAccessManager::class)->bootstrap(
+                    $user,
+                    PlatformRole::SuperAdmin,
+                    'MAACC_PLATFORM_SUPER_ADMINS',
+                );
+            }
         }
     }
 }

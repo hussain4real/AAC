@@ -6,6 +6,7 @@ use App\Http\Resources\Maacc\IncidentActionResource;
 use App\Http\Resources\Maacc\ModelRoutingPolicyResource;
 use App\Http\Resources\Maacc\SsoConnectionResource;
 use App\Http\Resources\Maacc\VaultSecretResource;
+use App\Models\SsoConnection;
 use App\Models\Team;
 use App\Support\Runtime\Routing\ProviderHealth;
 
@@ -40,6 +41,10 @@ class EnterpriseConsoleData
      */
     private static function ssoConnections(Team $team): array
     {
+        if (! request()->user()?->can('viewAny', SsoConnection::class)) {
+            return [];
+        }
+
         $connections = $team->ssoConnections()
             ->withCount('identities')
             ->orderBy('name')

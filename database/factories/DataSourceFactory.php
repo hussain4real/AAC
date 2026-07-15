@@ -6,7 +6,6 @@ use App\Enums\DataSourceStatus;
 use App\Enums\DbConnectionType;
 use App\Enums\Environment;
 use App\Enums\Sensitivity;
-use App\Models\Application;
 use App\Models\DataSource;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -32,7 +31,7 @@ class DataSourceFactory extends Factory
     {
         return [
             'team_id' => Team::factory(),
-            'application_id' => Application::factory(),
+            'application_id' => null,
             'slug' => fake()->unique()->slug(2),
             'name' => fake()->unique()->words(2, true),
             'description' => fake()->sentence(),

@@ -43,7 +43,11 @@ class ModelRouter
     private function withoutPolicy(AgentRun $run, Agent $agent): RoutingDecision
     {
         $provider = $agent->llmProvider;
-        $available = $run->environment !== null && $provider->isAvailableIn($run->environment->value);
+        $available = $run->environment !== null
+            && $provider->isVerified()
+            && $provider->isAvailableIn($run->environment->value)
+            && $this->hasCredentialSource($provider)
+            && $agent->project->llmProviders()->whereKey($provider->id)->exists();
 
         $evaluation = new CandidateEvaluation(
             $provider,
@@ -72,9 +76,9 @@ class ModelRouter
     {
         $candidateIds = $policy->candidateProviderIds();
 
-        $providers = LlmProvider::query()
-            ->where('team_id', $agent->llmProvider->team_id)
-            ->whereIn('id', $candidateIds)
+        $providers = $agent->project->llmProviders()
+            ->where('llm_providers.team_id', $agent->project->application->team_id)
+            ->whereIn('llm_providers.id', $candidateIds)
             ->get()
             ->keyBy('id');
 
@@ -124,6 +128,14 @@ class ModelRouter
             return $make(false, 'Not approved or available in the environment.');
         }
 
+        if (! $provider->isVerified()) {
+            return $make(false, 'The provider has not passed verification.');
+        }
+
+        if (! $this->hasCredentialSource($provider)) {
+            return $make(false, 'The provider has no approved credential source.');
+        }
+
         if (! $provider->sensitivity->isAtLeast($run->sensitivity)) {
             return $make(false, "Not cleared for {$run->sensitivity->label()} data.");
         }
@@ -141,6 +153,14 @@ class ModelRouter
         }
 
         return $make(true, 'Eligible.');
+    }
+
+    /**
+     * Tenant-managed providers fail closed until a vault key is bound.
+     */
+    private function hasCredentialSource(LlmProvider $provider): bool
+    {
+        return $provider->platform_owned || $provider->vault_secret_id !== null;
     }
 
     /**

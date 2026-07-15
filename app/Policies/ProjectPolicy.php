@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\MaaccPermission;
+use App\Models\Application;
 use App\Models\Project;
 use App\Models\User;
 
@@ -31,11 +32,13 @@ class ProjectPolicy
     /**
      * Determine whether the user can create a project.
      */
-    public function create(User $user): bool
+    public function create(User $user, ?Application $application = null): bool
     {
         $team = $user->currentTeam;
 
-        return $team !== null && $user->hasMaaccPermission($team, MaaccPermission::ManageProject);
+        return $team !== null
+            && ($application === null || $application->team_id === $team->id)
+            && $user->hasMaaccPermission($team, MaaccPermission::ManageProject);
     }
 
     /**

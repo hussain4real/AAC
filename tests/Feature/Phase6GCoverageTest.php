@@ -3,6 +3,7 @@
 use App\Enums\AgentStatus;
 use App\Enums\Environment;
 use App\Enums\MaaccRole;
+use App\Enums\PlatformRole;
 use App\Enums\RoutingStrategy;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
@@ -15,15 +16,20 @@ use App\Models\LlmProvider;
 use App\Models\ModelRoutingPolicy;
 use App\Models\Project;
 use App\Models\SsoConnection;
+use App\Models\User;
 use App\Models\VaultSecret;
 use App\Support\Governance\AuditExporter;
 use App\Support\Governance\IncidentGuard;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Routing\ModelRouter;
+use Database\Seeders\PlatformRbacSeeder;
 
-test('the enterprise policies authorize platform admins and reject plain members', function () {
+test('enterprise policies separate tenant administration from platform identity authority', function () {
+    $this->seed(PlatformRbacSeeder::class);
     [$owner, $team] = ownerAndTeam();
     $member = teamMember($team);
+    $platformAdmin = User::factory()->create();
+    $platformAdmin->assignRole(PlatformRole::PlatformAdmin->value);
     $secret = VaultSecret::factory()->for($team)->create();
     $connection = SsoConnection::factory()->for($team)->create();
 
@@ -33,10 +39,12 @@ test('the enterprise policies authorize platform admins and reject plain members
         ->and($owner->can('delete', $secret))->toBeTrue()
         ->and($member->can('viewAny', VaultSecret::class))->toBeFalse()
         ->and($member->can('create', VaultSecret::class))->toBeFalse()
-        ->and($owner->can('viewAny', SsoConnection::class))->toBeTrue()
-        ->and($owner->can('create', SsoConnection::class))->toBeTrue()
-        ->and($owner->can('update', $connection))->toBeTrue()
-        ->and($owner->can('delete', $connection))->toBeTrue()
+        ->and($owner->can('viewAny', SsoConnection::class))->toBeFalse()
+        ->and($owner->can('create', SsoConnection::class))->toBeFalse()
+        ->and($platformAdmin->can('viewAny', SsoConnection::class))->toBeTrue()
+        ->and($platformAdmin->can('create', SsoConnection::class))->toBeTrue()
+        ->and($platformAdmin->can('update', $connection))->toBeTrue()
+        ->and($platformAdmin->can('delete', $connection))->toBeTrue()
         ->and($member->can('viewAny', SsoConnection::class))->toBeFalse()
         ->and($member->can('viewAny', IncidentAction::class))->toBeFalse()
         ->and($member->can('create', IncidentAction::class))->toBeFalse();
@@ -144,6 +152,7 @@ test('the latency-optimized strategy selects the fastest eligible model', functi
     [, $team] = ownerAndTeam();
     $agent = maaccAgent($team);
     $fast = LlmProvider::factory()->for($team)->create();
+    $agent->project->llmProviders()->attach($fast);
 
     foreach ([[$agent->llm_provider_id, 5000], [$fast->id, 200]] as [$providerId, $latency]) {
         AgentRun::factory()->count(5)->create([

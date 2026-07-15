@@ -5,7 +5,6 @@ namespace Database\Factories;
 use App\Enums\Environment;
 use App\Enums\KnowledgeSourceStatus;
 use App\Enums\Sensitivity;
-use App\Models\Application;
 use App\Models\KnowledgeSource;
 use App\Models\Team;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -31,7 +30,7 @@ class KnowledgeSourceFactory extends Factory
     {
         return [
             'team_id' => Team::factory(),
-            'application_id' => Application::factory(),
+            'application_id' => null,
             'slug' => fake()->unique()->slug(2),
             'name' => fake()->unique()->words(2, true),
             'description' => fake()->sentence(),

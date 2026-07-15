@@ -8,7 +8,9 @@ use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Enums\TraceEventType;
 use App\Enums\VaultSecretKind;
+use App\Exceptions\Sdk\RuntimeRequestException;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\DataSource;
 use App\Models\LlmProvider;
@@ -360,6 +362,7 @@ it('drives a full db-tool run through the runtime with trace and row data', func
     ]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()
         ->toolCallThen('regionMetrics', ['region' => 'EU'])
@@ -376,7 +379,7 @@ it('drives a full db-tool run through the runtime with trace and row data', func
         ->and($run->traceEvents()->where('type', TraceEventType::ToolResultReceived)->exists())->toBeTrue();
 });
 
-it('fails the run when a db tool requires approval but is not active', function () {
+it('rejects a run before creation when a db tool requires approval but is not active', function () {
     $tool = dbTool($this->source, [
         'slug' => 'gatedDb',
         'requires_approval' => true,
@@ -389,16 +392,17 @@ it('fails the run when a db tool requires approval but is not active', function 
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('gatedDb', ['region' => 'EU']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('tool_requires_approval');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
-it('fails the run with a controlled code when the db source is unavailable', function () {
+it('rejects a run before creation when the db source is unavailable', function () {
     $this->source->update(['status' => DataSourceStatus::Disabled]);
     $tool = dbTool($this->source, ['slug' => 'disabledDb']);
 
@@ -407,13 +411,14 @@ it('fails the run with a controlled code when the db source is unavailable', fun
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('disabledDb', ['region' => 'EU']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('db_source_unavailable');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
 it('fails the run with db_invalid_output when the result violates the output schema', function () {
@@ -427,6 +432,7 @@ it('fails the run with db_invalid_output when the result violates the output sch
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('badSchemaDb', ['region' => 'EU']);
 

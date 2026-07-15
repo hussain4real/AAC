@@ -11,6 +11,7 @@ use App\Models\Agent;
 use App\Models\Application;
 use App\Models\ToolContract;
 use App\Models\ToolImplementation;
+use App\Support\Governance\AgentReadinessGate;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -28,6 +29,7 @@ class ToolRegistry
     public function __construct(
         private readonly SdkStubGenerator $stubs,
         private readonly SdkPlatform $platform,
+        private readonly AgentReadinessGate $readiness,
     ) {}
 
     /**
@@ -38,10 +40,14 @@ class ToolRegistry
     public function requiredClientTools(Application $application): Collection
     {
         return ToolContract::query()
+            ->where('team_id', $application->team_id)
             ->where('application_id', $application->id)
             ->where('execution_mode', ExecMode::Client)
+            ->where('status', 'Active')
             ->with([
-                'agents' => fn ($query) => $query->orderBy('name'),
+                'agents' => fn ($query) => $query
+                    ->whereHas('project', fn ($projectQuery) => $projectQuery->where('application_id', $application->id))
+                    ->orderBy('name'),
                 'implementations' => fn ($query) => $query->where('application_id', $application->id),
             ])
             ->orderBy('name')
@@ -53,14 +59,20 @@ class ToolRegistry
      *
      * @return Collection<int, Agent>
      */
-    public function availableAgents(Application $application): Collection
+    public function availableAgents(Application $application, Environment $environment): Collection
     {
         return Agent::query()
             ->whereHas('project', fn ($query) => $query->where('application_id', $application->id))
             ->where('status', AgentStatus::Published)
-            ->with(['tools' => fn ($query) => $query->orderBy('name')])
+            ->with([
+                'project.application',
+                'llmProvider',
+                'tools' => fn ($query) => $query->orderBy('name'),
+            ])
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Agent $agent): bool => $this->readiness->isReady($agent, $application, $environment))
+            ->values();
     }
 
     /**
@@ -84,7 +96,7 @@ class ToolRegistry
             'api_version' => $this->platform->apiVersion(),
             'sdk' => $this->platform->descriptor(),
             'sdk_languages' => SdkLanguage::options(),
-            'agents' => $this->availableAgents($application)
+            'agents' => $this->availableAgents($application, $environment)
                 ->map(fn (Agent $agent): array => [
                     'slug' => $agent->agent_slug,
                     'name' => $agent->name,
