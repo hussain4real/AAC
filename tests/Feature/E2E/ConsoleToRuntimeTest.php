@@ -15,6 +15,8 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolContract;
 use App\Models\User;
+use App\Support\Runtime\Contracts\LlmRouter;
+use App\Support\Runtime\DeterministicLlmRouter;
 use Database\Seeders\MaaccE2ESeeder;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Testing\TestResponse;
@@ -44,6 +46,7 @@ beforeEach(function () {
     // Fake-provider mode: publishing's live connection check resolves the
     // deterministic router, and the run uses the scripted fake bound below.
     config(['maacc.runtime.driver' => 'fake']);
+    $this->instance(LlmRouter::class, app(DeterministicLlmRouter::class));
 });
 
 /**
