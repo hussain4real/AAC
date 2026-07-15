@@ -60,14 +60,14 @@ jobs:
       - name: Generate Wayfinder definitions
         run: php artisan wayfinder:generate --with-form --no-interaction
 
+      - name: Build production assets
+        run: npm run build
+
       - name: Run non-mutating aggregate engineering gate
         run: composer ci:check
 
       - name: Enforce complete PHP line coverage
         run: php artisan test --coverage --min=100 --compact
-
-      - name: Build production assets
-        run: npm run build
 
       - name: Verify checks did not mutate tracked files
         run: git diff --exit-code
