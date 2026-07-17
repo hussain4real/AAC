@@ -6,6 +6,8 @@ use App\Enums\ImplStatus;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\Credential;
+use App\Models\LlmProvider;
+use App\Models\McpConnector;
 use App\Models\Project;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
@@ -17,8 +19,12 @@ beforeEach(function () {
     $this->application = Application::factory()->for($this->team)->create([
         'environment' => Environment::Production,
     ]);
-    $this->project = Project::factory()->for($this->application)->create();
-    $this->agent = Agent::factory()->for($this->project)->published()->create();
+    $this->project = Project::factory()->for($this->application)->create([
+        'environment' => Environment::Production,
+    ]);
+    $provider = LlmProvider::factory()->for($this->team)->create();
+    $this->project->llmProviders()->attach($provider);
+    $this->agent = Agent::factory()->for($this->project)->for($provider)->published()->create();
 
     $this->tool = ToolContract::factory()->for($this->team)->for($this->application)->create([
         'slug' => 'getOperationalRecords',
@@ -40,7 +46,7 @@ test('the manifest describes the application, its agents and required tools', fu
 
     $response->assertJsonPath('application.id', $this->application->slug)
         ->assertJsonPath('application.environment', 'production')
-        ->assertJsonPath('agents.0.slug', $this->agent->agent_slug)
+        ->assertJsonCount(0, 'agents')
         ->assertJsonPath('tools.0.name', 'getOperationalRecords')
         ->assertJsonPath('tools.0.version', '1.0.0')
         ->assertJsonPath('tools.0.implementation.status', 'required')
@@ -88,13 +94,38 @@ test('the manifest excludes non-client tools and other applications tools', func
 
 test('the manifest only lists published agents', function () {
     Agent::factory()->for($this->project)->create(); // draft
+    ToolImplementation::factory()->for($this->tool)->for($this->application)->create([
+        'environment' => Environment::Production,
+        'status' => ImplStatus::Implemented,
+        'implemented_version' => $this->tool->version,
+        'schema_fingerprint' => $this->tool->schemaFingerprint(),
+    ]);
+    approveCurrentAgentConfiguration($this->agent);
 
     $this->getJson('/api/v1/manifest')
         ->assertOk()
         ->assertJsonCount(1, 'agents');
 });
 
+test('the manifest excludes agents with persisted cross-tenant tool assignments', function () {
+    [, $foreignTeam] = ownerAndTeam();
+    $foreignTool = ToolContract::factory()->for($foreignTeam)->create();
+    ToolAssignment::factory()->forAgent($this->agent)->create([
+        'tool_contract_id' => $foreignTool->id,
+    ]);
+
+    $this->getJson('/api/v1/manifest')
+        ->assertOk()
+        ->assertJsonCount(0, 'agents');
+});
+
 test('the manifest distinguishes client-side tools from server-side tools MAACC executes', function () {
+    ToolImplementation::factory()->for($this->tool)->for($this->application)->create([
+        'environment' => Environment::Production,
+        'status' => ImplStatus::Implemented,
+        'implemented_version' => $this->tool->version,
+        'schema_fingerprint' => $this->tool->schemaFingerprint(),
+    ]);
     $hosted = ToolContract::factory()->for($this->team)->for($this->application)->create([
         'slug' => 'current_time',
         'name' => 'current_time',
@@ -104,7 +135,8 @@ test('the manifest distinguishes client-side tools from server-side tools MAACC 
         'slug' => 'fleet_status',
         'name' => 'fleet_status',
     ]);
-    $connectorTool = ToolContract::factory()->for($this->team)->for($this->application)->connector()->create([
+    $connector = McpConnector::factory()->for($this->team)->for($this->application)->create();
+    $connectorTool = ToolContract::factory()->for($this->team)->for($this->application)->connector($connector)->create([
         'slug' => 'port_lookup',
         'name' => 'port_lookup',
     ]);
@@ -112,6 +144,7 @@ test('the manifest distinguishes client-side tools from server-side tools MAACC 
     foreach ([$hosted, $http, $connectorTool] as $tool) {
         ToolAssignment::factory()->forAgent($this->agent)->create(['tool_contract_id' => $tool->id]);
     }
+    approveCurrentAgentConfiguration($this->agent);
 
     $response = $this->getJson('/api/v1/manifest')->assertOk();
 

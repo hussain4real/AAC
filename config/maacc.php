@@ -6,6 +6,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Enterprise Readiness Containment
+    |--------------------------------------------------------------------------
+    |
+    | MAACC remains non-enterprise until the readiness gates are signed. New
+    | account and tenant creation therefore fail closed unless an operator has
+    | explicitly enabled a controlled onboarding window. The status message is
+    | shared with every Inertia surface so the containment state is visible.
+    |
+    */
+
+    'readiness' => [
+        'status' => env('MAACC_ENTERPRISE_STATUS', 'non_enterprise'),
+        'message' => env(
+            'MAACC_ENTERPRISE_STATUS_MESSAGE',
+            'Enterprise onboarding and real sensitive-data onboarding are paused pending readiness approval.',
+        ),
+        'registration_enabled' => (bool) env('MAACC_REGISTRATION_ENABLED', false),
+        'team_creation_enabled' => (bool) env('MAACC_TEAM_CREATION_ENABLED', false),
+        'real_sensitive_data_enabled' => (bool) env('MAACC_REAL_SENSITIVE_DATA_ENABLED', false),
+        'change_owner' => env('MAACC_READINESS_CHANGE_OWNER', 'Aminu Hussain'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Agent Runtime
     |--------------------------------------------------------------------------
     |
@@ -49,6 +73,8 @@ return [
         'default_timeout_seconds' => (int) env('MAACC_RUNTIME_TIMEOUT', 120),
         'per_turn_timeout_seconds' => (int) env('MAACC_RUNTIME_TURN_TIMEOUT', 30),
         'verify_timeout_seconds' => (int) env('MAACC_VERIFY_TIMEOUT', 15),
+        'state_store' => env('MAACC_RUNTIME_STATE_STORE'),
+        'state_ttl_seconds' => (int) env('MAACC_RUNTIME_STATE_TTL', 300),
 
         'stream' => [
             'poll_interval_ms' => (int) env('MAACC_RUNTIME_STREAM_INTERVAL', 500),
@@ -262,11 +288,19 @@ return [
     |
     | Settings for the OAuth 2.0 / OIDC authorization-code login flow. `http_timeout_seconds`
     | bounds each outbound call to the provider's token and userinfo endpoints.
+    | Rejected attempts and IdP availability failures are aggregated into the
+    | tenant alert feed over `alert_window_minutes`; the rejection alert fires at
+    | `rejected_login_alert_threshold` attempts inside that window.
     |
     */
 
     'sso' => [
         'http_timeout_seconds' => (int) env('MAACC_SSO_HTTP_TIMEOUT', 10),
+        'connect_timeout_seconds' => (int) env('MAACC_SSO_CONNECT_TIMEOUT', 3),
+        'allowed_id_token_algorithms' => ['RS256'],
+        'flow_ttl_seconds' => (int) env('MAACC_SSO_FLOW_TTL', 600),
+        'alert_window_minutes' => (int) env('MAACC_SSO_ALERT_WINDOW', 15),
+        'rejected_login_alert_threshold' => (int) env('MAACC_SSO_REJECTED_ALERT_THRESHOLD', 5),
     ],
 
     /*

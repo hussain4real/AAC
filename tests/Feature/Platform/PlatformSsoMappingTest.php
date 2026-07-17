@@ -3,6 +3,7 @@
 use App\Enums\PlatformRole;
 use App\Models\PlatformAccessGrant;
 use App\Models\SsoConnection;
+use App\Models\SsoIdentity;
 use App\Models\User;
 use App\Support\Sso\SsoIdentityPayload;
 use App\Support\Sso\SsoUserResolver;
@@ -17,31 +18,27 @@ beforeEach(function () {
     $this->seed(PlatformRbacSeeder::class);
 });
 
-it('resolves mapped platform roles from group claims', function () {
+it('does not expose tenant mappings as platform role assignments', function () {
     [, $team] = ownerAndTeam();
     $connection = SsoConnection::factory()->for($team)->withMappings([
         ['group' => 'maacc-platform', 'platform_role' => PlatformRole::SecurityReviewer->value],
         ['group' => 'maacc-ops', 'team_role' => 'member'], // no platform_role → ignored
     ])->create();
 
-    expect($connection->resolvePlatformRoles(['maacc-platform']))->toBe([PlatformRole::SecurityReviewer])
-        ->and($connection->resolvePlatformRoles(['maacc-ops']))->toBe([])
-        ->and($connection->resolvePlatformRoles(['unknown']))->toBe([]);
+    expect($connection->resolveTeamRole(['maacc-platform'])->value)->toBe('member');
 });
 
-it('assigns the mapped platform role on SSO login and records a grant', function () {
+it('never assigns a mapped platform role on tenant SSO login', function () {
     [, $team] = ownerAndTeam();
-    $user = User::factory()->create(['email' => 'sso-admin@corp.com']);
-
     $connection = SsoConnection::factory()->for($team)->withMappings([
         ['group' => 'maacc-platform', 'platform_role' => PlatformRole::SecurityReviewer->value],
     ])->create();
 
     $payload = new SsoIdentityPayload('ext-platform-1', 'sso-admin@corp.com', 'SSO Admin', ['maacc-platform'], []);
-    app(SsoUserResolver::class)->resolve($connection, $payload);
+    $user = app(SsoUserResolver::class)->resolve($connection, $payload);
 
-    expect($user->fresh()->hasRole(PlatformRole::SecurityReviewer->value))->toBeTrue()
-        ->and(PlatformAccessGrant::where('user_id', $user->id)->where('role', PlatformRole::SecurityReviewer->value)->exists())->toBeTrue();
+    expect($user->fresh()->hasRole(PlatformRole::SecurityReviewer->value))->toBeFalse()
+        ->and(PlatformAccessGrant::where('user_id', $user->id)->exists())->toBeFalse();
 });
 
 it('grants no platform role to a tenant user without a mapped group', function () {
@@ -51,6 +48,7 @@ it('grants no platform role to a tenant user without a mapped group', function (
     $connection = SsoConnection::factory()->for($team)->withMappings([
         ['group' => 'maacc-platform', 'platform_role' => PlatformRole::Auditor->value],
     ])->create();
+    SsoIdentity::factory()->for($connection, 'connection')->for($user)->create(['subject' => 'ext-tenant-1']);
 
     $payload = new SsoIdentityPayload('ext-tenant-1', 'tenant@corp.com', 'Tenant', ['some-other-group'], []);
     app(SsoUserResolver::class)->resolve($connection, $payload);

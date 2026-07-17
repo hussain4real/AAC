@@ -5,6 +5,7 @@ use App\Enums\RunStatus;
 use App\Enums\ToolCallStatus;
 use App\Models\Application;
 use App\Models\ApprovalRequest;
+use App\Models\AuditEvent;
 use App\Models\Credential;
 use App\Models\ToolCall;
 use App\Support\Observability\OperationalMonitor;
@@ -89,6 +90,34 @@ test('pending approvals raise a low-severity alert', function () {
     $alert = collect(app(OperationalMonitor::class)->forTeam($team)['alerts'])->firstWhere('sev', 'low');
 
     expect($alert['title'])->toContain('awaiting approval');
+});
+
+test('SSO rejection and IdP outage alerts are tenant scoped', function () {
+    config()->set('maacc.sso.rejected_login_alert_threshold', 3);
+    config()->set('maacc.sso.alert_window_minutes', 15);
+
+    [, $team] = ownerAndTeam();
+    [, $foreignTeam] = ownerAndTeam();
+
+    AuditEvent::factory()->for($foreignTeam)->create([
+        'action' => 'sso.anomaly.detected',
+        'created_at' => now()->subMinute(),
+    ]);
+
+    expect(collect(app(OperationalMonitor::class)->forTeam($team)['alerts'])->pluck('title'))
+        ->not->toContain('SSO anomaly detected');
+
+    AuditEvent::factory()->for($team)->create([
+        'action' => 'sso.anomaly.detected',
+        'created_at' => now()->subMinute(),
+    ]);
+    AuditEvent::factory()->for($team)->create([
+        'action' => 'sso.idp_unavailable',
+        'created_at' => now()->subMinute(),
+    ]);
+
+    expect(collect(app(OperationalMonitor::class)->forTeam($team)['alerts'])->pluck('title'))
+        ->toContain('SSO anomaly detected', 'Identity provider unavailable');
 });
 
 test('cost anomaly is detected when today exceeds the trailing average', function () {

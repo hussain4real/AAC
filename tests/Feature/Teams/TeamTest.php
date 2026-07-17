@@ -5,6 +5,10 @@ use App\Models\Team;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
+beforeEach(function () {
+    config()->set('maacc.readiness.team_creation_enabled', true);
+});
+
 test('the teams index page can be rendered', function () {
     $user = User::factory()->create();
 
@@ -30,6 +34,17 @@ test('teams can be created', function () {
         'name' => 'Test Team',
         'is_personal' => false,
     ]);
+});
+
+test('additional tenant creation is frozen during enterprise remediation', function () {
+    config()->set('maacc.readiness.team_creation_enabled', false);
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('teams.store'), ['name' => 'Blocked Tenant'])
+        ->assertSessionHasErrors('name');
+
+    expect(Team::query()->where('name', 'Blocked Tenant')->exists())->toBeFalse();
 });
 
 test('team slug uses next available suffix', function () {

@@ -10,6 +10,7 @@ use App\Http\Requests\Teams\SaveTeamRequest;
 use App\Models\Membership;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\EnterpriseReadiness;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,8 +35,13 @@ class TeamController extends Controller
     /**
      * Store a newly created team.
      */
-    public function store(SaveTeamRequest $request, CreateTeam $createTeam): RedirectResponse
-    {
+    public function store(
+        SaveTeamRequest $request,
+        CreateTeam $createTeam,
+        EnterpriseReadiness $readiness,
+    ): RedirectResponse {
+        $readiness->ensureTeamCreationEnabled();
+
         $team = $createTeam->handle($request->user(), $request->validated('name'));
 
         Inertia::flash('toast', ['type' => 'success', 'message' => __('Team created.')]);

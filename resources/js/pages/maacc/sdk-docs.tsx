@@ -705,11 +705,11 @@ export default function SdkDocs() {
                                 input/output schema, version). Your application
                                 owns the <b>handlers</b> that implement
                                 client-side tools against your own data and
-                                permissions. At runtime MAACC pauses an agent run
-                                when the model needs a client-side tool, returns
-                                the tool name and arguments to your app, your
-                                handler runs locally, you submit the result, and
-                                MAACC resumes the run.{' '}
+                                permissions. At runtime MAACC pauses an agent
+                                run when the model needs a client-side tool,
+                                returns the tool name and arguments to your app,
+                                your handler runs locally, you submit the
+                                result, and MAACC resumes the run.{' '}
                                 <b>MAACC never reaches into your database.</b>
                             </p>
                             <div
@@ -1119,7 +1119,9 @@ export default function SdkDocs() {
                                 }}
                             >
                                 Every response carries an{' '}
-                                <span className="mono">X-Maacc-Api-Version</span>{' '}
+                                <span className="mono">
+                                    X-Maacc-Api-Version
+                                </span>{' '}
                                 header, and{' '}
                                 <span className="mono">GET /api/v1/sdk</span>{' '}
                                 negotiates your installed client version into{' '}
@@ -1179,8 +1181,8 @@ export default function SdkDocs() {
                                 <span className="mono">ToolTester</span> that
                                 checks a handler's <b>input and output</b>{' '}
                                 against the contract schema — the same rules
-                                MAACC enforces at runtime (a mismatch is rejected
-                                with{' '}
+                                MAACC enforces at runtime (a mismatch is
+                                rejected with{' '}
                                 <span className="mono">
                                     invalid_tool_result
                                 </span>
@@ -1255,7 +1257,8 @@ export default function SdkDocs() {
                                 <span className="mono">
                                     MissingToolHandlerError
                                 </span>{' '}
-                                (MAACC paused for a tool you didn't register) and{' '}
+                                (MAACC paused for a tool you didn't register)
+                                and{' '}
                                 <span className="mono">
                                     RunNotResolvedError
                                 </span>{' '}

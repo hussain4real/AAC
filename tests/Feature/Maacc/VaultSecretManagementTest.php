@@ -148,6 +148,7 @@ test('the runtime resolves the model API key from the vault and records the acce
 
     $agent = maaccAgent($team, ['status' => AgentStatus::Published]);
     $agent->llmProvider->update(['vault_secret_id' => $secret->id]);
+    approveCurrentAgentConfiguration($agent);
 
     $fake = bindFakeRouter();
     $fake->textThen('All set.');

@@ -23,6 +23,7 @@ function openAiProvider(array $overrides = []): LlmProvider
     return LlmProvider::factory()->draft()->create(array_merge([
         'provider' => 'OpenAI',
         'code' => 'gpt-5.4',
+        'platform_owned' => true,
     ], $overrides));
 }
 
@@ -49,6 +50,16 @@ test('a provider with no key resolves to missing key without a network call', fu
     expect($result->outcome)->toBe(LlmVerificationOutcome::MissingKey)
         ->and($result->passed())->toBeFalse()
         ->and($result->toArray()['focus'])->toBe('key');
+});
+
+test('a tenant-owned provider cannot inherit a platform environment key', function () {
+    config(['ai.providers.openai.key' => 'platform-key']);
+    Http::fake(fn () => throw new RuntimeException('tenant providers must not use the platform key'));
+
+    $result = app(LlmProviderVerifier::class)->verify(openAiProvider(['platform_owned' => false]));
+
+    expect($result->outcome)->toBe(LlmVerificationOutcome::MissingKey)
+        ->and($result->passed())->toBeFalse();
 });
 
 test('a working provider verifies and persists a passing result', function () {

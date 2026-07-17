@@ -7,13 +7,27 @@ use App\Enums\ApprovalType;
 use App\Enums\Environment;
 use App\Enums\LlmStatus;
 use App\Enums\MaaccRole;
+use App\Enums\TeamRole;
+use App\Exceptions\ApprovalBlockedException;
 use App\Models\Application;
 use App\Models\ApprovalRequest;
 use App\Models\Credential;
 use App\Models\LlmProvider;
 use App\Models\Project;
+use App\Models\Team;
 use App\Models\ToolContract;
+use App\Models\User;
 use App\Support\Governance\ApprovalManager;
+use Illuminate\Support\Facades\Hash;
+
+function approvalReviewer(Team $team): User
+{
+    $reviewer = User::factory()->create();
+    $team->members()->attach($reviewer, ['role' => TeamRole::Admin->value]);
+    $reviewer->switchTeam($team);
+
+    return $reviewer;
+}
 
 test('a developer can request approval for a tool contract', function () {
     [, $team] = ownerAndTeam();
@@ -38,6 +52,7 @@ test('a developer can request approval for a tool contract', function () {
 
 test('approving an agent publication request publishes the agent', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = approvalReviewer($team);
     $agent = maaccAgent($team, ['status' => AgentStatus::Draft, 'version' => 'v1']);
 
     $this->actingAs($owner)->post(route('approvals.store', ['current_team' => $team->slug]), [
@@ -48,21 +63,29 @@ test('approving an agent publication request publishes the agent', function () {
 
     $request = ApprovalRequest::firstWhere('type', ApprovalType::AgentPublication->value);
 
-    $this->actingAs($owner)
+    $this->actingAs($reviewer)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]), ['note' => 'Looks good'])
         ->assertRedirect();
 
     expect($request->fresh()->status)->toBe(ApprovalStatus::Approved)
         ->and($request->fresh()->decision_note)->toBe('Looks good')
-        ->and($agent->fresh()->status)->toBe(AgentStatus::Published);
+        ->and($agent->fresh()->status)->toBe(AgentStatus::Published)
+        ->and($agent->versions()->count())->toBe(1);
+
+    $this->actingAs($reviewer)
+        ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
+        ->assertRedirect();
+
+    expect($agent->versions()->count())->toBe(1);
 });
 
 test('approving a tool contract request activates the contract', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = approvalReviewer($team);
     $tool = ToolContract::factory()->for($team)->create(['status' => 'Pending']);
     $request = app(ApprovalManager::class)->requestToolContractApproval($tool, $owner);
 
-    $this->actingAs($owner)
+    $this->actingAs($reviewer)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
         ->assertRedirect();
 
@@ -72,10 +95,11 @@ test('approving a tool contract request activates the contract', function () {
 
 test('approving a model access request promotes the model into the environment', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = approvalReviewer($team);
     $model = LlmProvider::factory()->for($team)->create(['environments' => ['development'], 'status' => LlmStatus::Approved]);
     $request = app(ApprovalManager::class)->requestModelAccess($model, $owner, Environment::Production);
 
-    $this->actingAs($owner)
+    $this->actingAs($reviewer)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
         ->assertRedirect();
 
@@ -85,27 +109,82 @@ test('approving a model access request promotes the model into the environment',
 
 test('promoting a model already available in the environment is idempotent', function () {
     [$owner, $team] = ownerAndTeam();
+    $reviewer = approvalReviewer($team);
     $model = LlmProvider::factory()->for($team)->create(['environments' => ['development', 'production']]);
     $request = app(ApprovalManager::class)->requestModelAccess($model, $owner, Environment::Production);
 
-    app(ApproveApprovalRequest::class)->handle($request, $owner);
+    app(ApproveApprovalRequest::class)->handle($request, $reviewer);
 
     expect($model->fresh()->environments)->toBe(['development', 'production']);
 });
 
-test('approving a credential change records the decision without side effects', function () {
+test('a model change invalidates its pending promotion approval', function () {
     [$owner, $team] = ownerAndTeam();
-    $application = Application::factory()->for($team)->create();
-    $credential = Credential::factory()->for($application)->create();
-    $request = app(ApprovalManager::class)->requestCredentialChange($credential, $owner, 'rotation');
+    $reviewer = approvalReviewer($team);
+    $model = LlmProvider::factory()->for($team)->create(['environments' => ['development']]);
+    $request = app(ApprovalManager::class)->requestModelAccess($model, $owner, Environment::Production);
 
-    app(ApproveApprovalRequest::class)->handle($request, $owner);
+    $model->update(['code' => 'changed/model']);
 
-    expect($request->fresh()->status)->toBe(ApprovalStatus::Approved)
-        ->and($request->fresh()->type)->toBe(ApprovalType::CredentialChange);
+    expect(fn () => app(ApproveApprovalRequest::class)->handle($request, $reviewer))
+        ->toThrow(ApprovalBlockedException::class);
+
+    expect($request->fresh()->status)->toBe(ApprovalStatus::Pending)
+        ->and($model->fresh()->environments)->toBe(['development']);
 });
 
-test('approving requests whose subjects are missing applies no change', function () {
+test('a requester cannot approve their own change', function () {
+    [$owner, $team] = ownerAndTeam();
+    $tool = ToolContract::factory()->for($team)->create(['status' => 'Pending']);
+    $request = app(ApprovalManager::class)->requestToolContractApproval($tool, $owner);
+
+    expect(fn () => app(ApproveApprovalRequest::class)->handle($request, $owner))
+        ->toThrow(ApprovalBlockedException::class);
+
+    expect($request->fresh()->status)->toBe(ApprovalStatus::Pending)
+        ->and($tool->fresh()->status)->toBe('Pending');
+});
+
+test('approving a staged credential rotation applies its secret exactly once', function () {
+    [$owner, $team] = ownerAndTeam();
+    $reviewer = approvalReviewer($team);
+    $application = Application::factory()->for($team)->create();
+    $credential = Credential::factory()->for($application)->create();
+    $originalHash = $credential->secret_hash;
+    $secret = Credential::generateSecret();
+    $request = app(ApprovalManager::class)->requestCredentialChange($credential, $owner, 'rotation', $secret);
+
+    app(ApproveApprovalRequest::class)->handle($request, $reviewer);
+
+    expect($request->fresh()->status)->toBe(ApprovalStatus::Approved)
+        ->and($request->fresh()->type)->toBe(ApprovalType::CredentialChange)
+        ->and($request->fresh()->encrypted_payload)->toBeNull()
+        ->and($credential->fresh()->secret_hash)->not->toBe($originalHash)
+        ->and(Hash::check($secret, $credential->fresh()->secret_hash))->toBeTrue();
+});
+
+test('a staged credential rotation is rejected after the live credential changes', function () {
+    [$owner, $team] = ownerAndTeam();
+    $reviewer = approvalReviewer($team);
+    $application = Application::factory()->for($team)->create();
+    $credential = Credential::factory()->for($application)->create();
+    $request = app(ApprovalManager::class)->requestCredentialChange(
+        $credential,
+        $owner,
+        'rotation',
+        Credential::generateSecret(),
+    );
+
+    $credential->fillSecret(Credential::generateSecret());
+    $credential->save();
+
+    expect(fn () => app(ApproveApprovalRequest::class)->handle($request, $reviewer))
+        ->toThrow(ApprovalBlockedException::class);
+
+    expect($request->fresh()->status)->toBe(ApprovalStatus::Pending);
+});
+
+test('approving requests whose subjects are missing fails closed', function () {
     [$owner, $team] = ownerAndTeam();
 
     foreach ([ApprovalType::AgentPublication, ApprovalType::ToolContract, ApprovalType::ModelAccess] as $type) {
@@ -116,15 +195,19 @@ test('approving requests whose subjects are missing applies no change', function
             'environment' => null,
         ]);
 
-        app(ApproveApprovalRequest::class)->handle($request, $owner);
+        expect(fn () => app(ApproveApprovalRequest::class)->handle($request, $owner))
+            ->toThrow(ApprovalBlockedException::class);
 
-        expect($request->fresh()->status)->toBe(ApprovalStatus::Approved);
+        expect($request->fresh()->status)->toBe(ApprovalStatus::Pending);
     }
 });
 
 test('a request can be rejected with a note', function () {
     [$owner, $team] = ownerAndTeam();
-    $request = ApprovalRequest::factory()->for($team)->create();
+    $tool = ToolContract::factory()->for($team)->create();
+    $request = ApprovalRequest::factory()->for($team)->for($tool, 'subject')->create([
+        'type' => ApprovalType::ToolContract,
+    ]);
 
     $this->actingAs($owner)
         ->post(route('approvals.reject', ['current_team' => $team->slug, 'approvalRequest' => $request->id]), ['note' => 'Out of policy'])
@@ -134,13 +217,15 @@ test('a request can be rejected with a note', function () {
         ->and($request->fresh()->decision_note)->toBe('Out of policy');
 });
 
-test('an already-decided request cannot be decided again', function () {
+test('an already-decided request is handled idempotently', function () {
     [$owner, $team] = ownerAndTeam();
     $request = ApprovalRequest::factory()->for($team)->approved()->create();
 
     $this->actingAs($owner)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
-        ->assertStatus(409);
+        ->assertRedirect();
+
+    expect($request->fresh()->status)->toBe(ApprovalStatus::Approved);
 });
 
 test('a viewer cannot decide an approval request', function () {
@@ -160,7 +245,10 @@ test('a security reviewer can decide an approval request', function () {
     $application = Application::factory()->for($team)->create();
     $project = Project::factory()->for($application)->create();
     $reviewer = projectRoleUser($team, $project, MaaccRole::SecurityReviewer);
-    $request = ApprovalRequest::factory()->for($team)->create();
+    $tool = ToolContract::factory()->for($team)->create();
+    $request = ApprovalRequest::factory()->for($team)->for($tool, 'subject')->create([
+        'type' => ApprovalType::ToolContract,
+    ]);
 
     $this->actingAs($reviewer)
         ->post(route('approvals.approve', ['current_team' => $team->slug, 'approvalRequest' => $request->id]))
@@ -194,7 +282,7 @@ test('requesting approval for an unknown subject returns 404', function () {
         ->assertNotFound();
 });
 
-test('approval manager is idempotent and supports subjectless requests', function () {
+test('approval manager allows only one pending request per subject version', function () {
     [$owner, $team] = ownerAndTeam();
     $tool = ToolContract::factory()->for($team)->create();
 
@@ -203,14 +291,9 @@ test('approval manager is idempotent and supports subjectless requests', functio
 
     expect($first->id)->toBe($second->id)
         ->and(ApprovalRequest::where('subject_id', $tool->id)->count())->toBe(1);
-
-    $subjectless = app(ApprovalManager::class)->open($team, ApprovalType::ModelAccess, null, ['title' => 'Region policy']);
-
-    expect($subjectless->subject_id)->toBeNull()
-        ->and($subjectless->isPending())->toBeTrue();
 });
 
-test('credential change request via the runtime endpoint resolves the credential', function () {
+test('credential changes cannot bypass staging through the generic approval endpoint', function () {
     [$owner, $team] = ownerAndTeam();
     $application = Application::factory()->for($team)->create();
     $credential = Credential::factory()->for($application)->create();
@@ -220,7 +303,7 @@ test('credential change request via the runtime endpoint resolves the credential
         'subject' => $credential->id,
         'environment' => Environment::Production->value,
         'change' => 'rotation',
-    ])->assertRedirect();
+    ])->assertStatus(422);
 
-    expect(ApprovalRequest::where('type', ApprovalType::CredentialChange->value)->where('subject_id', $credential->id)->exists())->toBeTrue();
+    expect(ApprovalRequest::where('type', ApprovalType::CredentialChange->value)->where('subject_id', $credential->id)->exists())->toBeFalse();
 });

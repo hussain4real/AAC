@@ -21,6 +21,46 @@ use Illuminate\Support\Facades\DB;
 class PlatformAccessManager
 {
     /**
+     * Idempotently bootstrap an uncategorized privileged role from deployment
+     * configuration. The system attribution and absent certification make the
+     * grant visible to the first human access-review cycle.
+     */
+    public function bootstrap(User $target, PlatformRole $role, string $source): PlatformAccessGrant
+    {
+        return DB::transaction(function () use ($target, $role, $source): PlatformAccessGrant {
+            $grant = PlatformAccessGrant::query()
+                ->where('user_id', $target->id)
+                ->where('role', $role->value)
+                ->active()
+                ->lockForUpdate()
+                ->first();
+
+            if ($grant instanceof PlatformAccessGrant) {
+                $target->assignRole($role->value);
+
+                return $grant;
+            }
+
+            $target->assignRole($role->value);
+            $grant = PlatformAccessGrant::create([
+                'user_id' => $target->id,
+                'role' => $role->value,
+                'kind' => PlatformAccessKind::Standard->value,
+                'reason' => 'Uncertified bootstrap grant from '.$source,
+            ]);
+
+            $this->audit($grant, null, 'platform_access.bootstrapped', [
+                'role' => $role->value,
+                'target' => $target->email,
+                'source' => $source,
+                'certification_required' => true,
+            ]);
+
+            return $grant;
+        });
+    }
+
+    /**
      * Grant a platform role to a user as a deliberate, certified assignment.
      */
     public function grant(User $target, PlatformRole $role, User $actor, string $reason): PlatformAccessGrant

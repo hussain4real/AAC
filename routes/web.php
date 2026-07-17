@@ -31,17 +31,18 @@ use App\Http\Controllers\Maacc\WebhookDeliveryController;
 use App\Http\Controllers\Maacc\WebhookEndpointController;
 use App\Http\Controllers\SsoController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Middleware\EnsureCurrentTeamResourceOwnership;
 use App\Http\Middleware\EnsureTeamMembership;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'welcome')->name('home');
 
 // Enterprise SSO login (guest-accessible auth entry points).
-Route::get('sso/{ssoConnection}/redirect', [SsoController::class, 'redirect'])->name('sso.redirect');
-Route::get('sso/{ssoConnection}/callback', [SsoController::class, 'callback'])->name('sso.callback');
+Route::get('sso/{ssoConnection}/redirect', [SsoController::class, 'redirect'])->middleware('throttle:sso')->name('sso.redirect');
+Route::get('sso/{ssoConnection}/callback', [SsoController::class, 'callback'])->middleware('throttle:sso')->name('sso.callback');
 
 Route::prefix('{current_team}')
-    ->middleware(['auth', 'verified', EnsureTeamMembership::class])
+    ->middleware(['auth', 'verified', EnsureTeamMembership::class, EnsureCurrentTeamResourceOwnership::class])
     ->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
@@ -70,7 +71,9 @@ Route::prefix('{current_team}')
         Route::get('webhooks', [ConsoleController::class, 'webhooks'])->name('webhooks');
         Route::get('vault', [ConsoleController::class, 'vault'])->name('vault');
         Route::get('routing', [ConsoleController::class, 'routing'])->name('routing');
-        Route::get('identity', [ConsoleController::class, 'identity'])->name('identity');
+        Route::get('identity', [ConsoleController::class, 'identity'])
+            ->middleware('permission:'.PlatformPermission::ViewIdentity->value)
+            ->name('identity');
         Route::get('incidents', [ConsoleController::class, 'incidents'])->name('incidents');
         Route::get('platform-settings', [ConsoleController::class, 'settings'])->name('platform-settings');
 
@@ -159,6 +162,9 @@ Route::prefix('{current_team}')
         Route::resource('sso-connections', SsoConnectionController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['sso-connections' => 'ssoConnection']);
+        Route::post('sso-connections/{ssoConnection}/test', [SsoConnectionController::class, 'test'])->name('sso-connections.test');
+        Route::post('sso-connections/{ssoConnection}/approve', [SsoConnectionController::class, 'approve'])->name('sso-connections.approve');
+        Route::post('sso-connections/{ssoConnection}/disable', [SsoConnectionController::class, 'disable'])->name('sso-connections.disable');
 
         // MAACC console (Phase 8B — platform administration RBAC). Gated by the
         // global platform permissions; a Super Admin passes via the Gate::before

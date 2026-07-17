@@ -109,7 +109,8 @@ test('a plain member cannot create a tool contract', function () {
 
 test('a platform admin can update a tool contract', function () {
     [$owner, $team] = ownerAndTeam();
-    $tool = ToolContract::factory()->for($team)->create();
+    $application = Application::factory()->for($team)->create();
+    $tool = ToolContract::factory()->for($team)->for($application)->create();
 
     $this->actingAs($owner)
         ->put(route('tools.update', ['current_team' => $team->slug, 'tool' => $tool->slug]), [

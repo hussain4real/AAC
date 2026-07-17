@@ -8,6 +8,7 @@ use App\Actions\Maacc\UpdateProject;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreProjectRequest;
 use App\Http\Requests\Maacc\UpdateProjectRequest;
+use App\Models\Application;
 use App\Models\Project;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,9 +22,15 @@ class ProjectController extends Controller
      */
     public function store(StoreProjectRequest $request, CreateProject $createProject): RedirectResponse
     {
-        Gate::authorize('create', Project::class);
+        $team = $request->user()->currentTeam()->firstOrFail();
+        $application = Application::query()
+            ->whereKey($request->string('application_id')->value())
+            ->where('team_id', $team->id)
+            ->firstOrFail();
 
-        $createProject->handle($request->validated());
+        Gate::authorize('create', [Project::class, $application]);
+
+        $createProject->handle($team, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Project created.']);
 

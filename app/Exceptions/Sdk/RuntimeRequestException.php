@@ -5,6 +5,7 @@ namespace App\Exceptions\Sdk;
 use App\Support\Sdk\SdkError;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
@@ -91,6 +92,18 @@ class RuntimeRequestException extends RuntimeException
     }
 
     /**
+     * Persisted agent relationships no longer satisfy tenant/runtime invariants.
+     */
+    public static function invalidRuntimeConfiguration(): self
+    {
+        return new self(
+            'invalid_runtime_configuration',
+            'The agent configuration is not eligible for this application and environment.',
+            409,
+        );
+    }
+
+    /**
      * The submitted tool result failed output-schema validation.
      *
      * @param  array<int, string>  $errors
@@ -107,6 +120,14 @@ class RuntimeRequestException extends RuntimeException
      */
     public function render(Request $request): JsonResponse
     {
-        return SdkError::response($this->errorCode, $this->getMessage(), $this->status, $this->extra);
+        $correlationId = $request->attributes->get('correlation_id');
+        $correlationId = is_string($correlationId) && $correlationId !== ''
+            ? $correlationId
+            : 'corr_'.Str::lower((string) Str::ulid());
+
+        return SdkError::response($this->errorCode, $this->getMessage(), $this->status, [
+            ...$this->extra,
+            'correlation_id' => $correlationId,
+        ])->header('X-Correlation-ID', $correlationId);
     }
 }

@@ -88,6 +88,7 @@ class ProvisionNodeClientDemo extends Command
 
         $application = $this->ensureApplication($team, $environment);
         $project = $this->ensureProject($application, $environment);
+        $project->llmProviders()->syncWithoutDetaching([$provider->id]);
         $tool = $this->ensureClientTool($team, $application);
         $agent = $this->ensureAgent($project, $provider);
         $this->assignTool($agent, $tool);

@@ -108,6 +108,7 @@ class GovernanceConsoleData
         $counts = ProjectMember::query()
             ->whereIn('project_id', $projectIds)
             ->get()
+            ->filter(fn (ProjectMember $member): bool => $member->maacc_role instanceof MaaccRole)
             ->groupBy(fn (ProjectMember $member): string => $member->maacc_role->value)
             ->map(fn ($group) => $group->pluck('user_id')->unique()->count());
 
@@ -157,6 +158,7 @@ class GovernanceConsoleData
             'auditRetentionDays' => $settings->audit_retention_days,
             'maskSensitiveInputs' => $settings->mask_sensitive_inputs,
             'maskSensitiveOutputs' => $settings->mask_sensitive_outputs,
+            'toolResultHandling' => $settings->tool_result_handling->value,
             'blockRestrictedLogging' => $settings->block_restricted_logging,
             'defaultDailyRunQuota' => $settings->default_daily_run_quota,
         ];

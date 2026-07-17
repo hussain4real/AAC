@@ -42,12 +42,12 @@ it('completes the full SDK lifecycle from token to a finished run', function () 
     // 1. Token exchange (client_credentials).
     expect($this->client->authenticate())->not->toBe('');
 
-    // 2. Manifest sync — the tool is listed and reported as needing a handler.
+    // 2. Manifest sync — the canonical fixture is already implementation-ready.
     $manifest = $this->client->manifest();
     $tool = $manifest->tool(MaaccE2ESeeder::TOOL_SLUG);
     expect($manifest->agent(MaaccE2ESeeder::AGENT_SLUG))->not->toBeNull()
         ->and($tool)->not->toBeNull()
-        ->and($tool->implementationStatus())->toBe('required');
+        ->and($tool->implementationStatus())->toBe('implemented');
 
     // 3. Report the local handler — MAACC reconciles it as implemented.
     $registry = (new ToolHandlerRegistry)->register(

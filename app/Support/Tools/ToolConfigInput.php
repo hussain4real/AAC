@@ -14,6 +14,37 @@ use App\Models\ToolContract;
 class ToolConfigInput
 {
     /**
+     * Attributes accepted from management and provisioning entry points.
+     *
+     * @return array<int, string>
+     */
+    public static function writableAttributes(): array
+    {
+        return [
+            'name',
+            'application_id',
+            'description',
+            'scope',
+            'execution_mode',
+            'sensitivity',
+            'requires_approval',
+            'timeout_seconds',
+            'max_payload_kb',
+            'version',
+            'input_schema',
+            'output_schema',
+            'redaction',
+            'http_config',
+            'mcp_connector_id',
+            'mcp_tool_name',
+            'knowledge_source_id',
+            'knowledge_config',
+            'data_source_id',
+            'db_config',
+        ];
+    }
+
+    /**
      * Normalize the validated data for persistence against the (optional) existing
      * contract.
      *

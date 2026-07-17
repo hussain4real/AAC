@@ -6,12 +6,16 @@ use App\Actions\Maacc\CreateCredential;
 use App\Actions\Maacc\CredentialSecret;
 use App\Actions\Maacc\RevokeCredential;
 use App\Actions\Maacc\RotateCredential;
+use App\Actions\Maacc\StageCredentialRotation;
+use App\Enums\Environment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreCredentialRequest;
 use App\Models\Application;
 use App\Models\Credential;
 use App\Models\User;
+use App\Support\Governance\ApprovalManager;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 
@@ -21,13 +25,26 @@ class CredentialController extends Controller
      * Generate a new credential for an application environment. The plaintext
      * secret is flashed once and never stored.
      */
-    public function store(StoreCredentialRequest $request, string $currentTeam, Application $application, CreateCredential $createCredential): RedirectResponse
-    {
+    public function store(
+        StoreCredentialRequest $request,
+        string $currentTeam,
+        Application $application,
+        CreateCredential $createCredential,
+        ApprovalManager $approvals,
+    ): RedirectResponse {
         Gate::authorize('create', [Credential::class, $application]);
 
         /** @var User $creator */
         $creator = $request->user();
-        $this->flashSecret($createCredential->handle($application, $creator, $request->validated()));
+        $validated = $request->validated();
+        $staged = Environment::from((string) $validated['environment']) === Environment::Production;
+        $credentialSecret = $createCredential->handle($application, $creator, $validated, $staged);
+        $this->flashSecret($credentialSecret);
+
+        if ($staged) {
+            $approvals->requestCredentialChange($credentialSecret->credential, $creator, 'creation');
+            Inertia::flash('toast', ['type' => 'info', 'message' => 'Production credential created pending separate approval.']);
+        }
 
         return back();
     }
@@ -35,9 +52,35 @@ class CredentialController extends Controller
     /**
      * Rotate the credential's secret, preserving its identity and history.
      */
-    public function rotate(string $currentTeam, Credential $credential, RotateCredential $rotateCredential): RedirectResponse
-    {
+    public function rotate(
+        Request $request,
+        string $currentTeam,
+        Credential $credential,
+        RotateCredential $rotateCredential,
+        StageCredentialRotation $stageRotation,
+        ApprovalManager $approvals,
+    ): RedirectResponse {
         Gate::authorize('rotate', $credential);
+
+        if ($credential->environment === Environment::Production) {
+            /** @var User $requester */
+            $requester = $request->user();
+            $credentialSecret = $stageRotation->handle($credential);
+            $approval = $approvals->requestCredentialChange($credential, $requester, 'rotation', $credentialSecret->plainSecret);
+
+            if ($approval->wasRecentlyCreated) {
+                $this->flashSecret($credentialSecret);
+            }
+
+            Inertia::flash('toast', [
+                'type' => 'info',
+                'message' => $approval->wasRecentlyCreated
+                    ? 'Production credential rotation staged pending separate approval.'
+                    : 'A production credential rotation is already awaiting approval.',
+            ]);
+
+            return back();
+        }
 
         $this->flashSecret($rotateCredential->handle($credential));
 

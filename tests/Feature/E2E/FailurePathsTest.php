@@ -6,6 +6,7 @@ use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\RunStatus;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\Credential;
 use App\Models\ToolAssignment;
@@ -64,9 +65,10 @@ test('invoking from the wrong environment fails because the model is not approve
     bindFakeRouter()->textThen('unused');
 
     startSeededRun()
-        ->assertCreated()
-        ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'not approved'));
+        ->assertConflict()
+        ->assertJsonPath('error', 'invalid_runtime_configuration');
+
+    expect(AgentRun::query()->count())->toBe(0);
 });
 
 test('invoking an unpublished agent is rejected', function () {
@@ -87,6 +89,7 @@ test('a missing hosted tool handler fails the run safely', function () {
         'output_schema' => ['ok' => 'boolean'],
     ]);
     ToolAssignment::factory()->forAgent($this->agent)->create(['tool_contract_id' => $hosted->id]);
+    approveCurrentAgentConfiguration($this->agent);
 
     Passport::actingAsClient($this->credential->oauthClient, [], 'api');
     bindFakeRouter()->toolCallThen('e2e-hosted-missing', []);
@@ -94,7 +97,7 @@ test('a missing hosted tool handler fails the run safely', function () {
     startSeededRun()
         ->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
-        ->assertJsonPath('error', fn ($error) => str_contains((string) $error, 'No hosted handler'));
+        ->assertJsonPath('error_code', 'hosted_tool_unavailable');
 });
 
 test('an implementation reported against a different schema is marked incompatible', function () {

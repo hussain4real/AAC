@@ -6,6 +6,7 @@ use App\Exceptions\Sdk\RuntimeRequestException;
 use App\Models\AgentRun;
 use App\Models\GovernanceSetting;
 use App\Models\QuotaLimit;
+use App\Models\User;
 use App\Support\Governance\QuotaGuard;
 
 beforeEach(function () {
@@ -153,4 +154,56 @@ test('a non-platform quota persists when given a subject UUID', function () {
         ->where('scope', QuotaScope::Application)
         ->where('subject_id', $this->application->id)
         ->exists())->toBeTrue();
+});
+
+test('quota subjects are rejected across every foreign tenant scope', function () {
+    $foreignAgent = maaccAgent(User::factory()->create()->currentTeam);
+
+    foreach ([
+        QuotaScope::Application->value => $foreignAgent->project->application_id,
+        QuotaScope::Project->value => $foreignAgent->project_id,
+        QuotaScope::Agent->value => $foreignAgent->id,
+        QuotaScope::Model->value => $foreignAgent->llm_provider_id,
+    ] as $scope => $subjectId) {
+        $this->actingAs($this->owner)
+            ->post(route('quotas.store', ['current_team' => $this->team->slug]), [
+                'scope' => $scope,
+                'subject_id' => $subjectId,
+                'max_runs_per_day' => 100,
+            ])
+            ->assertSessionHasErrors('subject_id');
+    }
+
+    expect($this->team->quotaLimits()->count())->toBe(0);
+});
+
+test('a quota cannot be retargeted to a foreign tenant subject', function () {
+    $quota = QuotaLimit::factory()->for($this->team)->create([
+        'scope' => QuotaScope::Application,
+        'subject_id' => $this->application->id,
+    ]);
+    $foreignApplication = maaccAgent(User::factory()->create()->currentTeam)->project->application;
+
+    $this->actingAs($this->owner)
+        ->put(route('quotas.update', [
+            'current_team' => $this->team->slug,
+            'quotaLimit' => $quota->id,
+        ]), [
+            'subject_id' => $foreignApplication->id,
+        ])
+        ->assertSessionHasErrors('subject_id');
+
+    expect($quota->fresh()->subject_id)->toBe($this->application->id);
+});
+
+test('a platform quota rejects an irrelevant record subject', function () {
+    $this->actingAs($this->owner)
+        ->post(route('quotas.store', ['current_team' => $this->team->slug]), [
+            'scope' => QuotaScope::Platform->value,
+            'subject_id' => $this->application->id,
+            'max_runs_per_day' => 100,
+        ])
+        ->assertSessionHasErrors('subject_id');
+
+    expect($this->team->quotaLimits()->count())->toBe(0);
 });

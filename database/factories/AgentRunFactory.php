@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\RunStatus;
+use App\Enums\Sensitivity;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
@@ -35,8 +36,10 @@ class AgentRunFactory extends Factory
             'application_id' => Application::factory(),
             'llm_provider_id' => LlmProvider::factory(),
             'slug' => 'run_'.fake()->unique()->bothify('######'),
+            'correlation_id' => 'corr_'.fake()->unique()->uuid(),
             'caller' => fake()->userName(),
             'status' => RunStatus::Completed,
+            'sensitivity' => Sensitivity::Internal,
             'tokens_in' => fake()->numberBetween(500, 5000),
             'tokens_out' => fake()->numberBetween(0, 1500),
             'cost' => fake()->randomFloat(6, 0, 0.05),

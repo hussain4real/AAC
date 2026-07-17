@@ -32,6 +32,20 @@ test('grant assigns the role and records a certified, audited grant', function (
     expect(AuditEvent::where('action', 'platform_access.granted')->where('auditable_id', $grant->id)->exists())->toBeTrue();
 });
 
+test('bootstrap grants are idempotent system-attributed and require certification', function () {
+    $target = User::factory()->create();
+
+    $first = $this->manager->bootstrap($target, PlatformRole::SuperAdmin, 'test bootstrap');
+    $second = $this->manager->bootstrap($target, PlatformRole::SuperAdmin, 'test bootstrap');
+
+    expect($second->is($first))->toBeTrue()
+        ->and($first->granted_by)->toBeNull()
+        ->and($first->certified_at)->toBeNull()
+        ->and($target->fresh()->hasRole(PlatformRole::SuperAdmin->value))->toBeTrue()
+        ->and(PlatformAccessGrant::query()->where('user_id', $target->id)->count())->toBe(1)
+        ->and(AuditEvent::query()->where('action', 'platform_access.bootstrapped')->count())->toBe(1);
+});
+
 test('break-glass grants time-boxed access and clamps the TTL to the maximum', function () {
     config()->set('maacc.platform.break_glass.max_ttl_minutes', 120);
     $target = User::factory()->create();

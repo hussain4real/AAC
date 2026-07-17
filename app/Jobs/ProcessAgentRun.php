@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\AgentRun;
 use App\Support\Runtime\AgentRunner;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -13,7 +14,7 @@ use Illuminate\Foundation\Queue\Queueable;
  * client-side tool, or failed). The run was already created and audited by the
  * runtime API, so the caller never holds the request open.
  */
-class ProcessAgentRun implements ShouldQueue
+class ProcessAgentRun implements ShouldBeEncrypted, ShouldQueue
 {
     use Queueable;
 

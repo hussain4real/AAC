@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\MaaccRole;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
 use Illuminate\Support\Carbon;
@@ -12,7 +13,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property string $project_id
  * @property int $user_id
- * @property MaaccRole $maacc_role
+ * @property MaaccRole|null $maacc_role
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Project $project
@@ -56,14 +57,17 @@ class ProjectMember extends Pivot
     }
 
     /**
-     * Get the attributes that should be cast.
+     * Fail closed when a legacy import contains a null or unknown role value.
      *
-     * @return array<string, string>
+     * @return Attribute<MaaccRole|null, MaaccRole|string|null>
      */
-    protected function casts(): array
+    protected function maaccRole(): Attribute
     {
-        return [
-            'maacc_role' => MaaccRole::class,
-        ];
+        return Attribute::make(
+            get: fn (mixed $value): ?MaaccRole => $value instanceof MaaccRole
+                ? $value
+                : (is_string($value) ? MaaccRole::tryFrom($value) : null),
+            set: fn (MaaccRole|string|null $value): ?string => $value instanceof MaaccRole ? $value->value : $value,
+        );
     }
 }

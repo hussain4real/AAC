@@ -6,6 +6,7 @@
    without touching the rest of the starter-kit app.
    ============================================================ */
 import type { ReactNode } from 'react';
+import { EnterpriseReadinessBanner } from '@/components/enterprise-readiness-banner';
 import { CredentialSecretGate } from '@/components/maacc/credential-secret-gate';
 import { Sidebar } from '@/components/maacc/sidebar';
 import { Topbar } from '@/components/maacc/topbar';
@@ -29,6 +30,7 @@ export default function MaaccLayout({ children }: { children: ReactNode }) {
                     }}
                 >
                     <Topbar />
+                    <EnterpriseReadinessBanner />
                     <main
                         className="maacc-scroll"
                         {...{ 'scroll-region': '' }}

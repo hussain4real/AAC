@@ -3,15 +3,19 @@
 namespace App\Actions\Maacc;
 
 use App\Models\ToolContract;
+use App\Support\Governance\TenantRelationshipGuard;
 use App\Support\Sdk\ContractVersionRecorder;
 use App\Support\Sdk\ToolImplementationReconciler;
 use App\Support\Tools\ToolConfigInput;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 class UpdateToolContract
 {
     public function __construct(
         private readonly ContractVersionRecorder $versions,
         private readonly ToolImplementationReconciler $reconciler,
+        private readonly TenantRelationshipGuard $relationships,
     ) {}
 
     /**
@@ -25,7 +29,16 @@ class UpdateToolContract
      */
     public function handle(ToolContract $toolContract, array $data): ToolContract
     {
-        $this->versions->applyUpdate($toolContract, ToolConfigInput::normalize($data, $toolContract));
+        $data = Arr::only($data, ToolConfigInput::writableAttributes());
+
+        $toolContract = DB::transaction(function () use ($toolContract, $data): ToolContract {
+            $toolContract = $this->relationships->toolContractForWrite($toolContract);
+            $data = ToolConfigInput::normalize($data, $toolContract);
+            $this->relationships->assertToolContractRelationships($toolContract->team, $data, $toolContract);
+            $this->versions->applyUpdate($toolContract, $data);
+
+            return $toolContract;
+        });
 
         $this->reconciler->reconcile($toolContract);
 

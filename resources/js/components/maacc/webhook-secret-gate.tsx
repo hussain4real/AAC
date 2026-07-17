@@ -67,9 +67,9 @@ export function WebhookSecretGate() {
                         fontWeight: 600,
                     }}
                 >
-                    Verify every delivery's <code>X-Maacc-Signature</code> header
-                    with this secret. MAACC keeps an encrypted copy to sign
-                    deliveries but never displays it again.
+                    Verify every delivery's <code>X-Maacc-Signature</code>{' '}
+                    header with this secret. MAACC keeps an encrypted copy to
+                    sign deliveries but never displays it again.
                 </div>
             </div>
         </Modal>

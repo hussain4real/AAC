@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Maacc;
 
+use App\Actions\Maacc\CreateModelRoutingPolicy;
+use App\Actions\Maacc\UpdateModelRoutingPolicy;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreModelRoutingPolicyRequest;
 use App\Http\Requests\Maacc\UpdateModelRoutingPolicyRequest;
@@ -22,16 +24,13 @@ class ModelRoutingPolicyController extends Controller
     /**
      * Create a routing policy for an agent.
      */
-    public function store(StoreModelRoutingPolicyRequest $request): RedirectResponse
+    public function store(StoreModelRoutingPolicyRequest $request, CreateModelRoutingPolicy $createPolicy): RedirectResponse
     {
         Gate::authorize('create', ModelRoutingPolicy::class);
 
         $team = $request->user()->currentTeam()->firstOrFail();
 
-        $team->modelRoutingPolicies()->create([
-            ...$request->validated(),
-            'created_by' => $request->user()?->getAuthIdentifier(),
-        ]);
+        $createPolicy->handle($team, $request->validated(), $request->user()?->getAuthIdentifier());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Routing policy created.']);
 
@@ -41,11 +40,15 @@ class ModelRoutingPolicyController extends Controller
     /**
      * Update the given routing policy.
      */
-    public function update(UpdateModelRoutingPolicyRequest $request, string $currentTeam, ModelRoutingPolicy $modelRoutingPolicy): RedirectResponse
-    {
+    public function update(
+        UpdateModelRoutingPolicyRequest $request,
+        UpdateModelRoutingPolicy $updatePolicy,
+        string $currentTeam,
+        ModelRoutingPolicy $modelRoutingPolicy,
+    ): RedirectResponse {
         Gate::authorize('update', $modelRoutingPolicy);
 
-        $modelRoutingPolicy->update($request->validated());
+        $updatePolicy->handle($modelRoutingPolicy, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Routing policy updated.']);
 

@@ -11,6 +11,8 @@ use Illuminate\Support\Str;
  */
 enum SsoConnectionStatus: string
 {
+    case Draft = 'draft';
+    case PendingApproval = 'pending_approval';
     case Active = 'active';
     case Disabled = 'disabled';
 

@@ -58,6 +58,7 @@ it('runs an agent whose tool MAACC executes via an MCP connector', function () {
         ]);
     $agent = Agent::firstWhere('agent_slug', MaaccE2ESeeder::AGENT_SLUG);
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     // The remote MCP server is faked; MAACC drives the real MCP client to it.
     Http::preventStrayRequests();
@@ -100,6 +101,7 @@ it('surfaces a connector failure as a controlled run failure to the external app
         ]);
     $agent = Agent::firstWhere('agent_slug', MaaccE2ESeeder::AGENT_SLUG);
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     Http::preventStrayRequests();
     Http::fake(['*' => Http::response('', 401)]);

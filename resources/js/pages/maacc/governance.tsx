@@ -702,6 +702,7 @@ function SecurityPolicies() {
     const form = useForm<{
         mask_sensitive_inputs: boolean;
         mask_sensitive_outputs: boolean;
+        tool_result_handling: 'store' | 'mask' | 'exclude';
         block_restricted_logging: boolean;
         retain_prompts_days: number;
         retain_responses_days: number;
@@ -712,6 +713,7 @@ function SecurityPolicies() {
     }>({
         mask_sensitive_inputs: g.maskSensitiveInputs,
         mask_sensitive_outputs: g.maskSensitiveOutputs,
+        tool_result_handling: g.toolResultHandling,
         block_restricted_logging: g.blockRestrictedLogging,
         retain_prompts_days: g.retainPromptsDays,
         retain_responses_days: g.retainResponsesDays,
@@ -739,8 +741,8 @@ function SecurityPolicies() {
         },
         {
             key: 'mask_sensitive_outputs',
-            label: 'Mask sensitive tool results',
-            desc: 'Redact Confidential+ tool results at rest.',
+            label: 'Mask sensitive model outputs',
+            desc: 'Redact Confidential+ model responses at rest.',
         },
         {
             key: 'block_restricted_logging',
@@ -841,6 +843,26 @@ function SecurityPolicies() {
                         gap: 14,
                     }}
                 >
+                    <Field
+                        label="Tool result handling"
+                        hint="Exclude prevents tool results from entering retained records or outbound copies."
+                    >
+                        <Select
+                            value={form.data.tool_result_handling}
+                            onChange={(value) =>
+                                form.setData(
+                                    'tool_result_handling',
+                                    value as 'store' | 'mask' | 'exclude',
+                                )
+                            }
+                            options={[
+                                { value: 'store', label: 'Store' },
+                                { value: 'mask', label: 'Mask' },
+                                { value: 'exclude', label: 'Exclude' },
+                            ]}
+                        />
+                        <FieldError error={form.errors.tool_result_handling} />
+                    </Field>
                     {retention.map((r) => (
                         <Field key={r.key} label={r.label} required>
                             <Input

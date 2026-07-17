@@ -3,13 +3,13 @@
 namespace App\Models;
 
 use App\Concerns\RecordsAuditEvents;
-use App\Enums\PlatformRole;
 use App\Enums\SsoConnectionStatus;
 use App\Enums\SsoProvider;
 use App\Enums\TeamRole;
 use Database\Factories\SsoConnectionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -31,19 +31,25 @@ use Illuminate\Support\Str;
  * @property string $slug
  * @property string $name
  * @property SsoProvider $provider
+ * @property string|null $issuer
  * @property string $authorize_url
  * @property string $token_url
  * @property string $userinfo_url
+ * @property string|null $jwks_url
  * @property string $client_id
  * @property string|null $client_secret
  * @property string $scopes
  * @property string $email_claim
  * @property string $name_claim
  * @property string $groups_claim
+ * @property array<int, string>|null $allowed_domains
  * @property TeamRole $default_team_role
  * @property array<int, array<string, mixed>>|null $group_role_mappings
  * @property bool $auto_provision
  * @property SsoConnectionStatus $status
+ * @property Carbon|null $tested_at
+ * @property Carbon|null $approved_at
+ * @property int|null $approved_by
  * @property int|null $created_by
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -52,7 +58,7 @@ use Illuminate\Support\Str;
  * @property-read User|null $creator
  * @property-read Collection<int, SsoIdentity> $identities
  */
-#[Fillable(['team_id', 'slug', 'name', 'provider', 'authorize_url', 'token_url', 'userinfo_url', 'client_id', 'client_secret', 'scopes', 'email_claim', 'name_claim', 'groups_claim', 'default_team_role', 'group_role_mappings', 'auto_provision', 'status', 'created_by'])]
+#[Fillable(['team_id', 'slug', 'name', 'provider', 'issuer', 'authorize_url', 'token_url', 'userinfo_url', 'jwks_url', 'client_id', 'client_secret', 'scopes', 'email_claim', 'name_claim', 'groups_claim', 'allowed_domains', 'default_team_role', 'group_role_mappings', 'auto_provision', 'status', 'tested_at', 'approved_at', 'approved_by', 'created_by'])]
 #[Hidden(['client_secret'])]
 class SsoConnection extends Model
 {
@@ -80,6 +86,16 @@ class SsoConnection extends Model
     }
 
     /**
+     * Get the security administrator who approved activation.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
      * Get the external identities linked through this connection.
      *
      * @return HasMany<SsoIdentity, $this>
@@ -94,7 +110,23 @@ class SsoConnection extends Model
      */
     public function isActive(): bool
     {
-        return $this->status->isActive();
+        return $this->status->isActive()
+            && $this->tested_at !== null
+            && $this->approved_at !== null
+            && $this->approved_by !== null;
+    }
+
+    /**
+     * Limit discovery to fully tested and independently approved connections.
+     *
+     * @param  Builder<SsoConnection>  $query
+     */
+    public function scopeApprovedForLogin(Builder $query): void
+    {
+        $query->where('status', SsoConnectionStatus::Active)
+            ->whereNotNull('tested_at')
+            ->whereNotNull('approved_at')
+            ->whereNotNull('approved_by');
     }
 
     /**
@@ -137,26 +169,6 @@ class SsoConnection extends Model
             ->filter(fn (array $mapping): bool => in_array($mapping['group'] ?? null, $groups, true)
                 && ! empty($mapping['project_slug']) && ! empty($mapping['maacc_role']))
             ->map(fn (array $mapping): array => ['project' => (string) $mapping['project_slug'], 'role' => (string) $mapping['maacc_role']])
-            ->values()
-            ->all();
-    }
-
-    /**
-     * Resolve the MAACC platform roles ({@see PlatformRole}) mapped from a set of
-     * external groups. A tenant user gets no platform role unless an IdP group is
-     * explicitly mapped to one, so platform-admin access is never granted by
-     * default (Phase 8B).
-     *
-     * @param  array<int, string>  $groups
-     * @return array<int, PlatformRole>
-     */
-    public function resolvePlatformRoles(array $groups): array
-    {
-        return collect($this->group_role_mappings ?? [])
-            ->filter(fn (array $mapping): bool => in_array($mapping['group'] ?? null, $groups, true))
-            ->map(fn (array $mapping): ?PlatformRole => PlatformRole::tryFrom((string) ($mapping['platform_role'] ?? '')))
-            ->filter()
-            ->unique()
             ->values()
             ->all();
     }
@@ -205,8 +217,11 @@ class SsoConnection extends Model
             'status' => SsoConnectionStatus::class,
             'default_team_role' => TeamRole::class,
             'group_role_mappings' => 'array',
+            'allowed_domains' => 'array',
             'auto_provision' => 'boolean',
             'client_secret' => 'encrypted',
+            'tested_at' => 'datetime',
+            'approved_at' => 'datetime',
         ];
     }
 }

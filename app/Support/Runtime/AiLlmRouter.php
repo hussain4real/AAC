@@ -2,9 +2,11 @@
 
 namespace App\Support\Runtime;
 
+use App\Exceptions\Runtime\ProviderCredentialException;
 use App\Support\Runtime\Contracts\LlmRouter;
 use InvalidArgumentException;
 use Laravel\Ai\Ai;
+use Laravel\Ai\Prompts\AgentPrompt;
 use Laravel\Ai\Providers\Tools\ProviderTool;
 use Laravel\Ai\Providers\Tools\WebSearch;
 use Laravel\Ai\Responses\Data\ToolCall;
@@ -22,12 +24,30 @@ use Laravel\Ai\Responses\Data\ToolCall;
  */
 class AiLlmRouter implements LlmRouter
 {
+    private RequestScopedAiProviderFactory $providers;
+
+    public function __construct(?RequestScopedAiProviderFactory $providers = null)
+    {
+        $this->providers = $providers ?? app(RequestScopedAiProviderFactory::class);
+    }
+
     /**
      * Produce the next conversation turn via the configured AI provider.
      */
     public function complete(LlmRequest $request): LlmCompletion
     {
-        $this->applyVaultKey($request);
+        if ($request->apiKey === null && ! $request->platformOwned) {
+            throw new ProviderCredentialException('Tenant-owned providers require a vault-bound credential.');
+        }
+
+        return $this->completeWithIsolatedProvider($request);
+    }
+
+    /**
+     * Produce a completion while the caller's provider configuration is active.
+     */
+    private function completeWithIsolatedProvider(LlmRequest $request): LlmCompletion
+    {
 
         $tools = $this->offersTools($request)
             ? [
@@ -36,12 +56,21 @@ class AiLlmRouter implements LlmRouter
             ]
             : [];
 
-        $response = (new RuntimeAgent($request->systemPrompt, $tools))->prompt(
-            $this->transcript($request->messages),
-            provider: $request->providerDriver,
+        $agent = new RuntimeAgent($request->systemPrompt, $tools);
+        $provider = $this->providers->make($request->providerDriver, $request->apiKey);
+
+        if (Ai::hasFakeGatewayFor($agent)) {
+            $provider = (clone $provider)->useTextGateway(Ai::fakeGatewayFor($agent));
+        }
+
+        $response = $provider->prompt(new AgentPrompt(
+            agent: $agent,
+            prompt: $this->transcript($request->messages),
+            attachments: [],
+            provider: $provider,
             model: $request->modelCode,
             timeout: $request->timeoutSeconds,
-        );
+        ));
 
         $usage = new LlmUsage(
             $response->usage->promptTokens,
@@ -84,25 +113,6 @@ class AiLlmRouter implements LlmRouter
         $last = end($messages);
 
         return ! ($last instanceof LlmMessage && $last->role === 'tool');
-    }
-
-    /**
-     * Override the provider API key for this call with the vault-resolved key,
-     * when one is bound. This is what makes a vault rotation take effect on the
-     * very next run without redeploying — the key is never read from disk.
-     */
-    private function applyVaultKey(LlmRequest $request): void
-    {
-        if ($request->apiKey !== null) {
-            config(["ai.providers.{$request->providerDriver}.key" => $request->apiKey]);
-
-            // The AI manager memoizes a provider with the key it was first
-            // resolved with, so drop the cached instance to force it to be
-            // rebuilt with the freshly applied key. This is what guarantees a
-            // vault rotation takes effect on the very next turn, even inside a
-            // long-lived worker that already used the provider.
-            Ai::forgetInstance($request->providerDriver);
-        }
     }
 
     /**

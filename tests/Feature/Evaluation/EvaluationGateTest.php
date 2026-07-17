@@ -2,8 +2,11 @@
 
 use App\Enums\AgentStatus;
 use App\Enums\Environment;
+use App\Enums\TeamRole;
+use App\Models\ApprovalRequest;
 use App\Models\Evaluation;
 use App\Models\EvaluationDataset;
+use App\Models\User;
 use App\Support\Evaluation\EvaluationGate;
 use App\Support\Governance\ApprovalGate;
 use App\Support\Governance\ApprovalManager;
@@ -78,6 +81,17 @@ it('allows publishing through the controller once the required evaluation passes
 
     $this->actingAs($this->owner)
         ->post(route('agents.publish', ['current_team' => $this->team->slug, 'agent' => $this->agent->slug]))
+        ->assertRedirect();
+
+    expect($this->agent->fresh()->status)->not->toBe(AgentStatus::Published);
+
+    $reviewer = User::factory()->create();
+    $this->team->members()->attach($reviewer, ['role' => TeamRole::Admin->value]);
+    $reviewer->switchTeam($this->team);
+    $approval = ApprovalRequest::where('subject_id', $this->agent->id)->firstOrFail();
+
+    $this->actingAs($reviewer)
+        ->post(route('approvals.approve', ['current_team' => $this->team->slug, 'approvalRequest' => $approval->id]))
         ->assertRedirect();
 
     expect($this->agent->fresh()->status)->toBe(AgentStatus::Published);

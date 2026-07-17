@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Environment;
+use App\Enums\PayloadHandling;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
 use App\Models\AuditEvent;
@@ -40,6 +41,17 @@ test('per-environment masking overrides disable redaction', function () {
 
     expect($redactor->input($run, 'secret'))->toBe('secret')
         ->and($redactor->applies($run))->toBeFalse();
+});
+
+test('excluded tool results are never returned for persistence or outbound copies', function () {
+    [, $team] = ownerAndTeam();
+    GovernanceSetting::factory()->for($team)->create([
+        'tool_result_handling' => PayloadHandling::Exclude,
+    ]);
+    $agent = maaccAgent($team);
+    $run = maaccRun($agent, ['sensitivity' => Sensitivity::Internal, 'environment' => Environment::Production]);
+
+    expect(app(RunRedactor::class)->result($run, ['sentinel' => 'never-retain-me']))->toBeNull();
 });
 
 test('the retention pruner redacts old run payloads and deletes old audit events', function () {

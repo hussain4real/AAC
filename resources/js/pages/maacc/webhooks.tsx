@@ -35,7 +35,10 @@ import type { Tone } from '@/components/maacc/ui';
 import { ChipMultiSelect, ENV_OPTIONS, FieldError } from '@/maacc/forms';
 import { Icon } from '@/maacc/icons';
 import { useMaaccData } from '@/maacc/use-data';
-import type { MaaccWebhookDelivery, MaaccWebhookEndpoint } from '@/types/global';
+import type {
+    MaaccWebhookDelivery,
+    MaaccWebhookEndpoint,
+} from '@/types/global';
 
 const EVENT_OPTIONS = [
     { value: '*', label: 'All events' },

@@ -2,6 +2,7 @@
 
 use App\Enums\Environment;
 use App\Enums\ExecMode;
+use App\Enums\ImplStatus;
 use App\Enums\LlmStatus;
 use App\Enums\RunMode;
 use App\Enums\RunStatus;
@@ -19,13 +20,19 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
+use App\Models\ToolImplementation;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
+use App\Support\Runtime\AgentRunner;
+use App\Support\Runtime\Routing\ModelRouter;
+use App\Support\Runtime\Routing\RoutingDecision;
 use App\Support\Webhooks\WebhookSigner;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Passport\Passport;
+
+use function Pest\Laravel\mock;
 
 beforeEach(function () {
     [, $this->team] = ownerAndTeam();
@@ -77,6 +84,13 @@ function assignClientTool(string $slug = 'getRecords'): ToolContract
     ]);
 
     ToolAssignment::factory()->forAgent(test()->agent)->create(['tool_contract_id' => $tool->id]);
+    ToolImplementation::factory()->for($tool)->for(test()->application)->create([
+        'environment' => Environment::Production,
+        'status' => ImplStatus::Implemented,
+        'implemented_version' => $tool->version,
+        'schema_fingerprint' => $tool->schemaFingerprint(),
+    ]);
+    approveCurrentAgentConfiguration(test()->agent);
 
     return $tool;
 }
@@ -108,6 +122,73 @@ test('an async run completes end to end through the queue', function () {
     expect($run->status)->toBe(RunStatus::Completed)
         ->and($run->output)->toBe('All vessels on schedule.')
         ->and($run->cost)->toBeGreaterThan(0);
+});
+
+test('a queued run fails when readiness changes before worker processing', function () {
+    approveCurrentAgentConfiguration($this->agent);
+    $runner = app(AgentRunner::class);
+    $run = $runner->createRun(
+        $this->agent,
+        $this->application,
+        Environment::Production,
+        'Status?',
+        null,
+        RunMode::Async,
+    );
+    $this->application->update(['status' => 'suspended']);
+
+    $processed = $runner->process($run);
+
+    expect($processed->status)->toBe(RunStatus::Failed)
+        ->and($processed->failure_reason)->toBe('agent_not_ready');
+});
+
+test('a queued run fails when routing has no eligible provider', function () {
+    approveCurrentAgentConfiguration($this->agent);
+    $router = mock(ModelRouter::class);
+    $router->shouldReceive('select')->once()->andReturn(new RoutingDecision(
+        null,
+        [],
+        [],
+        null,
+        'No eligible model fixture.',
+    ));
+    $this->app->instance(ModelRouter::class, $router);
+    $runner = app(AgentRunner::class);
+    $run = $runner->createRun(
+        $this->agent,
+        $this->application,
+        Environment::Production,
+        'Status?',
+        null,
+        RunMode::Async,
+    );
+
+    $processed = $runner->process($run);
+
+    expect($processed->status)->toBe(RunStatus::Failed)
+        ->and($processed->failure_reason)->toBe('model_unavailable');
+});
+
+test('a queued run is cancelled when its agent is unpublished before driving', function () {
+    approveCurrentAgentConfiguration($this->agent);
+    bindFakeRouter()->textThen('unused');
+    $runner = app(AgentRunner::class);
+    $run = $runner->createRun(
+        $this->agent,
+        $this->application,
+        Environment::Production,
+        'Status?',
+        null,
+        RunMode::Async,
+    );
+    $this->agent->update(['status' => 'draft']);
+    $run->unsetRelation('agent');
+
+    $driven = $runner->drive($run);
+
+    expect($driven->status)->toBe(RunStatus::Cancelled)
+        ->and($driven->failure_reason)->toBe('agent_unpublished');
 });
 
 test('an async run pauses for a client tool and resumes via the queue', function () {
@@ -283,7 +364,7 @@ test('a delivery records a connection failure', function () {
     (new DeliverWebhook($delivery))->handle();
 
     expect($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Failed)
-        ->and($delivery->fresh()->error)->toContain('Connection refused');
+        ->and($delivery->fresh()->error)->toBe('The webhook endpoint could not be reached.');
 });
 
 test('delivery is a no-op when the delivery has been removed', function () {

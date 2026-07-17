@@ -20,6 +20,7 @@ use App\Actions\Maacc\UpdateApplication;
 use App\Actions\Maacc\UpdateLlmProvider;
 use App\Actions\Maacc\UpdateProject;
 use App\Actions\Maacc\UpdateToolContract;
+use App\Enums\Environment;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\LlmProvider;
@@ -78,17 +79,19 @@ test('maacc write controllers delegate persistence to actions', function () {
 
 test('a platform admin can update an agent and re-sync its tools', function () {
     [$owner, $team] = ownerAndTeam();
-    $application = Application::factory()->for($team)->create();
-    $project = Project::factory()->for($application)->create();
+    $application = Application::factory()->for($team)->create(['environment' => Environment::Production]);
+    $project = Project::factory()->for($application)->create(['environment' => Environment::Production]);
     $llm = LlmProvider::factory()->for($team)->create();
+    $project->llmProviders()->attach($llm);
     $agent = Agent::factory()->for($project)->for($llm, 'llmProvider')->create();
-    $tool = ToolContract::factory()->for($team)->create();
+    $tool = ToolContract::factory()->for($team)->for($application)->create();
 
     $this->actingAs($owner)
         ->put(route('agents.update', ['current_team' => $team->slug, 'agent' => $agent->slug]), [
             'name' => 'Renamed Agent',
             'tool_ids' => [$tool->id],
         ])
+        ->assertSessionHasNoErrors()
         ->assertRedirect();
 
     $agent->refresh();
@@ -134,8 +137,8 @@ test('a platform admin can delete a tool contract', function () {
 
 test('updating a project re-syncs its approved models', function () {
     [$owner, $team] = ownerAndTeam();
-    $application = Application::factory()->for($team)->create();
-    $project = Project::factory()->for($application)->create();
+    $application = Application::factory()->for($team)->create(['environment' => Environment::Production]);
+    $project = Project::factory()->for($application)->create(['environment' => Environment::Production]);
     $llm = LlmProvider::factory()->for($team)->create();
 
     $this->actingAs($owner)
@@ -143,6 +146,7 @@ test('updating a project re-syncs its approved models', function () {
             'name' => 'Synced Project',
             'llm_provider_ids' => [$llm->id],
         ])
+        ->assertSessionHasNoErrors()
         ->assertRedirect();
 
     expect($project->fresh()->llmProviders()->pluck('llm_providers.id')->all())->toBe([$llm->id]);

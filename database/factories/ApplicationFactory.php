@@ -38,7 +38,7 @@ class ApplicationFactory extends Factory
             'department' => fake()->randomElement(['Finance', 'Procurement', 'Maritime & Logistics', 'Customer Experience', 'Marine & Technical Services']),
             'owner_name' => fake()->name(),
             'owner_email' => fake()->unique()->safeEmail(),
-            'environment' => fake()->randomElement(Environment::cases()),
+            'environment' => Environment::Production,
             'status' => AppStatus::Active,
             'stack' => fake()->randomElement(['Laravel · PHP 8.3', 'Spring Boot · Java 21', 'Node.js · NestJS', 'Django · Python 3.12', '.NET 8 · C#']),
             'description' => fake()->sentence(),

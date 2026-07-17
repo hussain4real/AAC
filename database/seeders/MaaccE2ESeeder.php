@@ -9,10 +9,12 @@ use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
 use App\Enums\LlmStatus;
+use App\Enums\LlmVerificationOutcome;
 use App\Enums\ProjectStatus;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Models\Agent;
+use App\Models\AgentVersion;
 use App\Models\Application;
 use App\Models\Credential;
 use App\Models\LlmProvider;
@@ -20,11 +22,14 @@ use App\Models\Project;
 use App\Models\Team;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
+use App\Models\ToolImplementation;
 use App\Models\User;
+use App\Support\Governance\AgentReadinessGate;
 use App\Support\Runtime\DeterministicLlmRouter;
 use App\Support\Sdk\SdkClientManager;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use LogicException;
 
 /**
  * Seeds the canonical MAACC end-to-end scenario with stable identifiers so local
@@ -57,13 +62,20 @@ class MaaccE2ESeeder extends Seeder
 
     public const ENVIRONMENT = Environment::Production;
 
-    public function __construct(private readonly SdkClientManager $sdkClients) {}
+    public function __construct(
+        private readonly SdkClientManager $sdkClients,
+        private readonly AgentReadinessGate $readiness,
+    ) {}
 
     /**
      * Seed the canonical end-to-end scenario.
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new LogicException('The deterministic MAACC E2E fixture cannot be seeded in production.');
+        }
+
         $user = User::firstWhere('email', self::USER_EMAIL)
             ?? User::factory()->create(['name' => 'E2E Runner', 'email' => self::USER_EMAIL]);
 
@@ -95,6 +107,11 @@ class MaaccE2ESeeder extends Seeder
             'sensitivity' => Sensitivity::Internal->value,
             'environments' => [self::ENVIRONMENT->value],
             'status' => LlmStatus::Approved->value,
+            'platform_owned' => true,
+            'verification_status' => LlmVerificationOutcome::Ok->value,
+            'verification_message' => 'The deterministic validation provider is available.',
+            'verified_at' => now(),
+            'verification_checked_at' => now(),
             'note' => 'Approved only for the validation harness.',
         ]);
 
@@ -147,7 +164,42 @@ class MaaccE2ESeeder extends Seeder
             ['scope' => ToolScope::Agent->value, 'project_id' => null, 'environment' => null],
         );
 
+        ToolImplementation::updateOrCreate([
+            'tool_contract_id' => $tool->id,
+            'application_id' => $application->id,
+            'environment' => self::ENVIRONMENT->value,
+        ], [
+            'status' => ImplStatus::Implemented->value,
+            'handler_name' => 'E2E Fetch Records Handler',
+            'implemented_version' => $tool->version,
+            'schema_fingerprint' => $tool->schemaFingerprint(),
+            'language' => 'typescript',
+        ]);
+
+        $version = AgentVersion::updateOrCreate([
+            'agent_id' => $agent->id,
+            'version' => $agent->version,
+        ], [
+            'system_prompt' => $agent->system_prompt,
+            'llm_provider_id' => $agent->llm_provider_id,
+            'temperature' => $agent->temperature,
+            'max_tokens' => $agent->max_tokens,
+            'settings' => [
+                'temperature' => $agent->temperature,
+                'max_tokens' => $agent->max_tokens,
+                'configuration_hash' => $this->readiness->configurationHash($agent),
+            ],
+            'status' => AgentStatus::Published->value,
+            'published_at' => $agent->published_at,
+            'published_by' => $user->id,
+        ]);
+        $agent->update(['current_version_id' => $version->id]);
+
         $this->seedCredential($application, $user);
+
+        $settings = $version->settings ?? [];
+        $settings['configuration_hash'] = $this->readiness->configurationHash($agent->fresh());
+        $version->update(['settings' => $settings]);
     }
 
     /**

@@ -7,6 +7,7 @@ namespace App\Enums;
  */
 enum CredentialStatus: string
 {
+    case PendingApproval = 'pending_approval';
     case Active = 'active';
     case Revoked = 'revoked';
 
@@ -15,7 +16,7 @@ enum CredentialStatus: string
      */
     public function label(): string
     {
-        return ucfirst($this->value);
+        return str($this->value)->headline()->toString();
     }
 
     /**

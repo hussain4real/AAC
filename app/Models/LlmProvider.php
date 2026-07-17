@@ -33,6 +33,7 @@ use Illuminate\Support\Carbon;
  * @property array<int, string> $environments
  * @property LlmStatus $status
  * @property string|null $vault_secret_id
+ * @property bool $platform_owned
  * @property Carbon|null $verified_at
  * @property LlmVerificationOutcome|null $verification_status
  * @property string|null $verification_message
@@ -47,7 +48,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, Agent> $agents
  */
-#[Fillable(['team_id', 'slug', 'name', 'code', 'provider', 'context_window', 'input_cost', 'output_cost', 'sensitivity', 'environments', 'status', 'vault_secret_id', 'usage_pct', 'runs_count', 'note'])]
+#[Fillable(['team_id', 'slug', 'name', 'code', 'provider', 'context_window', 'input_cost', 'output_cost', 'sensitivity', 'environments', 'status', 'vault_secret_id', 'platform_owned', 'usage_pct', 'runs_count', 'note'])]
 class LlmProvider extends Model
 {
     /** @use HasFactory<LlmProviderFactory> */
@@ -219,6 +220,7 @@ class LlmProvider extends Model
             'output_cost' => 'float',
             'usage_pct' => 'integer',
             'runs_count' => 'integer',
+            'platform_owned' => 'boolean',
             'verified_at' => 'datetime',
             'verification_status' => LlmVerificationOutcome::class,
             'verification_checked_at' => 'datetime',

@@ -7,6 +7,7 @@ use App\Enums\CredentialStatus;
 use App\Enums\RunStatus;
 use App\Enums\ToolCallStatus;
 use App\Models\AgentRun;
+use App\Models\AuditEvent;
 use App\Models\Credential;
 use App\Models\Team;
 use App\Models\ToolCall;
@@ -158,9 +159,58 @@ class OperationalMonitor
             );
         }
 
+        $alerts = [...$alerts, ...$this->ssoAlerts($team)];
+
         usort($alerts, fn (array $a, array $b): int => $b['weight'] <=> $a['weight']);
 
         return array_map(fn (array $alert): array => Arr::except($alert, 'weight'), $alerts);
+    }
+
+    /**
+     * Project durable tenant-scoped SSO anomaly and IdP availability signals.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function ssoAlerts(Team $team): array
+    {
+        $window = Date::now()->subMinutes((int) config('maacc.sso.alert_window_minutes', 15));
+        $alerts = [];
+
+        $anomaly = AuditEvent::query()
+            ->where('team_id', $team->id)
+            ->where('action', 'sso.anomaly.detected')
+            ->where('created_at', '>=', $window)
+            ->latest()
+            ->first();
+
+        if ($anomaly !== null) {
+            $alerts[] = $this->alert(
+                AlertSeverity::High,
+                'shield-alert',
+                'SSO anomaly detected',
+                'A tenant SSO connection crossed its security-failure policy and requires review.',
+                $anomaly->created_at,
+            );
+        }
+
+        $outage = AuditEvent::query()
+            ->where('team_id', $team->id)
+            ->where('action', 'sso.idp_unavailable')
+            ->where('created_at', '>=', $window)
+            ->latest()
+            ->first();
+
+        if ($outage !== null) {
+            $alerts[] = $this->alert(
+                AlertSeverity::High,
+                'shield-alert',
+                'Identity provider unavailable',
+                'SSO could not reach the tenant identity provider. Use the approved local break-glass path if access is urgent.',
+                $outage->created_at,
+            );
+        }
+
+        return $alerts;
     }
 
     /**

@@ -6,12 +6,12 @@ use App\Enums\WebhookDeliveryStatus;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
 use App\Support\Webhooks\WebhookSigner;
+use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 /**
  * Delivers a single run-event payload to a webhook endpoint with an
@@ -21,7 +21,7 @@ use Illuminate\Support\Str;
  * failing endpoint can never affect the agent run it describes. Each attempt's
  * outcome is persisted, making failures observable and the delivery replayable.
  */
-class DeliverWebhook implements ShouldQueue
+class DeliverWebhook implements ShouldBeEncrypted, ShouldQueue
 {
     use Queueable;
 
@@ -76,13 +76,13 @@ class DeliverWebhook implements ShouldQueue
 
             $failed = $response->failed();
             $status = $response->status();
-            $responseBody = Str::limit($response->body(), 2000);
+            $responseBody = null;
             $error = $failed ? "The endpoint returned HTTP {$status}." : null;
-        } catch (ConnectionException $exception) {
+        } catch (ConnectionException) {
             $failed = true;
             $status = null;
             $responseBody = null;
-            $error = $exception->getMessage();
+            $error = 'The webhook endpoint could not be reached.';
         }
 
         if (! $failed) {

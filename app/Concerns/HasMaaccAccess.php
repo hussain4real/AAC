@@ -78,6 +78,6 @@ trait HasMaaccAccess
         return $this->projectMemberships()
             ->whereHas('project.application', fn ($query) => $query->where('team_id', $team->id))
             ->get()
-            ->contains(fn (ProjectMember $member): bool => $member->maacc_role->hasPermission($permission));
+            ->contains(fn (ProjectMember $member): bool => $member->maacc_role?->hasPermission($permission) ?? false);
     }
 }

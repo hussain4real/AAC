@@ -5,6 +5,7 @@ use App\Enums\ExecMode;
 use App\Enums\LlmFinishReason;
 use App\Enums\LlmStatus;
 use App\Enums\RunStatus;
+use App\Exceptions\Runtime\ProviderCredentialException;
 use App\Models\AgentRun;
 use App\Models\LlmProvider;
 use App\Models\ToolContract;
@@ -21,10 +22,23 @@ use App\Support\Runtime\RuntimeAgent;
 use App\Support\Runtime\RuntimeTool;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Laravel\Ai\Ai;
+use Laravel\Ai\Contracts\Providers\TextProvider;
 use Laravel\Ai\Prompts\AgentPrompt;
+use Laravel\Ai\Providers\Provider;
 use Laravel\Ai\Providers\Tools\WebSearch;
 use Laravel\Ai\Responses\Data\ToolCall;
 use Laravel\Ai\Tools\Request;
+
+function providerKey(TextProvider $provider): ?string
+{
+    if (! $provider instanceof Provider) {
+        throw new RuntimeException('The prompt provider does not expose credentials.');
+    }
+
+    $key = $provider->providerCredentials()['key'] ?? null;
+
+    return is_string($key) ? $key : null;
+}
 
 test('the AI router returns a final-text completion for a plain reply', function () {
     Ai::fakeAgent(RuntimeAgent::class, ['All clear.']);
@@ -34,6 +48,7 @@ test('the AI router returns a final-text completion for a plain reply', function
         modelCode: 'claude-3',
         systemPrompt: 'You help.',
         messages: [LlmMessage::user('status?')],
+        platformOwned: true,
     ));
 
     expect($completion->finishReason)->toBe(LlmFinishReason::Stop)
@@ -55,6 +70,7 @@ test('the AI router parses a tool-call envelope across a full transcript', funct
             LlmMessage::tool('lookup', '{"r":1}'),
         ],
         tools: [new LlmToolDefinition('lookup', 'Looks things up', ['q' => 'string'])],
+        platformOwned: true,
     ));
 
     expect($completion->finishReason)->toBe(LlmFinishReason::ToolCall)
@@ -63,8 +79,15 @@ test('the AI router parses a tool-call envelope across a full transcript', funct
         ->and($completion->toolArguments)->toBe(['q' => 'x']);
 });
 
-test('the AI router applies a vault-resolved key to the provider for the call', function () {
-    Ai::fakeAgent(RuntimeAgent::class, ['ok']);
+test('the AI router isolates a vault-resolved key to one provider call', function () {
+    $observed = [];
+    Ai::fakeAgent(RuntimeAgent::class, function ($prompt, $attachments, TextProvider $provider) use (&$observed): string {
+        $observed[] = providerKey($provider);
+
+        expect(config('ai.providers.anthropic.key'))->toBe('env-key');
+
+        return 'ok';
+    });
     config(['ai.providers.anthropic.key' => 'env-key']);
 
     (new AiLlmRouter)->complete(new LlmRequest(
@@ -75,7 +98,96 @@ test('the AI router applies a vault-resolved key to the provider for the call', 
         apiKey: 'vault-key',
     ));
 
-    expect(config('ai.providers.anthropic.key'))->toBe('vault-key');
+    expect($observed)->toBe(['vault-key'])
+        ->and(config('ai.providers.anthropic.key'))->toBe('env-key');
+});
+
+test('the AI router does not leak credentials across sequential tenant calls', function () {
+    $observed = [];
+    Ai::fakeAgent(RuntimeAgent::class, function ($prompt, $attachments, TextProvider $provider) use (&$observed): string {
+        $observed[] = providerKey($provider);
+
+        expect(config('ai.providers.anthropic.key'))->toBe('platform-key');
+
+        return 'ok';
+    });
+    config(['ai.providers.anthropic.key' => 'platform-key']);
+    $router = new AiLlmRouter;
+
+    foreach (['tenant-a-key', 'tenant-b-key', null] as $apiKey) {
+        $router->complete(new LlmRequest(
+            providerDriver: 'anthropic',
+            modelCode: 'claude-3',
+            systemPrompt: 'You help.',
+            messages: [LlmMessage::user('hi')],
+            apiKey: $apiKey,
+            platformOwned: true,
+        ));
+    }
+
+    expect($observed)->toBe(['tenant-a-key', 'tenant-b-key', 'platform-key'])
+        ->and(config('ai.providers.anthropic.key'))->toBe('platform-key');
+});
+
+test('the AI router leaves provider configuration unchanged after an exception', function () {
+    Ai::fakeAgent(RuntimeAgent::class, function ($prompt, $attachments, TextProvider $provider): never {
+        expect(providerKey($provider))->toBe('tenant-key')
+            ->and(config('ai.providers.anthropic.key'))->toBe('platform-key');
+
+        throw new RuntimeException('provider failed');
+    });
+    config(['ai.providers.anthropic.key' => 'platform-key']);
+
+    expect(fn () => (new AiLlmRouter)->complete(new LlmRequest(
+        providerDriver: 'anthropic',
+        modelCode: 'claude-3',
+        systemPrompt: 'You help.',
+        messages: [LlmMessage::user('hi')],
+        apiKey: 'tenant-key',
+    )))->toThrow(RuntimeException::class, 'provider failed');
+
+    expect(config('ai.providers.anthropic.key'))->toBe('platform-key');
+});
+
+test('concurrent tenant calls retain isolated request-scoped credentials', function () {
+    $observed = [];
+    config(['ai.providers.anthropic.key' => 'platform-key']);
+
+    Ai::fakeAgent(RuntimeAgent::class, function ($prompt, $attachments, TextProvider $provider) use (&$observed): string {
+        $key = providerKey($provider);
+        $observed[] = "enter:{$key}";
+
+        if ($key === 'tenant-a-key') {
+            Fiber::suspend();
+        }
+
+        $observed[] = "exit:{$key}";
+
+        return 'ok';
+    });
+
+    $router = new AiLlmRouter;
+    $request = fn (string $key): LlmRequest => new LlmRequest(
+        providerDriver: 'anthropic',
+        modelCode: 'claude-3',
+        systemPrompt: 'You help.',
+        messages: [LlmMessage::user('hi')],
+        apiKey: $key,
+    );
+
+    $tenantA = new Fiber(fn () => $router->complete($request('tenant-a-key')));
+    $tenantB = new Fiber(fn () => $router->complete($request('tenant-b-key')));
+
+    $tenantA->start();
+    $tenantB->start();
+    $tenantA->resume();
+
+    expect($observed)->toBe([
+        'enter:tenant-a-key',
+        'enter:tenant-b-key',
+        'exit:tenant-b-key',
+        'exit:tenant-a-key',
+    ])->and(config('ai.providers.anthropic.key'))->toBe('platform-key');
 });
 
 test('the AI router treats an envelope for an unknown tool as plain text', function () {
@@ -87,6 +199,7 @@ test('the AI router treats an envelope for an unknown tool as plain text', funct
         systemPrompt: 'You help.',
         messages: [LlmMessage::user('hi')],
         tools: [new LlmToolDefinition('lookup', 'Looks things up', ['q' => 'string'])],
+        platformOwned: true,
     ));
 
     expect($completion->isToolCall())->toBeFalse()
@@ -176,6 +289,7 @@ test('the AI router unwraps a fenced tool-call envelope', function () {
         systemPrompt: 'You help.',
         messages: [LlmMessage::user('find x')],
         tools: [new LlmToolDefinition('lookup', 'Looks things up', ['q' => 'string'])],
+        platformOwned: true,
     ));
 
     expect($completion->isToolCall())->toBeTrue()
@@ -195,6 +309,7 @@ test('the AI router surfaces a native tool call returned by the provider', funct
         systemPrompt: 'You help.',
         messages: [LlmMessage::user('find x')],
         tools: [new LlmToolDefinition('lookup', 'Looks things up', ['q' => 'string'])],
+        platformOwned: true,
     ));
 
     expect($completion->isToolCall())->toBeTrue()
@@ -215,6 +330,7 @@ test('the AI router exposes web search as a provider-hosted tool', function () {
         messages: [LlmMessage::user('find the latest scores')],
         tools: [new LlmToolDefinition('lookup', 'Looks things up', ['q' => 'string'])],
         providerTools: [LlmProviderToolDefinition::webSearch()],
+        platformOwned: true,
     ));
 
     Ai::assertAgentWasPrompted(RuntimeAgent::class, function (AgentPrompt $prompt): bool {
@@ -238,7 +354,19 @@ test('the AI router rejects unknown provider-hosted tool types', function () {
         systemPrompt: 'You help.',
         messages: [LlmMessage::user('find the latest scores')],
         providerTools: [new LlmProviderToolDefinition('unknown', 'unknown')],
+        platformOwned: true,
     )))->toThrow(InvalidArgumentException::class, 'Unsupported provider-hosted tool type [unknown].');
+});
+
+test('the AI router rejects environment fallback for tenant-owned providers', function () {
+    config(['ai.providers.openai.key' => 'platform-key']);
+
+    expect(fn () => (new AiLlmRouter)->complete(new LlmRequest(
+        providerDriver: 'openai',
+        modelCode: 'gpt-5.4',
+        systemPrompt: 'You help.',
+        messages: [LlmMessage::user('hi')],
+    )))->toThrow(ProviderCredentialException::class, 'vault-bound credential');
 });
 
 test('the provider-hosted registry recognizes only hosted web search contracts', function () {

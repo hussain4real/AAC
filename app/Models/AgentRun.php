@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property string $application_id
  * @property string|null $llm_provider_id
  * @property string $slug
+ * @property string|null $correlation_id
  * @property string|null $caller
  * @property RunMode $mode
  * @property Environment|null $environment
@@ -54,7 +55,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ToolCall> $toolCalls
  * @property-read Collection<int, TraceEvent> $traceEvents
  */
-#[Fillable(['agent_id', 'evaluation_id', 'project_id', 'application_id', 'llm_provider_id', 'slug', 'caller', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
+#[Fillable(['agent_id', 'evaluation_id', 'project_id', 'application_id', 'llm_provider_id', 'slug', 'correlation_id', 'caller', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
 class AgentRun extends Model
 {
     /** @use HasFactory<AgentRunFactory> */
