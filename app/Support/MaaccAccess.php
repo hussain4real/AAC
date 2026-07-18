@@ -41,7 +41,7 @@ class MaaccAccess
         return [
             'roles' => $roles->map(fn (MaaccRole $role): string => $role->value)->values()->all(),
             'permissions' => $permissions->map(fn (MaaccPermission $permission): string => $permission->value)->all(),
-            'navigation' => $this->navigation($roles->all(), $isPlatformAdmin),
+            'navigation' => $this->navigation($roles->all()),
             'projectIds' => $isPlatformAdmin ? [] : $memberships->pluck('project_id')->unique()->values()->all(),
             'isPlatformAdmin' => $isPlatformAdmin,
             'roleLabel' => $roles->isEmpty()
@@ -56,16 +56,8 @@ class MaaccAccess
      * @param  array<int, MaaccRole>  $roles
      * @return array<int, string>
      */
-    private function navigation(array $roles, bool $isPlatformAdmin): array
+    private function navigation(array $roles): array
     {
-        if ($isPlatformAdmin) {
-            return [
-                'dashboard', 'applications', 'projects', 'agents', 'tools', 'sdk', 'journey',
-                'playground', 'connectors', 'knowledge', 'dataSources', 'evaluations', 'runs',
-                'llm', 'governance', 'webhooks', 'vault', 'routing', 'incidents', 'settings',
-            ];
-        }
-
         $navigation = collect();
 
         foreach ($roles as $role) {
@@ -75,7 +67,11 @@ class MaaccAccess
                 MaaccRole::Viewer => ['dashboard', 'projects', 'agents', 'tools', 'runs', 'settings'],
                 MaaccRole::Auditor => ['dashboard', 'applications', 'projects', 'agents', 'tools', 'sdk', 'journey', 'runs', 'governance', 'settings'],
                 MaaccRole::SecurityReviewer => ['dashboard', 'applications', 'projects', 'agents', 'tools', 'journey', 'connectors', 'knowledge', 'dataSources', 'runs', 'governance', 'settings'],
-                MaaccRole::PlatformAdmin => [],
+                MaaccRole::PlatformAdmin => [
+                    'dashboard', 'applications', 'projects', 'agents', 'tools', 'sdk', 'journey',
+                    'playground', 'connectors', 'knowledge', 'dataSources', 'evaluations', 'runs',
+                    'llm', 'governance', 'webhooks', 'vault', 'routing', 'incidents', 'settings',
+                ],
             });
         }
 
