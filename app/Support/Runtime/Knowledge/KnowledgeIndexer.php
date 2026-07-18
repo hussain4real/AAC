@@ -2,6 +2,7 @@
 
 namespace App\Support\Runtime\Knowledge;
 
+use App\Enums\KnowledgeDocumentStatus;
 use App\Models\KnowledgeDocument;
 use App\Models\KnowledgeSource;
 use Illuminate\Support\Facades\Date;
@@ -101,6 +102,10 @@ class KnowledgeIndexer
     public function reindex(KnowledgeSource $source): void
     {
         foreach ($source->documents()->get() as $document) {
+            if ($document->ingestion_status !== KnowledgeDocumentStatus::Indexed) {
+                continue;
+            }
+
             if ($document->isUploaded()) {
                 $this->indexStoredDocument($document);
             } else {

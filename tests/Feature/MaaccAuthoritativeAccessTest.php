@@ -16,6 +16,13 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 beforeEach(fn () => Cache::clear());
 
+test('platform administrators receive every platform navigation entry', function () {
+    [$owner, $team] = ownerAndTeam();
+
+    expect(app(MaaccAccess::class)->forUser($owner, $team)['navigation'])
+        ->toContain('identity', 'accessControl');
+});
+
 test('server issued capabilities derive from active memberships and expire fail closed', function () {
     [, $team] = ownerAndTeam();
     $project = Project::factory()->for(Application::factory()->for($team))->create();

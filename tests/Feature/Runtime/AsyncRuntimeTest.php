@@ -455,6 +455,7 @@ test('delivery is a no-op when the delivery has been removed', function () {
 
     // fresh() resolves to null — the job returns without attempting a delivery.
     app()->call([new DeliverWebhook($delivery), 'handle']);
+    (new DeliverWebhook($delivery))->failed(new RuntimeException('worker failed'));
 
     expect(WebhookDelivery::count())->toBe(0);
 });
@@ -475,7 +476,8 @@ test('delivery fails closed when the signing-key overlap has elapsed', function 
     Http::assertNothingSent();
 });
 
-test('the webhook worker failure callback releases its processing claim', function () {
+test('the webhook worker failure callback records the attempt and schedules recovery', function () {
+    Queue::fake();
     $delivery = WebhookDelivery::factory()->for(webhookEndpoint(), 'endpoint')->create([
         'processing_token' => 'claimed',
         'processing_claimed_at' => now(),
@@ -485,7 +487,31 @@ test('the webhook worker failure callback releases its processing claim', functi
 
     expect($delivery->fresh()->processing_token)->toBeNull()
         ->and($delivery->fresh()->processing_claimed_at)->toBeNull()
+        ->and($delivery->fresh()->attempts)->toBe(1)
+        ->and($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Pending)
+        ->and($delivery->fresh()->next_attempt_at)->not->toBeNull()
         ->and($delivery->fresh()->error)->toContain('worker failed');
+
+    Queue::assertPushed(DeliverWebhook::class, fn (DeliverWebhook $job): bool => $job->delivery->is($delivery));
+});
+
+test('the webhook worker failure callback terminates an exhausted delivery', function () {
+    Queue::fake();
+    $endpoint = webhookEndpoint();
+    $delivery = WebhookDelivery::factory()->for($endpoint, 'endpoint')->create([
+        'attempts' => (int) config('maacc.runtime.webhooks.max_attempts') - 1,
+        'processing_token' => 'claimed',
+        'processing_claimed_at' => now(),
+    ]);
+
+    (new DeliverWebhook($delivery))->failed(new RuntimeException('worker failed'));
+
+    expect($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Failed)
+        ->and($delivery->fresh()->attempts)->toBe((int) config('maacc.runtime.webhooks.max_attempts'))
+        ->and($delivery->fresh()->next_attempt_at)->toBeNull()
+        ->and($endpoint->fresh()->last_failed_at)->not->toBeNull();
+
+    Queue::assertNotPushed(DeliverWebhook::class);
 });
 
 test('an application exposes its registered webhook endpoints', function () {

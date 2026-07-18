@@ -385,7 +385,7 @@ class ToolSchema
     {
         return match ($format) {
             'date' => self::matchesDate($value, 'Y-m-d'),
-            'date-time' => DateTimeImmutable::createFromFormat(DateTimeImmutable::ATOM, $value) !== false,
+            'date-time' => self::matchesDateTime($value),
             'email' => filter_var($value, FILTER_VALIDATE_EMAIL) !== false,
             'uuid' => preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i', $value) === 1,
             'uri' => filter_var($value, FILTER_VALIDATE_URL) !== false,
@@ -398,5 +398,17 @@ class ToolSchema
         $date = DateTimeImmutable::createFromFormat('!'.$format, $value);
 
         return $date !== false && $date->format($format) === $value;
+    }
+
+    private static function matchesDateTime(string $value): bool
+    {
+        if (preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/', $value) !== 1) {
+            return false;
+        }
+
+        $date = DateTimeImmutable::createFromFormat(DateTimeImmutable::ATOM, $value);
+        $errors = DateTimeImmutable::getLastErrors();
+
+        return $date !== false && ($errors === false || ($errors['warning_count'] === 0 && $errors['error_count'] === 0));
     }
 }

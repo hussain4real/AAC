@@ -216,9 +216,17 @@ export function MaaccNavProvider({ children }: { children: ReactNode }) {
     const page = usePage();
     const team = page.props.currentTeam?.slug ?? '';
     const { resolvedAppearance, updateAppearance } = useAppearance();
+    const data = useMaaccDataset();
     const access = page.props.auth.maacc;
-    const persona: Persona = useMemo(
-        () => ({
+    const persona: Persona = useMemo(() => {
+        const assignedProjectIds = new Set(access.projectIds);
+        const scopedProjectIds = data.projects
+            .filter((project) =>
+                assignedProjectIds.has(project.uuid ?? project.id),
+            )
+            .map((project) => project.id);
+
+        return {
             id: access.isPlatformAdmin
                 ? 'admin'
                 : access.roles.includes('project_owner')
@@ -229,20 +237,19 @@ export function MaaccNavProvider({ children }: { children: ReactNode }) {
             view: access.roleLabel,
             short: access.roleLabel,
             blurb: 'Access is issued by MAACC policies and active project memberships.',
-            scope: 'all',
+            scope: access.isPlatformAdmin ? 'all' : 'projects',
+            projectIds: scopedProjectIds,
             tone: access.isPlatformAdmin
                 ? 'var(--purple-600)'
                 : 'var(--blue-500)',
-        }),
-        [access, page.props.auth.user.name],
-    );
+        };
+    }, [access, data.projects, page.props.auth.user.name]);
     const env = useSyncExternalStore(
         subscribeToEnvironmentChanges,
         readEnvironmentSnapshot,
         () => DEFAULT_ENVIRONMENT,
     );
 
-    const data = useMaaccDataset();
     const scope = useMemo(() => computeScope(persona, data), [persona, data]);
 
     const activeScreen: ScreenId = useMemo(() => {

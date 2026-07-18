@@ -243,8 +243,24 @@ function matchesFormat(value: unknown, format: string): boolean {
 
       return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
     }
-    case 'date-time':
-      return !Number.isNaN(Date.parse(value));
+    case 'date-time': {
+      const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+
+      if (match === null) {
+        return false;
+      }
+
+      const [, date, hour, minute, second, offsetHour, offsetMinute] = match;
+
+      return (
+        matchesFormat(date, 'date') &&
+        Number(hour) <= 23 &&
+        Number(minute) <= 59 &&
+        Number(second) <= 59 &&
+        (offsetHour === undefined || Number(offsetHour) <= 23) &&
+        (offsetMinute === undefined || Number(offsetMinute) <= 59)
+      );
+    }
     case 'email':
       return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
     case 'uuid':

@@ -2,6 +2,7 @@
 
 use App\Enums\Environment;
 use App\Enums\ExecMode;
+use App\Enums\KnowledgeDocumentStatus;
 use App\Enums\KnowledgeSourceStatus;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
@@ -258,6 +259,30 @@ it('reindexes a source and rebuilds its chunks', function () {
     app(KnowledgeIndexer::class)->reindex($this->source->fresh());
 
     expect($this->source->fresh()->chunk_count)->toBe(3);
+});
+
+it('keeps quarantined uploads excluded during source reindexing', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('knowledge-quarantine/unsafe.txt', 'must not be indexed');
+    $document = $this->source->documents()->create([
+        'title' => 'Unsafe upload',
+        'body' => '',
+        'checksum' => '',
+        'disk' => 'local',
+        'storage_path' => 'knowledge-quarantine/unsafe.txt',
+        'original_filename' => 'unsafe.txt',
+        'mime_type' => 'text/plain',
+        'file_size' => 19,
+        'ingestion_status' => KnowledgeDocumentStatus::Quarantined,
+        'quarantine_reason' => 'Unsafe content.',
+    ]);
+
+    app(KnowledgeIndexer::class)->reindex($this->source->fresh());
+
+    expect($document->fresh()->ingestion_status)->toBe(KnowledgeDocumentStatus::Quarantined)
+        ->and($document->fresh()->body)->toBe('')
+        ->and($document->chunks()->count())->toBe(0)
+        ->and($this->source->fresh()->chunk_count)->toBe(3);
 });
 
 it('splits a long paragraph into word windows', function () {

@@ -70,7 +70,8 @@ class MaaccAccess
                 MaaccRole::PlatformAdmin => [
                     'dashboard', 'applications', 'projects', 'agents', 'tools', 'sdk', 'journey',
                     'playground', 'connectors', 'knowledge', 'dataSources', 'evaluations', 'runs',
-                    'llm', 'governance', 'webhooks', 'vault', 'routing', 'incidents', 'settings',
+                    'llm', 'governance', 'webhooks', 'vault', 'routing', 'identity', 'incidents',
+                    'accessControl', 'settings',
                 ],
             });
         }

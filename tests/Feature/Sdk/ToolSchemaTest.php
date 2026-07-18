@@ -230,6 +230,12 @@ test('payload validation covers bounds formats nesting and projection edge cases
         ->toContain('uri')
         ->and(ToolSchema::validatePayload(['date' => 'string·date'], ['date' => '2026-99-99']))
         ->toContain('Field "date" must match format date.')
+        ->and(ToolSchema::validatePayload(['at' => 'string·date-time'], ['at' => '2026-07-18T12:34:56+03:00']))
+        ->toBe([])
+        ->and(ToolSchema::validatePayload(['at' => 'string·date-time'], ['at' => '2026-07-18']))
+        ->toContain('Field "at" must match format date-time.')
+        ->and(ToolSchema::validatePayload(['at' => 'string·date-time'], ['at' => '2026-02-30T12:34:56Z']))
+        ->toContain('Field "at" must match format date-time.')
         ->and(ToolSchema::payloadBytes(['invalid' => "\xB1\x31"]))->toBe(PHP_INT_MAX)
         ->and(ToolSchema::projectPayload([
             'open' => ['type' => 'object', 'properties' => ['known' => 'string'], 'additionalProperties' => true],

@@ -39,6 +39,16 @@ test('parses optional markers and format hints in definitions', () => {
   assert.equal(isOptional('string'), false);
 });
 
+test('matches MAACC date-time validation exactly', () => {
+  const schema = { at: { type: 'string', format: 'date-time' } };
+
+  assert.equal(validateSchema(schema, { at: '2026-07-18T12:34:56Z' }).valid, true);
+  assert.equal(validateSchema(schema, { at: '2026-07-18T12:34:56+03:00' }).valid, true);
+  assert.equal(validateSchema(schema, { at: '2026-07-18' }).valid, false);
+  assert.equal(validateSchema(schema, { at: '2026-02-30T12:34:56Z' }).valid, false);
+  assert.equal(validateSchema(schema, { at: '2026-07-18T12:34:56.123Z' }).valid, false);
+});
+
 test('validates a handler input and output against the contract', async () => {
   const tool = manifestTool({ query: 'string' }, { records: 'array', total: 'integer' });
   const result = await new ToolTester().test(tool, () => ({ records: ['a', 'b'], total: 2 }), { query: 'today' });

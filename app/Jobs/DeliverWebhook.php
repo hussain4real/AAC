@@ -163,7 +163,7 @@ class DeliverWebhook implements ShouldBeEncrypted, ShouldBeUniqueUntilProcessing
      * Persist a failed attempt and schedule a backoff retry, or mark the
      * delivery permanently failed once it has exhausted its attempts.
      */
-    private function recordFailure(WebhookDelivery $delivery, WebhookEndpoint $endpoint, int $attempt, string $signature, ?int $status, ?string $responseBody, string $error): void
+    private function recordFailure(WebhookDelivery $delivery, WebhookEndpoint $endpoint, int $attempt, ?string $signature, ?int $status, ?string $responseBody, string $error): void
     {
         $willRetry = $attempt < $this->maxAttempts();
 
@@ -223,10 +223,20 @@ class DeliverWebhook implements ShouldBeEncrypted, ShouldBeUniqueUntilProcessing
 
     public function failed(?Throwable $exception): void
     {
-        WebhookDelivery::query()->whereKey($this->delivery->id)->update([
-            'processing_token' => null,
-            'processing_claimed_at' => null,
-            'error' => 'The webhook worker failed before completing the attempt.',
-        ]);
+        $delivery = $this->delivery->fresh();
+
+        if (! $delivery instanceof WebhookDelivery || $delivery->status !== WebhookDeliveryStatus::Pending) {
+            return;
+        }
+
+        $this->recordFailure(
+            $delivery,
+            $delivery->endpoint,
+            $delivery->attempts + 1,
+            $delivery->signature,
+            null,
+            null,
+            'The webhook worker failed before completing the attempt.',
+        );
     }
 }
