@@ -33,6 +33,10 @@ class WebhookDeliveryController extends Controller
         $webhookDelivery->update([
             'status' => WebhookDeliveryStatus::Pending,
             'attempts' => 0,
+            'processing_token' => null,
+            'processing_claimed_at' => null,
+            'replay_count' => $webhookDelivery->replay_count + 1,
+            'secret_version' => $webhookDelivery->endpoint->secret_version,
             'error' => null,
             'response_status' => null,
             'response_body' => null,

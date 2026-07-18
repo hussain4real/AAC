@@ -47,6 +47,19 @@ return [
             'report' => false,
         ],
 
+        'audit_archive' => [
+            'driver' => env('MAACC_AUDIT_ARCHIVE_DRIVER', 'local'),
+            'root' => env('MAACC_AUDIT_ARCHIVE_ROOT', storage_path('app/audit-archive')),
+            'key' => env('MAACC_AUDIT_ARCHIVE_ACCESS_KEY'),
+            'secret' => env('MAACC_AUDIT_ARCHIVE_SECRET_KEY'),
+            'region' => env('MAACC_AUDIT_ARCHIVE_REGION'),
+            'bucket' => env('MAACC_AUDIT_ARCHIVE_BUCKET'),
+            'endpoint' => env('MAACC_AUDIT_ARCHIVE_ENDPOINT'),
+            'use_path_style_endpoint' => env('MAACC_AUDIT_ARCHIVE_PATH_STYLE', false),
+            'throw' => true,
+            'report' => true,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

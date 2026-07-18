@@ -27,14 +27,10 @@ test('the tool detail page surfaces the real version and implementation history'
         );
 });
 
-test('the tool detail page renders null history for an unknown tool', function () {
+test('the tool detail page returns not found for an unknown tool', function () {
     [$owner, $team] = ownerAndTeam();
 
     $this->actingAs($owner)
         ->get("/{$team->slug}/tools/does-not-exist")
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('maacc/tools/show')
-            ->where('history', null)
-        );
+        ->assertNotFound();
 });

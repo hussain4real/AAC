@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\User;
 use App\Support\EnterpriseReadiness;
+use App\Support\MaaccAccess;
 use App\Support\MaaccConsoleData;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -50,13 +51,16 @@ class HandleInertiaRequests extends Middleware
                 // the console can gate platform-admin nav and controls on the
                 // real global RBAC rather than the front-end persona mock.
                 'platform' => fn (): array => $this->platformAccess($user),
+                'maacc' => fn (): array => $user?->currentTeam
+                    ? app(MaaccAccess::class)->forUser($user, $user->currentTeam)
+                    : ['roles' => [], 'permissions' => [], 'navigation' => [], 'projectIds' => [], 'isPlatformAdmin' => false, 'roleLabel' => 'No access'],
             ],
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
             'currentTeam' => fn () => $user?->currentTeam ? $user->toUserTeam($user->currentTeam) : null,
             'teams' => fn () => $user?->toUserTeams(includeCurrent: true) ?? [],
             // MAACC console dataset for the current team (Phase 2). Feeds the
             // client-side scope/persona layer with real records.
-            'maacc' => fn () => $user?->currentTeam ? MaaccConsoleData::forTeam($user->currentTeam) : null,
+            'maacc' => fn () => $user?->currentTeam ? MaaccConsoleData::forUser($user, $user->currentTeam) : null,
         ];
     }
 

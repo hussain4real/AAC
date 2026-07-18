@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Enums\MaaccPermission;
 use App\Models\Application;
+use App\Models\Project;
 use App\Models\User;
 
 /**
@@ -16,7 +17,9 @@ class ApplicationPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->currentTeam !== null;
+        $team = $user->currentTeam;
+
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::View);
     }
 
     /**
@@ -24,7 +27,13 @@ class ApplicationPolicy
      */
     public function view(User $user, Application $application): bool
     {
-        return $user->belongsToTeam($application->team);
+        if ($user->isMaaccPlatformAdmin($application->team)) {
+            return true;
+        }
+
+        return $application->projects()->get()->contains(
+            fn (Project $project): bool => $user->hasMaaccPermission($application->team, MaaccPermission::View, $project),
+        );
     }
 
     /**

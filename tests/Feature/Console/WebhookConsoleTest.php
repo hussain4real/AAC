@@ -7,6 +7,7 @@ use App\Jobs\DeliverWebhook;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
 use App\Support\MaaccConsoleData;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia;
 
@@ -40,8 +41,44 @@ test('a platform admin registers a webhook endpoint and sees the one-time secret
     $endpoint = WebhookEndpoint::first();
     expect($endpoint->application_id)->toBe($this->application->id)
         ->and($endpoint->events)->toBe([WebhookEventType::RunCompleted->value])
-        ->and($endpoint->status)->toBe(WebhookEndpointStatus::Active)
+        ->and($endpoint->status)->toBe(WebhookEndpointStatus::PendingVerification)
         ->and($endpoint->creator->is($this->owner))->toBeTrue();
+});
+
+test('a pending webhook activates only after a successful signed test delivery', function () {
+    $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
+        'status' => WebhookEndpointStatus::PendingVerification,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 204)]);
+
+    $this->actingAs($this->owner)
+        ->post(route('webhooks.verify', [
+            'current_team' => $this->team->slug,
+            'webhookEndpoint' => $endpoint->id,
+        ]))
+        ->assertRedirect();
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::Active);
+    Http::assertSent(fn ($request): bool => $request->hasHeader('X-Maacc-Webhook-Event', 'webhook.test')
+        && $request->hasHeader('X-Maacc-Signature'));
+});
+
+test('a failed webhook test remains pending verification', function () {
+    $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
+        'status' => WebhookEndpointStatus::PendingVerification,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 500)]);
+
+    $this->actingAs($this->owner)
+        ->post(route('webhooks.verify', [
+            'current_team' => $this->team->slug,
+            'webhookEndpoint' => $endpoint->id,
+        ]))
+        ->assertRedirect();
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::PendingVerification);
 });
 
 test('registering without events defaults to all events', function () {
@@ -108,7 +145,9 @@ test('a failed delivery is replayed from the console', function () {
         ->assertRedirect();
 
     expect($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Pending)
-        ->and($delivery->fresh()->attempts)->toBe(0);
+        ->and($delivery->fresh()->attempts)->toBe(0)
+        ->and($delivery->fresh()->replay_count)->toBe(1)
+        ->and($delivery->fresh()->id)->toBe($delivery->id);
 
     Queue::assertPushed(DeliverWebhook::class);
 });

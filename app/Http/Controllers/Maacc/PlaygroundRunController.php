@@ -15,7 +15,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Console runtime for the agent playground. A team member runs a published agent
+ * Console runtime for the agent playground. An authorized team member runs a
+ * published agent or a governed draft test
  * straight from the console; the run is driven by the very same
  * {@see AgentRunner} the SDK uses, so the console exercises the real
  * model/tool loop end-to-end rather than a simulation. Each response carries the
@@ -33,10 +34,6 @@ class PlaygroundRunController extends Controller
 
         $agent->loadMissing(['project.application', 'llmProvider', 'tools']);
 
-        if ($agent->status !== AgentStatus::Published) {
-            return new JsonResponse(['message' => 'The agent must be published before it can be run from the console.'], 422);
-        }
-
         $application = $agent->project->application;
         $incidents->assert($application);
 
@@ -48,7 +45,15 @@ class PlaygroundRunController extends Controller
             ], 422);
         }
 
-        $run = $runner->start($agent, $application, $environment, $request->runInput(), $request->caller());
+        $run = $runner->start(
+            $agent,
+            $application,
+            $environment,
+            $request->runInput(),
+            $request->caller(),
+            testRun: $agent->status !== AgentStatus::Published,
+            initiatedBy: $request->user()->id,
+        );
 
         return new JsonResponse(PlaygroundRunPayload::for($run), 201);
     }

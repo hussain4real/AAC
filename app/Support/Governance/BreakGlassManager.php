@@ -9,7 +9,6 @@ use App\Enums\LlmStatus;
 use App\Enums\McpConnectorStatus;
 use App\Enums\WebhookEndpointStatus;
 use App\Models\Application;
-use App\Models\AuditEvent;
 use App\Models\Credential;
 use App\Models\IncidentAction;
 use App\Models\LlmProvider;
@@ -121,7 +120,7 @@ class BreakGlassManager
             'environment' => $environment,
         ]);
 
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $team->id,
             'actor_user_id' => $actor->getAuthIdentifier(),
             'actor_label' => $actor->name,

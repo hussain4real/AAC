@@ -37,7 +37,8 @@ class PublishAgent
 
             $nextVersion = 'v'.((int) ltrim($locked->version, 'v') + 1);
             $publishedAt = Carbon::now();
-            $configurationHash = $this->readiness->configurationHash($locked);
+            $snapshot = $this->readiness->executionSnapshot($locked);
+            $configurationHash = hash('sha256', (string) json_encode($snapshot, JSON_THROW_ON_ERROR));
 
             $version = $locked->versions()->create([
                 'version' => $nextVersion,
@@ -49,6 +50,7 @@ class PublishAgent
                     'temperature' => $locked->temperature,
                     'max_tokens' => $locked->max_tokens,
                     'configuration_hash' => $configurationHash,
+                    'execution_snapshot' => $snapshot,
                 ],
                 'status' => AgentStatus::Published->value,
                 'published_at' => $publishedAt,

@@ -7,10 +7,14 @@ use App\Http\Resources\Maacc\TraceEventResource;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\AgentVersion;
+use App\Models\Application;
 use App\Models\Membership;
+use App\Models\Project;
+use App\Models\ToolContract;
 use App\Support\Platform\PlatformAccessReport;
 use App\Support\Sdk\VersionJourney;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -26,26 +30,38 @@ class ConsoleController extends Controller
 {
     public function applications(): Response
     {
+        Gate::authorize('viewAny', Application::class);
+
         return Inertia::render('maacc/applications/index');
     }
 
     public function application(Request $request): Response
     {
-        return Inertia::render('maacc/applications/show', ['id' => $request->route('application')]);
+        $team = $request->user()->currentTeam()->firstOrFail();
+        $application = $team->applications()->where('slug', (string) $request->route('application'))->firstOrFail();
+        Gate::authorize('view', $application);
+
+        return Inertia::render('maacc/applications/show', ['id' => $application->slug]);
     }
 
     public function projects(): Response
     {
+        Gate::authorize('viewAny', Project::class);
+
         return Inertia::render('maacc/projects/index');
     }
 
     public function agents(): Response
     {
+        Gate::authorize('viewAny', Agent::class);
+
         return Inertia::render('maacc/agents/index');
     }
 
     public function createAgent(): Response
     {
+        Gate::authorize('create', Agent::class);
+
         return Inertia::render('maacc/agents/create');
     }
 
@@ -57,28 +73,29 @@ class ConsoleController extends Controller
             ->whereHas('project.application', fn ($query) => $query->where('team_id', $team->id))
             ->where('slug', $slug)
             ->with(['versions' => fn ($query) => $query->with('publisher')->orderByDesc('created_at')])
-            ->first();
+            ->firstOrFail();
+        Gate::authorize('view', $agent);
 
         return Inertia::render('maacc/agents/show', [
             'id' => $slug,
             // The agent's real published version history (from agent_versions),
             // newest first, for the Versions tab.
-            'history' => fn (): ?array => $agent === null
-                ? null
-                : $agent->versions->map(fn (AgentVersion $version): array => [
-                    'version' => $version->version,
-                    'note' => $version->notes,
-                    // A version is only attributed to a user once published; the
-                    // initial draft (and any legacy row) has no publisher.
-                    'author' => $version->published_by !== null ? $version->publisher->name : 'system',
-                    'date' => ($version->published_at ?? $version->created_at)?->diffForHumans() ?? '—',
-                    'current' => $version->version === $agent->version,
-                ])->all(),
+            'history' => fn (): array => $agent->versions->map(fn (AgentVersion $version): array => [
+                'version' => $version->version,
+                'note' => $version->notes,
+                // A version is only attributed to a user once published; the
+                // initial draft (and any legacy row) has no publisher.
+                'author' => $version->published_by !== null ? $version->publisher->name : 'system',
+                'date' => ($version->published_at ?? $version->created_at)?->diffForHumans() ?? '—',
+                'current' => $version->version === $agent->version,
+            ])->all(),
         ]);
     }
 
     public function tools(): Response
     {
+        Gate::authorize('viewAny', ToolContract::class);
+
         return Inertia::render('maacc/tools/index');
     }
 
@@ -86,13 +103,14 @@ class ConsoleController extends Controller
     {
         $slug = (string) $request->route('tool');
         $contract = $request->user()->currentTeam()->firstOrFail()
-            ->toolContracts()->where('slug', $slug)->first();
+            ->toolContracts()->where('slug', $slug)->firstOrFail();
+        Gate::authorize('view', $contract);
 
         return Inertia::render('maacc/tools/show', [
             'id' => $slug,
             // The tool's real lifecycle — contract version snapshots + SDK
             // implementation transitions — for the Audit history timeline.
-            'history' => fn (): ?array => $contract === null ? null : $journey->toolReport($contract),
+            'history' => fn (): array => $journey->toolReport($contract),
         ]);
     }
 
@@ -127,6 +145,8 @@ class ConsoleController extends Controller
 
     public function runs(): Response
     {
+        Gate::authorize('viewAny', Agent::class);
+
         return Inertia::render('maacc/runs/index');
     }
 
@@ -137,15 +157,14 @@ class ConsoleController extends Controller
         $run = AgentRun::query()
             ->whereHas('application', fn ($query) => $query->where('team_id', $team->id))
             ->where('slug', $slug)
-            ->first();
+            ->firstOrFail();
+        Gate::authorize('view', $run->agent);
 
         return Inertia::render('maacc/runs/show', [
             'id' => $slug,
             // The run's real observability trace — the ordered lifecycle events
             // recorded by the runtime — for the Execution timeline.
-            'trace' => fn (): ?array => $run === null
-                ? null
-                : TraceEventResource::collection($run->traceEvents()->orderBy('sequence')->get())->resolve(),
+            'trace' => fn (): array => TraceEventResource::collection($run->traceEvents()->orderBy('sequence')->get())->resolve(),
         ]);
     }
 

@@ -135,6 +135,26 @@ export type Project = {
     agents: number;
     tools: number;
     runs7d: number;
+    members?: ProjectMemberAccess[];
+    can?: { manageMembers: boolean };
+};
+
+export type ProjectMemberAccess = {
+    id: number;
+    userId: number;
+    name: string;
+    email: string;
+    role: string;
+    roleLabel: string;
+    active: boolean;
+    expiresAt: string | null;
+    revokedAt: string | null;
+    certifiedAt: string | null;
+    grantor: string | null;
+    revoker: string | null;
+    certifier: string | null;
+    reason: string | null;
+    certificationNote: string | null;
 };
 
 export type ToolImplementationRecord = {

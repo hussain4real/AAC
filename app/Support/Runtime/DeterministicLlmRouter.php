@@ -56,7 +56,7 @@ class DeterministicLlmRouter implements LlmRouter
     /**
      * Build a minimal payload that satisfies the required fields of a schema.
      *
-     * @param  array<string, string>  $schema
+     * @param  array<string, mixed>  $schema
      * @return array<string, mixed>
      */
     private function sampleArguments(array $schema): array
@@ -68,7 +68,7 @@ class DeterministicLlmRouter implements LlmRouter
                 continue;
             }
 
-            $arguments[$field] = $this->sampleValue(ToolSchema::baseType($definition));
+            $arguments[$field] = $this->sampleValue(ToolSchema::baseType($definition), $definition);
         }
 
         return $arguments;
@@ -77,13 +77,17 @@ class DeterministicLlmRouter implements LlmRouter
     /**
      * A schema-valid sample value for the given base type.
      */
-    private function sampleValue(string $base): mixed
+    private function sampleValue(string $base, mixed $definition = null): mixed
     {
         return match ($base) {
             'number', 'integer' => 1,
             'boolean' => true,
-            'object' => ['value' => 'e2e'],
-            'array' => ['e2e'],
+            'object' => is_array($definition) && is_array($definition['properties'] ?? null)
+                ? $this->sampleArguments($definition['properties'])
+                : ['value' => 'e2e'],
+            'array' => is_array($definition) && array_key_exists('items', $definition)
+                ? [$this->sampleValue(ToolSchema::baseType($definition['items']), $definition['items'])]
+                : ['e2e'],
             default => 'e2e',
         };
     }

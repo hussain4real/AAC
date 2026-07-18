@@ -18,7 +18,9 @@ class AgentPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->currentTeam !== null;
+        $team = $user->currentTeam;
+
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::View);
     }
 
     /**
@@ -26,17 +28,17 @@ class AgentPolicy
      */
     public function view(User $user, Agent $agent): bool
     {
-        return $user->belongsToTeam($agent->project->application->team);
+        return $user->hasMaaccPermission($agent->project->application->team, MaaccPermission::View, $agent->project);
     }
 
     /**
      * Determine whether the user can invoke the agent from the console
-     * playground. Any member of the owning team may test-run an agent; the
-     * runtime still enforces that the agent is published before it executes.
+     * playground. Invocation requires explicit project-level agent authority;
+     * the runtime separately enforces publication and environment controls.
      */
     public function run(User $user, Agent $agent): bool
     {
-        return $user->belongsToTeam($agent->project->application->team);
+        return $user->hasMaaccPermission($agent->project->application->team, MaaccPermission::ManageAgent, $agent->project);
     }
 
     /**

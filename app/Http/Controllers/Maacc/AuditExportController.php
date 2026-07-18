@@ -11,9 +11,8 @@ use Illuminate\Support\Facades\Gate;
 
 /**
  * Enterprise audit export for security review: streams a filtered, signed slice
- * of the team's audit log as JSON or CSV. The export carries a SHA-256 checksum
- * (in the JSON manifest and an `X-Maacc-Audit-Checksum` header) so its integrity
- * can be verified.
+ * of the team's audit log as JSON or CSV. The manifest is authenticated with an
+ * independently managed HMAC key and includes chain/archive verification.
  */
 class AuditExportController extends Controller
 {
@@ -49,7 +48,9 @@ class AuditExportController extends Controller
         return response($body, 200, [
             'Content-Type' => $contentType,
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-            'X-Maacc-Audit-Checksum' => $export['manifest']['checksum'],
+            'X-Maacc-Audit-Digest' => $export['manifest']['rows_digest'],
+            'X-Maacc-Audit-Signature' => $export['manifest']['signature'],
+            'X-Maacc-Audit-Key-Id' => $export['manifest']['signature_key_id'],
             'X-Maacc-Audit-Count' => (string) $export['manifest']['count'],
         ]);
     }

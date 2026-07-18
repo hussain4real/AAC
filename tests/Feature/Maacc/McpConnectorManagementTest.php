@@ -35,7 +35,7 @@ test('a platform admin can register an MCP connector', function () {
 
     expect($connector)->not->toBeNull()
         ->and($connector->team_id)->toBe($team->id)
-        ->and($connector->status)->toBe(McpConnectorStatus::Active)
+        ->and($connector->status)->toBe(McpConnectorStatus::PendingVerification)
         ->and($connector->transport)->toBe('http')
         ->and($connector->auth_type)->toBe(RemoteAuthType::Bearer)
         ->and($connector->auth_credential)->toBe('secret-token-1')
@@ -116,7 +116,8 @@ test('discovery fetches and persists the connector capabilities', function () {
         ->post(route('connectors.discover', ['current_team' => $team->slug, 'mcpConnector' => $connector->slug]))
         ->assertRedirect();
 
-    expect($connector->fresh()->discoveredToolNames())->toBe(['lookup', 'translate']);
+    expect($connector->fresh()->discoveredToolNames())->toBe(['lookup', 'translate'])
+        ->and($connector->fresh()->status)->toBe(McpConnectorStatus::Active);
 });
 
 test('a discovery failure surfaces a controlled error and stores nothing', function () {

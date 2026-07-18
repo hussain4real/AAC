@@ -8,6 +8,7 @@ use App\Models\Application;
 use App\Models\Team;
 use App\Models\ToolContract;
 use App\Models\User;
+use App\Support\Governance\AuditSigner;
 
 /**
  * Seed a team with one client tool that has two contract versions and two
@@ -45,18 +46,22 @@ test('the journey export downloads signed JSON with versions and events', functi
 
     $response = $this->get("/{$team->slug}/journey/export");
 
-    $response->assertOk()->assertHeader('x-maacc-journey-checksum');
+    $response->assertOk()->assertHeader('x-maacc-journey-signature');
     expect($response->headers->get('content-type'))->toContain('application/json');
 
     $body = $response->json();
     expect($body['manifest']['team'])->toBe($team->slug)
-        ->and($body['manifest']['checksum'])->toBeString()
+        ->and($body['manifest']['signature'])->toBeString()
+        ->and(app(AuditSigner::class)->verifyExport(
+            collect($body['manifest'])->except('signature')->all(),
+            $body['manifest']['signature'],
+        ))->toBeTrue()
         ->and($body['manifest']['event_count'])->toBeGreaterThanOrEqual(2)
         ->and($body['manifest']['version_count'])->toBe(2)
         ->and($body['manifest']['truncated'])->toBeFalse()
         ->and($body['versions'])->toHaveCount(2)
         ->and($body['events'])->not->toBeEmpty()
-        ->and($response->headers->get('x-maacc-journey-checksum'))->toBe($body['manifest']['checksum']);
+        ->and($response->headers->get('x-maacc-journey-signature'))->toBe($body['manifest']['signature']);
 });
 
 test('the journey export downloads the timeline as CSV', function () {

@@ -82,7 +82,10 @@ test('the retention pruner redacts old run payloads and deletes old audit events
         'completed_at' => now()->subDay(),
     ]);
 
-    $oldAudit = $this->travelTo(now()->subDays(40), fn () => AuditEvent::factory()->create(['team_id' => $team->id]));
+    $oldAudit = $this->travelTo(now()->subDays(40), fn () => AuditEvent::factory()->create([
+        'team_id' => $team->id,
+        'archived_at' => now(),
+    ]));
     $newAudit = AuditEvent::factory()->create(['team_id' => $team->id]);
 
     $result = app(RetentionPruner::class)->prune();
@@ -97,6 +100,25 @@ test('the retention pruner redacts old run payloads and deletes old audit events
         ->and(AuditEvent::find($newAudit->id))->not->toBeNull()
         ->and($result['runs'])->toBeGreaterThan(0)
         ->and($result['audits'])->toBe(1);
+});
+
+test('audit retention preserves unarchived events and active legal holds', function () {
+    [, $team] = ownerAndTeam();
+    GovernanceSetting::factory()->for($team)->create(['audit_retention_days' => 1]);
+    $unarchived = $this->travelTo(now()->subDays(10), fn () => AuditEvent::factory()->create([
+        'team_id' => $team->id,
+        'archived_at' => null,
+    ]));
+    $held = $this->travelTo(now()->subDays(10), fn () => AuditEvent::factory()->create([
+        'team_id' => $team->id,
+        'archived_at' => now(),
+        'legal_hold_until' => now()->addYear(),
+    ]));
+
+    app(RetentionPruner::class)->prune();
+
+    expect($unarchived->fresh())->not->toBeNull()
+        ->and($held->fresh())->not->toBeNull();
 });
 
 test('retention windows can be separated per environment', function () {

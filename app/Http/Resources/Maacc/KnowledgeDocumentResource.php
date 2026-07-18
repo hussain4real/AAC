@@ -32,6 +32,9 @@ class KnowledgeDocumentResource extends JsonResource
             'uploaded' => $this->isUploaded(),
             'originalFilename' => $this->original_filename,
             'fileSize' => $this->file_size,
+            'ingestionStatus' => $this->ingestion_status->value,
+            'quarantineReason' => $this->quarantine_reason,
+            'processedAt' => $this->processed_at?->diffForHumans(),
             'createdAt' => $this->created_at?->format('j M Y'),
         ];
     }

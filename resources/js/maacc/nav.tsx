@@ -11,15 +11,14 @@ import {
     useContext,
     useEffect,
     useMemo,
-    useState,
     useSyncExternalStore,
 } from 'react';
 import type { ReactNode } from 'react';
 import ConsoleRoutes from '@/actions/App/Http/Controllers/Maacc/ConsoleController';
 import { useAppearance } from '@/hooks/use-appearance';
 import { dashboard } from '@/routes';
-import { computeScope, navAllowed, PERSONAS, SCREEN_OF } from './personas';
-import type { Persona, PersonaId, Scope, ScreenId } from './personas';
+import { computeScope, SCREEN_OF } from './personas';
+import type { Persona, Scope, ScreenId } from './personas';
 import { useMaaccDataset } from './use-data';
 
 type Environment = 'Production' | 'Staging' | 'Development';
@@ -185,16 +184,6 @@ function urlFor(name: RouteName, team: string, params: GoParams = {}): string {
     }
 }
 
-function readPersona(): Persona {
-    if (typeof window === 'undefined') {
-        return PERSONAS[0];
-    }
-
-    const id = localStorage.getItem('maacc-persona') as PersonaId | null;
-
-    return PERSONAS.find((p) => p.id === id) ?? PERSONAS[0];
-}
-
 function isEnvironment(value: string | null): value is Environment {
     return ENVIRONMENTS.includes(value as Environment);
 }
@@ -224,11 +213,29 @@ function subscribeToEnvironmentChanges(onChange: () => void): () => void {
 }
 
 export function MaaccNavProvider({ children }: { children: ReactNode }) {
-    const page = usePage<{ currentTeam?: { slug: string } | null }>();
+    const page = usePage();
     const team = page.props.currentTeam?.slug ?? '';
     const { resolvedAppearance, updateAppearance } = useAppearance();
-
-    const [persona, setPersonaState] = useState<Persona>(readPersona);
+    const access = page.props.auth.maacc;
+    const persona: Persona = useMemo(
+        () => ({
+            id: access.isPlatformAdmin
+                ? 'admin'
+                : access.roles.includes('project_owner')
+                  ? 'projadmin'
+                  : 'dev',
+            name: page.props.auth.user.name,
+            role: access.roleLabel,
+            view: access.roleLabel,
+            short: access.roleLabel,
+            blurb: 'Access is issued by MAACC policies and active project memberships.',
+            scope: 'all',
+            tone: access.isPlatformAdmin
+                ? 'var(--purple-600)'
+                : 'var(--blue-500)',
+        }),
+        [access, page.props.auth.user.name],
+    );
     const env = useSyncExternalStore(
         subscribeToEnvironmentChanges,
         readEnvironmentSnapshot,
@@ -263,14 +270,9 @@ export function MaaccNavProvider({ children }: { children: ReactNode }) {
         window.history.back();
     }, []);
 
-    const setPersona = useCallback(
-        (p: Persona) => {
-            setPersonaState(p);
-            localStorage.setItem('maacc-persona', p.id);
-            router.visit(urlFor('dashboard', team)); // reset to a screen everyone can see
-        },
-        [team],
-    );
+    const setPersona = useCallback((personaSnapshot: Persona) => {
+        void personaSnapshot;
+    }, []);
 
     const setEnv = useCallback((next: Environment) => {
         localStorage.setItem(ENVIRONMENT_STORAGE_KEY, next);
@@ -282,12 +284,15 @@ export function MaaccNavProvider({ children }: { children: ReactNode }) {
         [updateAppearance],
     );
 
-    // If the current screen isn't allowed for this persona, bounce to dashboard.
+    // The server-issued navigation snapshot is the presentation counterpart of
+    // backend policy enforcement; it never grants access by itself.
     useEffect(() => {
-        if (!navAllowed(persona.id, SCREEN_OF[activeScreen] ?? activeScreen)) {
+        if (
+            !access.navigation.includes(SCREEN_OF[activeScreen] ?? activeScreen)
+        ) {
             router.visit(urlFor('dashboard', team));
         }
-    }, [activeScreen, persona.id, team]);
+    }, [access.navigation, activeScreen, team]);
 
     const value: MaaccNav = {
         go,

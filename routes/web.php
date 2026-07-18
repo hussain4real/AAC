@@ -22,6 +22,7 @@ use App\Http\Controllers\Maacc\ModelRoutingPolicyController;
 use App\Http\Controllers\Maacc\PlatformAccessController;
 use App\Http\Controllers\Maacc\PlaygroundRunController;
 use App\Http\Controllers\Maacc\ProjectController;
+use App\Http\Controllers\Maacc\ProjectMemberController;
 use App\Http\Controllers\Maacc\QuotaLimitController;
 use App\Http\Controllers\Maacc\SsoConnectionController;
 use App\Http\Controllers\Maacc\ToolContractController;
@@ -91,6 +92,11 @@ Route::prefix('{current_team}')
 
         Route::resource('applications', ApplicationController::class)->only(['store', 'update', 'destroy']);
         Route::resource('projects', ProjectController::class)->only(['store', 'update', 'destroy']);
+        Route::get('projects/{project}/members', [ProjectMemberController::class, 'index'])->name('projects.members.index');
+        Route::post('projects/{project}/members', [ProjectMemberController::class, 'store'])->name('projects.members.store');
+        Route::put('projects/{project}/members/{projectMember}', [ProjectMemberController::class, 'update'])->name('projects.members.update');
+        Route::post('projects/{project}/members/{projectMember}/revoke', [ProjectMemberController::class, 'revoke'])->name('projects.members.revoke');
+        Route::post('projects/{project}/members/{projectMember}/certify', [ProjectMemberController::class, 'certify'])->name('projects.members.certify');
         Route::resource('agents', AgentController::class)->only(['store', 'update', 'destroy']);
         Route::resource('tools', ToolContractController::class)->only(['store', 'update', 'destroy']);
         Route::resource('llm-providers', LlmProviderController::class)
@@ -145,6 +151,7 @@ Route::prefix('{current_team}')
             ->only(['store', 'update', 'destroy'])
             ->parameters(['webhooks' => 'webhookEndpoint']);
         Route::post('webhooks/{webhookEndpoint}/rotate', [WebhookEndpointController::class, 'rotate'])->name('webhooks.rotate');
+        Route::post('webhooks/{webhookEndpoint}/verify', [WebhookEndpointController::class, 'verify'])->name('webhooks.verify');
         Route::post('webhook-deliveries/{webhookDelivery}/replay', [WebhookDeliveryController::class, 'replay'])->name('webhook-deliveries.replay');
 
         // MAACC console (Phase 6G — enterprise identity, secrets & advanced governance)

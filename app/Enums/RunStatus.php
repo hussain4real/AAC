@@ -34,7 +34,13 @@ enum RunStatus: string
      */
     public function isTerminal(): bool
     {
-        return in_array($this, [self::Completed, self::Failed, self::Expired, self::Cancelled], true);
+        return in_array($this, self::terminalCases(), true);
+    }
+
+    /** @return list<self> */
+    public static function terminalCases(): array
+    {
+        return [self::Completed, self::Failed, self::Expired, self::Cancelled];
     }
 
     /**

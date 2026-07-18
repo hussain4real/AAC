@@ -1,7 +1,7 @@
 /* ============================================================
    MAACC — Dashboard (role/scope aware operations overview)
    ============================================================ */
-import { Head } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     AreaSpark,
@@ -29,7 +29,6 @@ import { effectiveImpl } from '@/maacc/data';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
 import type { RouteName } from '@/maacc/nav';
-import { navAllowed } from '@/maacc/personas';
 import { useMaaccData } from '@/maacc/use-data';
 import type { DashboardInvitation } from '@/types';
 
@@ -41,6 +40,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
         pendingInvitations.length > 0,
     );
     const { go, scope } = useMaaccNav();
+    const authorizedNavigation = usePage().props.auth.maacc.navigation;
     const isAll = scope.isAll;
     const D = MAACC.dashboard;
     const gstat = D.stats;
@@ -163,7 +163,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
     })();
     const llmMax = isAll ? 40 : Math.max(...llmData.map((d) => d.value), 1);
 
-    const canGov = navAllowed(scope.role.id, 'governance');
+    const canGov = authorizedNavigation.includes('governance');
 
     const statCards: {
         label: string;
@@ -179,7 +179,9 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
             icon: 'apps',
             tone: 'purple',
             sub: `${activeApps} active · ${suspApps} ${suspApps === 1 ? 'other' : 'others'}`,
-            screen: scope.role.id === 'dev' ? null : 'applications',
+            screen: authorizedNavigation.includes('applications')
+                ? 'applications'
+                : null,
         },
         {
             label: 'Active Projects',
@@ -511,7 +513,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                             }
                             icon="llm"
                             right={
-                                navAllowed(scope.role.id, 'llm') ? (
+                                authorizedNavigation.includes('llm') ? (
                                     <Btn
                                         variant="ghost"
                                         size="sm"

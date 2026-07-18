@@ -149,7 +149,7 @@ class SdkStubGenerator
     /**
      * Render a one-line "field: type" shape comment from a schema map.
      *
-     * @param  array<string, string>  $schema
+     * @param  array<string, mixed>  $schema
      * @param  callable(string): string  $typeMap
      */
     private function shape(array $schema, callable $typeMap, string $sep, string $glue): string

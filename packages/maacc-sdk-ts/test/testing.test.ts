@@ -7,6 +7,7 @@ function manifestTool(input: Record<string, unknown>, output: Record<string, unk
   return {
     name: 'fetch-records',
     version: '1.0.0',
+    schemaDialect: 'https://maacc.dev/schema/compact/1.0',
     schemaFingerprint: 'fp',
     inputSchema: input,
     outputSchema: output,

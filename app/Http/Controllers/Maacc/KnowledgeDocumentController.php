@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers\Maacc;
 
+use App\Enums\KnowledgeDocumentStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreKnowledgeDocumentRequest;
+use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\KnowledgeDocument;
 use App\Models\KnowledgeSource;
-use App\Support\Runtime\Knowledge\KnowledgeExtractionException;
 use App\Support\Runtime\Knowledge\KnowledgeIndexer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 
 /**
@@ -38,12 +38,17 @@ class KnowledgeDocumentController extends Controller
         if ($request->hasFile('document')) {
             /** @var UploadedFile $file */
             $file = $request->file('document');
-            $this->ingestUploadedFile($file, $knowledgeSource, $indexer, $validated);
+            $this->queueUploadedFile($file, $knowledgeSource, $request, $validated);
         } else {
             $indexer->ingestDocument($knowledgeSource, $validated);
         }
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Document ingested and indexed.']);
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => $request->hasFile('document')
+                ? 'Document accepted for security scanning and indexing.'
+                : 'Document ingested and indexed.',
+        ]);
 
         return back();
     }
@@ -76,29 +81,31 @@ class KnowledgeDocumentController extends Controller
      *
      * @param  array<string, mixed>  $validated
      */
-    private function ingestUploadedFile(UploadedFile $file, KnowledgeSource $source, KnowledgeIndexer $indexer, array $validated): void
+    private function queueUploadedFile(UploadedFile $file, KnowledgeSource $source, StoreKnowledgeDocumentRequest $request, array $validated): void
     {
         $disk = (string) config('filesystems.default');
         $extension = strtolower($file->getClientOriginalExtension());
-        $path = "knowledge/{$source->id}/".Str::uuid()->toString().".{$extension}";
+        $path = "knowledge-quarantine/{$source->id}/".Str::uuid()->toString().".{$extension}";
 
         Storage::disk($disk)->put($path, $file->getContent());
 
-        try {
-            $indexer->ingestStoredDocument($source, [
-                'title' => $validated['title'],
-                'uri' => $validated['uri'] ?? null,
-                'disk' => $disk,
-                'storage_path' => $path,
-                'original_filename' => $file->getClientOriginalName(),
-                'mime_type' => $file->getMimeType(),
-                'file_size' => (int) $file->getSize(),
-                'metadata' => $validated['metadata'] ?? null,
-            ]);
-        } catch (KnowledgeExtractionException $exception) {
-            Storage::disk($disk)->delete($path);
+        $document = $source->documents()->create([
+            'title' => $validated['title'],
+            'uri' => $validated['uri'] ?? null,
+            'body' => '',
+            'checksum' => '',
+            'disk' => $disk,
+            'storage_path' => $path,
+            'original_filename' => $file->getClientOriginalName(),
+            'mime_type' => $file->getMimeType(),
+            'file_size' => (int) $file->getSize(),
+            'ingestion_status' => KnowledgeDocumentStatus::Pending,
+            'initiated_by' => $request->user()?->id,
+            'correlation_id' => (string) Str::uuid(),
+            'metadata' => $validated['metadata'] ?? null,
+            'indexed_at' => null,
+        ]);
 
-            throw ValidationException::withMessages(['document' => $exception->getMessage()]);
-        }
+        ProcessKnowledgeDocument::dispatch($document)->onQueue('ingestion')->afterCommit();
     }
 }

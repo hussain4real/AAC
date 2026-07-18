@@ -13,8 +13,15 @@ use Maacc\Sdk\Resources\ToolCall;
  */
 final class ToolContext
 {
+    /** @var array<string, mixed> */
+    public readonly array $callerContext;
+
+    /** @param array<string, mixed>|null $callerContext */
     public function __construct(
         public readonly Run $run,
         public readonly ToolCall $toolCall,
-    ) {}
+        ?array $callerContext = null,
+    ) {
+        $this->callerContext = $callerContext ?? $run->callerContext;
+    }
 }

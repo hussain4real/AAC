@@ -2,9 +2,9 @@
 
 namespace App\Actions\Maacc;
 
-use App\Models\AuditEvent;
 use App\Models\GovernanceSetting;
 use App\Models\User;
+use App\Support\Governance\AuditLedger;
 use Illuminate\Support\Arr;
 
 class UpdateGovernanceSettings
@@ -20,7 +20,7 @@ class UpdateGovernanceSettings
         $changes = Arr::except($settings->getDirty(), ['updated_at', 'created_at']);
         $settings->save();
 
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $settings->team_id,
             'actor_user_id' => $editor->getAuthIdentifier(),
             'actor_label' => $editor->name,

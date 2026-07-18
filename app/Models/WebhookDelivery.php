@@ -37,7 +37,7 @@ use Illuminate\Support\Carbon;
  * @property-read WebhookEndpoint $endpoint
  * @property-read AgentRun|null $agentRun
  */
-#[Fillable(['webhook_endpoint_id', 'agent_run_id', 'event', 'payload', 'signature', 'status', 'attempts', 'response_status', 'response_body', 'error', 'next_attempt_at', 'last_attempted_at', 'delivered_at'])]
+#[Fillable(['webhook_endpoint_id', 'agent_run_id', 'event', 'event_sequence', 'deduplication_key', 'secret_version', 'payload', 'signature', 'status', 'attempts', 'processing_token', 'processing_claimed_at', 'replay_count', 'retained_until', 'response_status', 'response_body', 'error', 'next_attempt_at', 'last_attempted_at', 'delivered_at'])]
 class WebhookDelivery extends Model
 {
     /** @use HasFactory<WebhookDeliveryFactory> */
@@ -83,6 +83,11 @@ class WebhookDelivery extends Model
             'status' => WebhookDeliveryStatus::class,
             'payload' => 'array',
             'attempts' => 'integer',
+            'event_sequence' => 'integer',
+            'secret_version' => 'integer',
+            'replay_count' => 'integer',
+            'processing_claimed_at' => 'datetime',
+            'retained_until' => 'datetime',
             'response_status' => 'integer',
             'next_attempt_at' => 'datetime',
             'last_attempted_at' => 'datetime',

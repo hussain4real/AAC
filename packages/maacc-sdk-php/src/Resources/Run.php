@@ -22,6 +22,7 @@ final class Run
 
     public const STATUS_CANCELLED = 'cancelled';
 
+    /** @param array<string, mixed> $callerContext */
     public function __construct(
         public readonly string $runId,
         public readonly string $agentSlug,
@@ -32,6 +33,7 @@ final class Run
         public readonly ?string $response = null,
         public readonly ?ToolCall $toolCall = null,
         public readonly ?string $error = null,
+        public readonly array $callerContext = [],
     ) {}
 
     /**
@@ -52,6 +54,7 @@ final class Run
             response: is_string($data['response'] ?? null) ? $data['response'] : null,
             toolCall: $toolCall,
             error: is_string($data['error'] ?? null) ? $data['error'] : null,
+            callerContext: is_array($data['caller_context'] ?? null) ? $data['caller_context'] : [],
         );
     }
 

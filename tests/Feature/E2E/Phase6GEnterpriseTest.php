@@ -138,7 +138,7 @@ test('the enterprise hardening surfaces work together end to end', function () {
         ->json();
 
     $actions = collect($export['events'])->pluck('action');
-    expect($export['manifest']['checksum'])->toBeString()
+    expect($export['manifest']['signature'])->toBeString()
         ->and($actions)->toContain('sso.provisioned')
         ->and($actions)->toContain('incident.freeze_application')
         ->and($actions)->toContain('incident.disable_model');

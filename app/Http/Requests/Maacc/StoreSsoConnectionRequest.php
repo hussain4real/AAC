@@ -5,7 +5,8 @@ namespace App\Http\Requests\Maacc;
 use App\Enums\MaaccRole;
 use App\Enums\SsoProvider;
 use App\Enums\TeamRole;
-use App\Rules\PublicHttpsUrl;
+use App\Rules\SafeOutboundUrl;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,16 +17,18 @@ class StoreSsoConnectionRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
+        $safeSsoUrl = fn (): SafeOutboundUrl => new SafeOutboundUrl($policy, 'sso');
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'provider' => ['required', Rule::in([SsoProvider::Oidc->value])],
-            'issuer' => ['required', new PublicHttpsUrl, 'max:2048'],
-            'authorize_url' => ['required', new PublicHttpsUrl, 'max:2048'],
-            'token_url' => ['required', new PublicHttpsUrl, 'max:2048'],
-            'userinfo_url' => ['required', new PublicHttpsUrl, 'max:2048'],
-            'jwks_url' => ['required', new PublicHttpsUrl, 'max:2048'],
+            'issuer' => ['required', $safeSsoUrl(), 'max:2048'],
+            'authorize_url' => ['required', $safeSsoUrl(), 'max:2048'],
+            'token_url' => ['required', $safeSsoUrl(), 'max:2048'],
+            'userinfo_url' => ['required', $safeSsoUrl(), 'max:2048'],
+            'jwks_url' => ['required', $safeSsoUrl(), 'max:2048'],
             'client_id' => ['required', 'string', 'max:512'],
             'client_secret' => ['required', 'string', 'max:2048'],
             'scopes' => ['nullable', 'string', 'max:512'],

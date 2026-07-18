@@ -1,13 +1,19 @@
 /* ============================================================
    MAACC — Projects
    ============================================================ */
-import { Head, router, useForm } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     destroy as destroyProject,
     store as storeProject,
     update as updateProject,
 } from '@/actions/App/Http/Controllers/Maacc/ProjectController';
+import {
+    certify as certifyProjectMember,
+    revoke as revokeProjectMember,
+    store as storeProjectMember,
+    update as updateProjectMember,
+} from '@/actions/App/Http/Controllers/Maacc/ProjectMemberController';
 import {
     Avatar,
     Badge,
@@ -23,7 +29,7 @@ import {
     AppMark,
 } from '@/components/maacc/ui';
 import { inputStyle } from '@/components/maacc/ui';
-import type { Project } from '@/maacc/data';
+import type { Project, ProjectMemberAccess } from '@/maacc/data';
 import {
     ChipMultiSelect,
     ENV_OPTIONS,
@@ -264,6 +270,268 @@ function ProjectFormModal({
     );
 }
 
+const PROJECT_ROLE_OPTIONS = [
+    { value: 'project_owner', label: 'Project Owner' },
+    { value: 'developer', label: 'Developer' },
+    { value: 'viewer', label: 'Viewer' },
+    { value: 'auditor', label: 'Auditor' },
+    { value: 'security_reviewer', label: 'Security Reviewer' },
+];
+
+function ProjectAccessModal({
+    project,
+    onClose,
+}: {
+    project: Project;
+    onClose: () => void;
+}) {
+    const team = useCurrentTeam();
+    const directory = usePage().props.maacc?.memberDirectory ?? [];
+    const [editing, setEditing] = useState<ProjectMemberAccess | null>(null);
+    const form = useForm({
+        user_id: directory[0]?.id ?? 0,
+        role: 'viewer',
+        expires_at: '',
+        reason: '',
+    });
+
+    const reset = () => {
+        setEditing(null);
+        form.setData({
+            user_id: directory[0]?.id ?? 0,
+            role: 'viewer',
+            expires_at: '',
+            reason: '',
+        });
+        form.clearErrors();
+    };
+    const edit = (member: ProjectMemberAccess) => {
+        setEditing(member);
+        form.setData({
+            user_id: member.userId,
+            role: member.role,
+            expires_at: member.expiresAt?.slice(0, 16) ?? '',
+            reason: '',
+        });
+    };
+    const submit = () => {
+        if (!team) {
+            return;
+        }
+
+        const options = {
+            preserveScroll: true,
+            onSuccess: reset,
+        };
+
+        if (editing) {
+            form.put(
+                updateProjectMember([team.slug, project.id, editing.id]).url,
+                options,
+            );
+        } else {
+            form.post(storeProjectMember([team.slug, project.id]).url, options);
+        }
+    };
+    const revoke = (member: ProjectMemberAccess) => {
+        if (!team) {
+            return;
+        }
+
+        const reason = window.prompt('Reason for revoking this access?');
+
+        if (!reason) {
+            return;
+        }
+
+        router.post(
+            revokeProjectMember([team.slug, project.id, member.id]).url,
+            { reason },
+            { preserveScroll: true },
+        );
+    };
+    const certify = (member: ProjectMemberAccess) => {
+        if (!team) {
+            return;
+        }
+
+        const note = window.prompt('Access certification note:');
+
+        if (!note) {
+            return;
+        }
+
+        router.post(
+            certifyProjectMember([team.slug, project.id, member.id]).url,
+            { note },
+            { preserveScroll: true },
+        );
+    };
+
+    return (
+        <Modal
+            open
+            onClose={onClose}
+            icon="users"
+            title="Project access"
+            sub={`${project.name} · assignments, expiry and certification`}
+            footer={
+                <>
+                    <Btn variant="ghost" onClick={onClose}>
+                        Close
+                    </Btn>
+                    <Btn
+                        variant="primary"
+                        icon="check"
+                        disabled={form.processing}
+                        onClick={submit}
+                    >
+                        {editing ? 'Update access' : 'Assign member'}
+                    </Btn>
+                </>
+            }
+        >
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 12,
+                    }}
+                >
+                    <Field label="Team member" required>
+                        {editing ? (
+                            <Input
+                                value={`${editing.name} · ${editing.email}`}
+                                disabled
+                            />
+                        ) : (
+                            <Select
+                                value={String(form.data.user_id)}
+                                onChange={(value) =>
+                                    form.setData('user_id', Number(value))
+                                }
+                                options={directory.map((member) => ({
+                                    value: String(member.id),
+                                    label: `${member.name} · ${member.email}`,
+                                }))}
+                            />
+                        )}
+                        <FieldError error={form.errors.user_id} />
+                    </Field>
+                    <Field label="Project role" required>
+                        <Select
+                            value={form.data.role}
+                            onChange={(value) => form.setData('role', value)}
+                            options={PROJECT_ROLE_OPTIONS}
+                        />
+                        <FieldError error={form.errors.role} />
+                    </Field>
+                    <Field
+                        label="Expires at"
+                        hint="Leave empty for no automatic expiry."
+                    >
+                        <Input
+                            type="datetime-local"
+                            value={form.data.expires_at}
+                            onChange={(event) =>
+                                form.setData('expires_at', event.target.value)
+                            }
+                        />
+                        <FieldError error={form.errors.expires_at} />
+                    </Field>
+                    <Field label="Reason" required>
+                        <Input
+                            value={form.data.reason}
+                            onChange={(event) =>
+                                form.setData('reason', event.target.value)
+                            }
+                            placeholder="Business justification"
+                        />
+                        <FieldError error={form.errors.reason} />
+                    </Field>
+                </div>
+                {editing && (
+                    <Btn variant="ghost" size="sm" onClick={reset}>
+                        Cancel role change
+                    </Btn>
+                )}
+                <div
+                    style={{
+                        borderTop: '1px solid var(--border)',
+                        paddingTop: 12,
+                    }}
+                >
+                    {(project.members ?? []).map((member) => (
+                        <div
+                            key={member.id}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 10,
+                                padding: '8px 0',
+                                opacity: member.active ? 1 : 0.6,
+                            }}
+                        >
+                            <Avatar name={member.name} size={30} />
+                            <div style={{ flex: 1 }}>
+                                <div
+                                    style={{ fontWeight: 650, fontSize: 12.5 }}
+                                >
+                                    {member.name}
+                                </div>
+                                <div
+                                    style={{
+                                        color: 'var(--text-3)',
+                                        fontSize: 11,
+                                    }}
+                                >
+                                    {member.roleLabel} ·{' '}
+                                    {member.active
+                                        ? member.expiresAt
+                                            ? `expires ${new Date(member.expiresAt).toLocaleDateString()}`
+                                            : 'no expiry'
+                                        : 'revoked or expired'}
+                                </div>
+                            </div>
+                            {member.active && (
+                                <>
+                                    <Btn
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => edit(member)}
+                                    >
+                                        Edit
+                                    </Btn>
+                                    <Btn
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => certify(member)}
+                                    >
+                                        Certify
+                                    </Btn>
+                                    <Btn
+                                        variant="danger"
+                                        size="sm"
+                                        onClick={() => revoke(member)}
+                                    >
+                                        Revoke
+                                    </Btn>
+                                </>
+                            )}
+                        </div>
+                    ))}
+                    {(project.members ?? []).length === 0 && (
+                        <div style={{ color: 'var(--text-3)', fontSize: 12 }}>
+                            No project access has been assigned.
+                        </div>
+                    )}
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
 export default function Projects() {
     const { go, scope } = useMaaccNav();
     const MAACC = useMaaccData();
@@ -273,6 +541,7 @@ export default function Projects() {
     const [statusFilter, setStatusFilter] = useState('All statuses');
     const [showCreate, setShowCreate] = useState(false);
     const [editing, setEditing] = useState<Project | null>(null);
+    const [managingAccess, setManagingAccess] = useState<Project | null>(null);
 
     const archive = (project: Project) => {
         if (
@@ -456,6 +725,20 @@ export default function Projects() {
                                                         setEditing(p)
                                                     }
                                                 />
+                                                {p.can?.manageMembers && (
+                                                    <Btn
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        icon="users"
+                                                        style={{
+                                                            height: 28,
+                                                            width: 28,
+                                                        }}
+                                                        onClick={() =>
+                                                            setManagingAccess(p)
+                                                        }
+                                                    />
+                                                )}
                                                 <Btn
                                                     variant="ghost"
                                                     size="icon"
@@ -572,6 +855,13 @@ export default function Projects() {
                         project={editing}
                         open
                         onClose={() => setEditing(null)}
+                    />
+                )}
+                {managingAccess && (
+                    <ProjectAccessModal
+                        key={managingAccess.id}
+                        project={managingAccess}
+                        onClose={() => setManagingAccess(null)}
                     />
                 )}
             </div>

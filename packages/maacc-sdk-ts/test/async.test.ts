@@ -88,7 +88,8 @@ test('drives an async run through a client tool with polling', async () => {
 test('registers, lists, and deletes a webhook endpoint', async () => {
   const { transport, requests } = fakeTransport([
     TOKEN,
-    { status: 201, body: { id: 'wh-1', url: 'https://app.test/hooks', events: ['run.completed'], environment: 'production', status: 'active', secret: 'whsec_abc' } },
+    { status: 201, body: { id: 'wh-1', url: 'https://app.test/hooks', events: ['run.completed'], environment: 'production', status: 'pending_verification', secret: 'whsec_abc' } },
+    { status: 200, body: { verified: true, id: 'wh-1', url: 'https://app.test/hooks', events: ['run.completed'], environment: 'production', status: 'active' } },
     { status: 200, body: { data: [{ id: 'wh-1', url: 'https://app.test/hooks', events: ['*'], environment: 'production', status: 'active' }] } },
     { status: 204, body: '' },
   ]);
@@ -99,12 +100,16 @@ test('registers, lists, and deletes a webhook endpoint', async () => {
   assert.equal(endpoint.secret, 'whsec_abc');
   assert.deepEqual(JSON.parse(requests[1].body ?? '{}'), { url: 'https://app.test/hooks', events: ['run.completed'] });
 
+  const verified = await maacc.verifyWebhook('wh-1');
+  assert.equal(verified.status, 'active');
+  assert.equal(requests[2].url, 'https://maacc.test/api/v1/webhook-endpoints/wh-1/verify');
+
   const list = await maacc.listWebhooks();
   assert.equal(list.length, 1);
   assert.equal(list[0].secret, null);
 
   await maacc.deleteWebhook('wh-1');
-  assert.equal(requests[3].method, 'DELETE');
+  assert.equal(requests[4].method, 'DELETE');
 });
 
 test('surfaces a controlled error when deleting an unknown endpoint', async () => {
@@ -117,6 +122,39 @@ test('surfaces a controlled error when deleting an unknown endpoint', async () =
     () => client(transport).deleteWebhook('missing'),
     (error: unknown) => error instanceof MaaccApiError && error.errorCode === 'webhook_endpoint_not_found',
   );
+});
+
+test('issues and sends a signed caller context and parses it from the run', async () => {
+  const claims = { v: 1, sub: 'user:42', roles: ['viewer'], corr: 'corr_sdk' };
+  const { transport, requests } = fakeTransport([
+    TOKEN,
+    { status: 201, body: { envelope: 'payload.signature', claims } },
+    {
+      status: 201,
+      body: {
+        run_id: 'run-1',
+        agent_slug: 'ops',
+        status: 'completed',
+        usage: { tokens_in: 1, tokens_out: 1 },
+        cost: 0.01,
+        caller_context: claims,
+      },
+    },
+  ]);
+  const maacc = client(transport);
+
+  const context = await maacc.issueCallerContext('user:42', { roles: ['viewer'], correlationId: 'corr_sdk' });
+  const run = await maacc.startRun('ops', 'Status?', 'legacy-label', 'sync', context);
+
+  assert.equal(context.envelope, 'payload.signature');
+  assert.deepEqual(run.callerContext, claims);
+  assert.match(requests[2].headers['Idempotency-Key'] ?? '', /^sdk_/);
+  assert.deepEqual(JSON.parse(requests[2].body ?? '{}'), {
+    input: 'Status?',
+    mode: 'sync',
+    caller: 'legacy-label',
+    caller_context: 'payload.signature',
+  });
 });
 
 test('parses a run stream into events, skipping the termination sentinel', async () => {

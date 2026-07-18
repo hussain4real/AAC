@@ -13,6 +13,7 @@ import {
     rotate as rotateWebhook,
     store as storeWebhook,
     update as updateWebhook,
+    verify as verifyWebhook,
 } from '@/actions/App/Http/Controllers/Maacc/WebhookEndpointController';
 import {
     Badge,
@@ -336,9 +337,19 @@ export default function Webhooks() {
     };
 
     const toggleStatus = (endpoint: MaaccWebhookEndpoint) => {
+        if (endpoint.status !== 'active') {
+            router.post(
+                verifyWebhook([teamSlug, endpoint.id]).url,
+                {},
+                { preserveScroll: true },
+            );
+
+            return;
+        }
+
         router.put(
             updateWebhook([teamSlug, endpoint.id]).url,
-            { status: endpoint.status === 'active' ? 'disabled' : 'active' },
+            { status: 'disabled' },
             { preserveScroll: true },
         );
     };
@@ -451,6 +462,15 @@ export default function Webhooks() {
                                             style={{ marginLeft: 8 }}
                                         >
                                             Delivery failing
+                                        </Badge>
+                                    )}
+                                    {e.status === 'pending_verification' && (
+                                        <Badge
+                                            tone="orange"
+                                            soft
+                                            style={{ marginLeft: 8 }}
+                                        >
+                                            Test required
                                         </Badge>
                                     )}
                                 </Td>

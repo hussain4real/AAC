@@ -46,6 +46,8 @@ trait HasMaaccAccess
     {
         return $this->projectMemberships()
             ->where('project_id', $project->id)
+            ->whereNull('revoked_at')
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->first()
             ?->maacc_role;
     }
@@ -76,6 +78,8 @@ trait HasMaaccAccess
         }
 
         return $this->projectMemberships()
+            ->whereNull('revoked_at')
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
             ->whereHas('project.application', fn ($query) => $query->where('team_id', $team->id))
             ->get()
             ->contains(fn (ProjectMember $member): bool => $member->maacc_role?->hasPermission($permission) ?? false);

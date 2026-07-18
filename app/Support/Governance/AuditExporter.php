@@ -9,12 +9,16 @@ use Illuminate\Support\Facades\Date;
 
 /**
  * Builds an enterprise audit export for security review: a filtered slice of a
- * team's audit log plus a signed manifest (generated time, filters, row count,
- * truncation, and a SHA-256 checksum of the rows) so the export's integrity can
- * be verified after the fact. Serializes to JSON or CSV.
+ * team's audit log plus an independently keyed HMAC manifest. The unkeyed row
+ * digest supports transport diagnostics; authenticity comes from the signature.
  */
 class AuditExporter
 {
+    public function __construct(
+        private readonly AuditSigner $signer,
+        private readonly AuditIntegrityVerifier $verifier,
+    ) {}
+
     /**
      * The hard cap on exported rows; the manifest flags when it truncates.
      */
@@ -51,21 +55,21 @@ class AuditExporter
             ->map(fn (AuditEvent $event): array => $this->row($event))
             ->all();
 
-        $checksum = hash('sha256', (string) json_encode($rows));
-
-        return [
-            'rows' => $rows,
-            'manifest' => [
-                'generated_at' => Date::now()->toIso8601String(),
-                'team' => $team->slug,
-                'count' => count($rows),
-                'total_matched' => $total,
-                'truncated' => $total > count($rows),
-                'filters' => array_filter($filters, fn (mixed $value): bool => $value !== null && $value !== ''),
-                'audit_retention_days' => GovernanceSetting::forTeam($team)->retentionDaysFor('audit'),
-                'checksum' => $checksum,
-            ],
+        $manifest = [
+            'generated_at' => Date::now()->toIso8601String(),
+            'team' => $team->slug,
+            'count' => count($rows),
+            'total_matched' => $total,
+            'truncated' => $total > count($rows),
+            'filters' => array_filter($filters, fn (mixed $value): bool => $value !== null && $value !== ''),
+            'audit_retention_days' => GovernanceSetting::forTeam($team)->retentionDaysFor('audit'),
+            'rows_digest' => hash('sha256', (string) json_encode($rows)),
+            'chain_integrity' => $this->verifier->verify($team),
+            'signature_key_id' => $this->signer->keyId('export'),
         ];
+        $manifest['signature'] = $this->signer->signExport($manifest);
+
+        return ['rows' => $rows, 'manifest' => $manifest];
     }
 
     /**
@@ -82,8 +86,8 @@ class AuditExporter
     }
 
     /**
-     * Render an export as an RFC 4180 CSV document (the manifest checksum rides an
-     * X-header).
+     * Render an export as an RFC 4180 CSV document (the signed manifest rides in
+     * response headers).
      *
      * @param  array{rows: array<int, array<string, mixed>>, manifest: array<string, mixed>}  $export
      */

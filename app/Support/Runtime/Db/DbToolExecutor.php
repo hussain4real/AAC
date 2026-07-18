@@ -6,6 +6,7 @@ use App\Enums\Environment;
 use App\Models\DataSource;
 use App\Models\ToolContract;
 use App\Support\Runtime\ToolExecutionException;
+use Illuminate\Database\Connection;
 use Illuminate\Database\QueryException;
 
 /**
@@ -86,6 +87,8 @@ class DbToolExecutor
         $rows = [];
 
         try {
+            $this->applyStatementTimeout($connection, $source->statement_timeout_ms);
+
             foreach ($connection->cursor($statement, $bindings) as $row) {
                 if (count($rows) >= $limit) {
                     throw ToolExecutionException::dbTooManyRows($limit);
@@ -97,9 +100,43 @@ class DbToolExecutor
             throw $exception;
         } catch (QueryException $exception) {
             throw ToolExecutionException::dbQueryFailed($exception->getMessage());
+        } finally {
+            $this->resetStatementTimeout($connection);
+            $this->connections->release($source);
         }
 
         return $rows;
+    }
+
+    /**
+     * Apply a per-session execution ceiling using the active database driver.
+     */
+    private function applyStatementTimeout(Connection $connection, int $milliseconds): void
+    {
+        $timeout = max(100, min($milliseconds, 120000));
+
+        match ($connection->getDriverName()) {
+            'pgsql' => $connection->getPdo()->exec("SET statement_timeout TO {$timeout}"),
+            'mysql', 'mariadb' => $connection->getPdo()->exec("SET SESSION MAX_EXECUTION_TIME = {$timeout}"),
+            'sqlsrv' => $connection->getPdo()->exec("SET LOCK_TIMEOUT {$timeout}"),
+            'sqlite' => $connection->getPdo()->exec("PRAGMA busy_timeout = {$timeout}"),
+            default => throw ToolExecutionException::dbMisconfigured('The data source driver does not support governed statement timeouts.'),
+        };
+    }
+
+    private function resetStatementTimeout(Connection $connection): void
+    {
+        try {
+            match ($connection->getDriverName()) {
+                'pgsql' => $connection->unprepared('SET statement_timeout TO DEFAULT'),
+                'mysql', 'mariadb' => $connection->unprepared('SET SESSION MAX_EXECUTION_TIME = 0'),
+                'sqlsrv' => $connection->unprepared('SET LOCK_TIMEOUT -1'),
+                'sqlite' => $connection->unprepared('PRAGMA busy_timeout = 0'),
+                default => null,
+            };
+        } catch (QueryException) {
+            $connection->disconnect();
+        }
     }
 
     /**

@@ -9,7 +9,7 @@
     },
     "scripts": {
         "typecheck": "tsc -p tsconfig.json",
-        "test": "node --test",
+        "test": "node --experimental-strip-types --test test/*.test.ts",
         "start": "node bin/run.ts"
     }
 }

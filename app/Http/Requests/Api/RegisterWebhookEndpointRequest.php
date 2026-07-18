@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Api;
 
 use App\Enums\WebhookEventType;
+use App\Rules\SafeOutboundUrl;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,10 +28,10 @@ class RegisterWebhookEndpointRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
         return [
-            'url' => ['required', 'url:http,https', 'max:2048'],
+            'url' => ['required', new SafeOutboundUrl($policy, 'webhook'), 'max:2048'],
             'events' => ['sometimes', 'array'],
             'events.*' => ['string', Rule::in([...WebhookEventType::values(), '*'])],
             'description' => ['nullable', 'string', 'max:255'],

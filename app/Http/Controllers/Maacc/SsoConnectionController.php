@@ -6,8 +6,8 @@ use App\Enums\SsoConnectionStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreSsoConnectionRequest;
 use App\Http\Requests\Maacc\UpdateSsoConnectionRequest;
-use App\Models\AuditEvent;
 use App\Models\SsoConnection;
+use App\Support\Governance\AuditLedger;
 use App\Support\Sso\OidcTokenValidator;
 use App\Support\Sso\SsoException;
 use Illuminate\Http\RedirectResponse;
@@ -158,7 +158,7 @@ class SsoConnectionController extends Controller
      */
     private function auditLifecycle(Request $request, SsoConnection $connection, string $action, array $metadata = []): void
     {
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $connection->team_id,
             'actor_user_id' => $request->user()->getAuthIdentifier(),
             'actor_label' => $request->user()->name,

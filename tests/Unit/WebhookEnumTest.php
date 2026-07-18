@@ -32,8 +32,9 @@ it('labels every webhook event type', function () {
 it('describes webhook endpoint statuses', function () {
     expect(WebhookEndpointStatus::Active->label())->toBe('Active')
         ->and(WebhookEndpointStatus::Active->isActive())->toBeTrue()
+        ->and(WebhookEndpointStatus::PendingVerification->isActive())->toBeFalse()
         ->and(WebhookEndpointStatus::Disabled->isActive())->toBeFalse()
-        ->and(WebhookEndpointStatus::options())->toHaveCount(2);
+        ->and(WebhookEndpointStatus::options())->toHaveCount(3);
 });
 
 it('describes webhook delivery statuses', function () {

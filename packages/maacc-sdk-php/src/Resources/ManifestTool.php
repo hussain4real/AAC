@@ -19,6 +19,10 @@ final class ManifestTool
 
     public const STATUS_INCOMPATIBLE = 'incompatible';
 
+    public const STATUS_NOT_REQUIRED = 'not_required';
+
+    public const STATUS_DISABLED = 'disabled';
+
     /**
      * @param  array<string, mixed>  $inputSchema
      * @param  array<string, mixed>  $outputSchema
@@ -27,6 +31,7 @@ final class ManifestTool
     public function __construct(
         public readonly string $name,
         public readonly string $version,
+        public readonly string $schemaDialect,
         public readonly string $schemaFingerprint,
         public readonly array $inputSchema,
         public readonly array $outputSchema,
@@ -41,6 +46,7 @@ final class ManifestTool
         return new self(
             name: (string) ($data['name'] ?? ''),
             version: (string) ($data['version'] ?? ''),
+            schemaDialect: (string) ($data['schema_dialect'] ?? ''),
             schemaFingerprint: (string) ($data['schema_fingerprint'] ?? ''),
             inputSchema: is_array($data['input_schema'] ?? null) ? $data['input_schema'] : [],
             outputSchema: is_array($data['output_schema'] ?? null) ? $data['output_schema'] : [],

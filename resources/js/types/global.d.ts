@@ -266,6 +266,10 @@ export interface MaaccKnowledgeDocument {
     uploaded: boolean;
     originalFilename: string | null;
     fileSize: number | null;
+    ingestionStatus:
+        'pending' | 'scanning' | 'indexed' | 'quarantined' | 'failed';
+    quarantineReason: string | null;
+    processedAt: string | null;
     createdAt: string | null;
 }
 
@@ -531,6 +535,7 @@ export interface MaaccProp {
     providerHealth: MaaccProviderHealth[];
     incidents: MaaccIncident[];
     ssoConnections: MaaccSsoConnection[];
+    memberDirectory: Array<{ id: number; name: string; email: string }>;
 }
 
 declare module '@inertiajs/core' {

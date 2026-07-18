@@ -32,6 +32,7 @@ use App\Support\Runtime\LlmCompletion;
 use App\Support\Runtime\LlmProviderToolDefinition;
 use App\Support\Runtime\LlmRequest;
 use App\Support\Runtime\RunStateStore;
+use App\Support\Sdk\CallerContextSigner;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -117,6 +118,23 @@ function invokeAgent(array $payload = ['input' => 'Summarize today']): TestRespo
     return test()->postJson('/api/v1/agents/'.test()->agent->agent_slug.'/runs', $payload);
 }
 
+test('duplicate json keys are rejected before request decoding or persistence', function () {
+    $response = test()->call(
+        'POST',
+        '/api/v1/agents/'.test()->agent->agent_slug.'/runs',
+        server: [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_ACCEPT' => 'application/json',
+        ],
+        content: '{"input":"safe","input":"overridden"}',
+    );
+
+    $response->assertBadRequest()
+        ->assertJsonPath('error', 'invalid_json');
+
+    expect(AgentRun::query()->count())->toBe(0);
+});
+
 test('a no-tool run completes and returns the response and usage', function () {
     fakeRouter()->textThen('All vessels are on schedule.', tokensIn: 200, tokensOut: 80);
 
@@ -144,6 +162,124 @@ test('a no-tool run completes and returns the response and usage', function () {
             TraceEventType::PromptPrepared,
             TraceEventType::Completed,
         );
+});
+
+test('run creation replays the same application request and rejects key reuse with different input', function () {
+    fakeRouter()->textThen('Only once.');
+    $headers = ['Idempotency-Key' => 'request-run-12345'];
+
+    $created = test()->withHeaders($headers)->postJson('/api/v1/agents/ops-summary/runs', [
+        'input' => 'Status?',
+    ])->assertCreated();
+
+    $replayed = test()->withHeaders($headers)->postJson('/api/v1/agents/ops-summary/runs', [
+        'input' => 'Status?',
+    ])->assertOk()->assertHeader('Idempotent-Replayed', 'true');
+
+    expect($replayed->json('run_id'))->toBe($created->json('run_id'))
+        ->and(AgentRun::query()->count())->toBe(1);
+
+    test()->withHeaders($headers)->postJson('/api/v1/agents/ops-summary/runs', [
+        'input' => 'Different input',
+    ])->assertConflict()->assertJsonPath('error', 'idempotency_conflict');
+
+    expect(AgentRun::query()->count())->toBe(1);
+});
+
+test('a public run persists immutable version policy and execution provenance before processing', function () {
+    fakeRouter()->textThen('Done.');
+
+    $response = invokeAgent()->assertCreated();
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+
+    expect($run->agent_version_id)->toBe($this->agent->current_version_id)
+        ->and($run->initiated_by)->toBeNull()
+        ->and($run->is_test)->toBeFalse()
+        ->and($run->policy_version)->toBe('1.0.0')
+        ->and($run->execution_snapshot['snapshot_version'])->toBe(1)
+        ->and($run->execution_snapshot['runtime_policy_version'])->toBe('1.0.0')
+        ->and($run->execution_snapshot['agent']['prompt'])->toBe('You summarize operations.')
+        ->and($run->execution_snapshot['agent']['model_id'])->toBe($this->provider->id)
+        ->and($run->execution_snapshot['application']['id'])->toBe($this->application->id)
+        ->and($run->execution_snapshot['application']['environment'])->toBe(Environment::Production->value)
+        ->and($run->execution_snapshot['project']['id'])->toBe($this->project->id)
+        ->and($run->execution_snapshot['project']['environment'])->toBe(Environment::Production->value);
+});
+
+test('a signed minimized caller context is issued validated persisted and returned', function () {
+    config([
+        'maacc.caller_context.allowed_departments' => ['operations'],
+        'maacc.caller_context.allowed_roles' => ['dispatcher', 'viewer'],
+    ]);
+
+    $issued = test()->postJson('/api/v1/caller-contexts', [
+        'subject' => 'user:42',
+        'department' => 'operations',
+        'roles' => ['dispatcher'],
+        'nonce' => 'request-123',
+        'correlation_id' => 'corr_context_123',
+        'expires_in' => 120,
+    ])->assertCreated();
+
+    fakeRouter()->textThen('Context accepted.');
+    $response = invokeAgent([
+        'input' => 'Status?',
+        'caller' => 'informational label',
+        'caller_context' => $issued->json('envelope'),
+    ])->assertCreated();
+
+    $response->assertJsonPath('caller_context.v', 1)
+        ->assertJsonPath('caller_context.sub', 'user:42')
+        ->assertJsonPath('caller_context.department', 'operations')
+        ->assertJsonPath('caller_context.roles.0', 'dispatcher')
+        ->assertJsonPath('caller_context.corr', 'corr_context_123')
+        ->assertJsonMissingPath('caller_context.aud')
+        ->assertJsonMissingPath('caller_context.env');
+
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+    expect($run->caller_context['sub'])->toBe('user:42')
+        ->and($run->caller)->toBe('informational label');
+});
+
+test('caller context issuance rejects claims outside the approved vocabulary', function () {
+    config([
+        'maacc.caller_context.allowed_departments' => ['operations'],
+        'maacc.caller_context.allowed_roles' => ['viewer'],
+    ]);
+
+    test()->postJson('/api/v1/caller-contexts', [
+        'subject' => 'user:42',
+        'department' => 'finance',
+        'roles' => ['administrator'],
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['department', 'roles.0']);
+});
+
+test('tampered expired and wrong-audience caller contexts fail before run persistence', function () {
+    $signer = app(CallerContextSigner::class);
+    $valid = $signer->issue($this->application, Environment::Production, ['subject' => 'user:42']);
+    $tampered = substr($valid['envelope'], 0, -1).(str_ends_with($valid['envelope'], 'a') ? 'b' : 'a');
+
+    invokeAgent(['input' => 'x', 'caller_context' => $tampered])
+        ->assertUnprocessable()
+        ->assertJsonPath('error', 'invalid_caller_context');
+
+    $other = Application::factory()->for($this->team)->create(['environment' => Environment::Production]);
+    $wrongAudience = $signer->issue($other, Environment::Production, ['subject' => 'user:42']);
+    invokeAgent(['input' => 'x', 'caller_context' => $wrongAudience['envelope']])
+        ->assertUnprocessable()
+        ->assertJsonPath('error', 'invalid_caller_context');
+
+    $shortLived = $signer->issue($this->application, Environment::Production, [
+        'subject' => 'user:42',
+        'expires_in' => 30,
+    ]);
+    $this->travel(31)->seconds();
+    invokeAgent(['input' => 'x', 'caller_context' => $shortLived['envelope']])
+        ->assertUnprocessable()
+        ->assertJsonPath('error', 'invalid_caller_context');
+
+    expect(AgentRun::query()->count())->toBe(0);
 });
 
 test('the system prompt sent to the model is the user prompt plus the auto-generated tool brief', function () {
@@ -395,7 +531,7 @@ test('a run fails when the model produces invalid tool arguments', function () {
 
     $run = AgentRun::firstWhere('slug', $response->json('run_id'));
 
-    expect($run->toolCalls()->first()->status)->toBe(ToolCallStatus::Failed)
+    expect($run->toolCalls()->count())->toBe(0)
         ->and($run->traceEvents()->where('type', TraceEventType::Failed)->exists())->toBeTrue();
 });
 

@@ -99,3 +99,65 @@ test('base type and optionality are parsed from a definition', function () {
         ->and(ToolSchema::isOptional('number?'))->toBeTrue()
         ->and(ToolSchema::isOptional('string·date'))->toBeFalse();
 });
+
+test('the versioned compact dialect enforces nested arrays enums bounds formats and closed objects', function () {
+    $schema = [
+        'request' => [
+            'type' => 'object',
+            'properties' => [
+                'email' => ['type' => 'string', 'format' => 'email', 'maxLength' => 64],
+                'priority' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5],
+                'tags' => ['type' => 'array', 'minItems' => 1, 'maxItems' => 2, 'items' => ['type' => 'string', 'enum' => ['ops', 'safety']]],
+            ],
+            'additionalProperties' => false,
+        ],
+    ];
+
+    expect(ToolSchema::DIALECT)->toEndWith('/compact/1.0')
+        ->and(ToolSchema::validateDefinition($schema))->toBe([])
+        ->and(ToolSchema::validatePayload($schema, [
+            'request' => ['email' => 'ops@example.com', 'priority' => 3, 'tags' => ['ops']],
+        ]))->toBe([]);
+
+    $errors = ToolSchema::validatePayload($schema, [
+        'request' => ['email' => 'bad', 'priority' => 9, 'tags' => ['ops', 'other', 'safety'], 'admin' => true],
+        'top_level_extra' => true,
+    ]);
+
+    expect(implode(' ', $errors))
+        ->toContain('format email')
+        ->toContain('exceeds maximum')
+        ->toContain('exceeds maxItems')
+        ->toContain('enum values')
+        ->toContain('request.admin')
+        ->toContain('top_level_extra');
+});
+
+test('schema definitions reject malformed rich definitions and unsupported keywords', function () {
+    $errors = ToolSchema::validateDefinition([
+        'object' => ['type' => 'object', 'properties' => [], 'additionalProperties' => 'yes'],
+        'array' => ['type' => 'array'],
+        'bad' => ['type' => 'string', 'format' => 'custom', 'magic' => true],
+    ]);
+
+    expect(implode(' ', $errors))
+        ->toContain('additionalProperties')
+        ->toContain('must define items')
+        ->toContain('unsupported format')
+        ->toContain('unsupported schema keyword');
+});
+
+test('payload projection removes undeclared nested properties before execution', function () {
+    $schema = [
+        'request' => [
+            'type' => 'object',
+            'properties' => ['query' => 'string'],
+            'additionalProperties' => false,
+        ],
+    ];
+
+    expect(ToolSchema::projectPayload($schema, [
+        'request' => ['query' => 'ports', 'admin' => true],
+        'outside' => 'drop',
+    ]))->toBe(['request' => ['query' => 'ports']]);
+});

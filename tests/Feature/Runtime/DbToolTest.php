@@ -275,6 +275,33 @@ it('fails when the source data is stale', function () {
     ))->toThrow(ToolExecutionException::class, 'stale');
 });
 
+it('treats a never-refreshed source as stale when freshness is required', function () {
+    $this->source->update([
+        'data_refreshed_at' => null,
+        'staleness_threshold_minutes' => 60,
+    ]);
+
+    expect(fn () => app(DbToolExecutor::class)->execute(
+        dbTool($this->source),
+        Environment::Production,
+        ['region' => 'EU'],
+    ))->toThrow(ToolExecutionException::class, 'stale');
+});
+
+it('cleans up its session statement timeout after a query', function () {
+    $this->source->update(['statement_timeout_ms' => 1234]);
+
+    app(DbToolExecutor::class)->execute(
+        dbTool($this->source),
+        Environment::Production,
+        ['region' => 'EU'],
+    );
+
+    $timeout = DB::connection()->selectOne('PRAGMA busy_timeout');
+
+    expect((int) ($timeout->timeout ?? -1))->toBe(0);
+});
+
 it('fails when the referenced connection is not configured', function () {
     $this->source->update(['connection' => 'nonexistent_replica']);
 

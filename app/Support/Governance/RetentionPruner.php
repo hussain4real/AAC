@@ -88,12 +88,17 @@ class RetentionPruner
     }
 
     /**
-     * Delete audit events older than the team's audit retention window.
+     * Delete only independently archived audit events older than retention and
+     * not under legal hold. The immutable archive remains the source of proof.
      */
     private function pruneAudit(Team $team, GovernanceSetting $settings): int
     {
         return $team->auditEvents()
             ->where('created_at', '<', Date::now()->subDays($settings->retentionDaysFor('audit')))
+            ->whereNotNull('archived_at')
+            ->where(function (Builder $query): void {
+                $query->whereNull('legal_hold_until')->orWhere('legal_hold_until', '<=', Date::now());
+            })
             ->delete();
     }
 

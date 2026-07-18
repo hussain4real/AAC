@@ -5,6 +5,7 @@ use Maacc\Sdk\Exceptions\MissingToolHandlerException;
 use Maacc\Sdk\Exceptions\RunNotResolvedException;
 use Maacc\Sdk\MaaccClient;
 use Maacc\Sdk\MaaccConfig;
+use Maacc\Sdk\Tools\ToolContext;
 use Maacc\Sdk\Tools\ToolHandlerRegistry;
 use Tests\Support\Sdk\FakeTransport;
 
@@ -43,7 +44,7 @@ it('fetches and parses the manifest with a bearer token', function () {
             'application' => ['id' => 'cargo', 'name' => 'Cargo', 'environment' => 'production'],
             'agents' => [['slug' => 'ops', 'name' => 'Ops', 'version' => 'v1', 'status' => 'published', 'tools' => ['fetch']]],
             'tools' => [[
-                'name' => 'fetch', 'version' => '1.0.0', 'schema_fingerprint' => 'fp-1',
+                'name' => 'fetch', 'version' => '1.0.0', 'schema_dialect' => 'https://maacc.dev/schema/compact/1.0', 'schema_fingerprint' => 'fp-1',
                 'input_schema' => ['query' => 'string'], 'output_schema' => ['records' => 'array'],
                 'implementation' => ['status' => 'required'],
             ]],
@@ -54,6 +55,7 @@ it('fetches and parses the manifest with a bearer token', function () {
     expect($manifest->environment)->toBe('production')
         ->and($manifest->agent('ops')?->tools)->toBe(['fetch'])
         ->and($manifest->tool('fetch')?->schemaFingerprint)->toBe('fp-1')
+        ->and($manifest->tool('fetch')?->schemaDialect)->toBe('https://maacc.dev/schema/compact/1.0')
         ->and($manifest->tool('fetch')?->implementationStatus())->toBe('required')
         ->and($manifest->tool('fetch')?->isImplemented())->toBeFalse()
         ->and($transport->request(1)->headers['Authorization'])->toBe('Bearer tok-123');
@@ -137,6 +139,7 @@ it('drives a paused run to completion through the registry', function () {
         ->push(201, [
             'run_id' => 'run-1', 'agent_slug' => 'ops', 'status' => 'waiting_for_client',
             'usage' => ['tokens_in' => 5, 'tokens_out' => 0], 'cost' => 0.01,
+            'caller_context' => ['v' => 1, 'sub' => 'user:42'],
             'tool_call' => ['id' => 'call-1', 'tool' => 'fetch', 'arguments' => ['query' => 'today'], 'output_schema' => ['records' => 'array']],
         ])
         ->push(200, [
@@ -145,8 +148,8 @@ it('drives a paused run to completion through the registry', function () {
         ]);
 
     $captured = [];
-    $registry = (new ToolHandlerRegistry)->registerCallable('fetch', function (array $arguments) use (&$captured): array {
-        $captured = $arguments;
+    $registry = (new ToolHandlerRegistry)->registerCallable('fetch', function (array $arguments, ToolContext $context) use (&$captured): array {
+        $captured = ['arguments' => $arguments, 'caller' => $context->callerContext];
 
         return ['records' => ['a'], 'total' => 1];
     });
@@ -156,7 +159,10 @@ it('drives a paused run to completion through the registry', function () {
     expect($run->isCompleted())->toBeTrue()
         ->and($run->response)->toBe('All clear.')
         ->and($run->tokensOut)->toBe(7)
-        ->and($captured)->toBe(['query' => 'today']);
+        ->and($captured)->toBe([
+            'arguments' => ['query' => 'today'],
+            'caller' => ['v' => 1, 'sub' => 'user:42'],
+        ]);
 
     $submit = $transport->request(2);
     expect($submit->url)->toBe('https://maacc.test/api/v1/runs/run-1/tool-results');

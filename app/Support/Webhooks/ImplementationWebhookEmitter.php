@@ -3,7 +3,6 @@
 namespace App\Support\Webhooks;
 
 use App\Enums\Environment;
-use App\Enums\WebhookDeliveryStatus;
 use App\Enums\WebhookEndpointStatus;
 use App\Enums\WebhookEventType;
 use App\Jobs\DeliverWebhook;
@@ -23,6 +22,8 @@ use App\Models\WebhookEndpoint;
  */
 class ImplementationWebhookEmitter
 {
+    public function __construct(private readonly WebhookOutbox $outbox) {}
+
     /**
      * Emit an `implementation.reported` event when an application reports a
      * client-side tool handler.
@@ -69,15 +70,12 @@ class ImplementationWebhookEmitter
         $payload = ImplementationWebhookPayload::for($event, $environment, $contract, $implementation);
 
         foreach ($endpoints as $endpoint) {
-            $delivery = $endpoint->deliveries()->create([
-                'agent_run_id' => null,
-                'event' => $event,
-                'payload' => $payload,
-                'status' => WebhookDeliveryStatus::Pending,
-                'attempts' => 0,
-            ]);
-
-            DeliverWebhook::dispatch($delivery)->onQueue('webhooks');
+            $this->outbox->enqueue(
+                $endpoint,
+                $event,
+                $payload,
+                "implementation:{$implementation->id}:{$event->value}:{$contract->version}",
+            );
         }
     }
 }

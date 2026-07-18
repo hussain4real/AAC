@@ -115,6 +115,16 @@ class RuntimeRequestException extends RuntimeException
         ]);
     }
 
+    public static function invalidCallerContext(): self
+    {
+        return new self('invalid_caller_context', 'The signed caller-context envelope is invalid, expired, or not intended for this application.', 422);
+    }
+
+    public static function idempotencyConflict(): self
+    {
+        return new self('idempotency_conflict', 'The idempotency key was already used for a different run request.', 409);
+    }
+
     /**
      * Render the exception into the standard SDK error envelope.
      */

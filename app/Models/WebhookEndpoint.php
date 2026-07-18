@@ -6,6 +6,7 @@ use App\Concerns\RecordsAuditEvents;
 use App\Enums\Environment;
 use App\Enums\WebhookEndpointStatus;
 use App\Enums\WebhookEventType;
+use Carbon\CarbonInterface;
 use Database\Factories\WebhookEndpointFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -28,6 +29,10 @@ use Illuminate\Support\Str;
  * @property Environment $environment
  * @property string $url
  * @property string $secret
+ * @property string|null $previous_secret
+ * @property CarbonInterface|null $previous_secret_expires_at
+ * @property int $secret_version
+ * @property int $next_delivery_sequence
  * @property string|null $last_four
  * @property array<int, string> $events
  * @property string|null $description
@@ -41,12 +46,18 @@ use Illuminate\Support\Str;
  * @property-read User|null $creator
  * @property-read Collection<int, WebhookDelivery> $deliveries
  */
-#[Fillable(['application_id', 'environment', 'url', 'secret', 'last_four', 'events', 'description', 'status', 'created_by', 'last_delivered_at', 'last_failed_at'])]
-#[Hidden(['secret'])]
+#[Fillable(['application_id', 'environment', 'url', 'secret', 'previous_secret', 'previous_secret_expires_at', 'secret_version', 'next_delivery_sequence', 'last_four', 'events', 'description', 'status', 'created_by', 'last_delivered_at', 'last_failed_at'])]
+#[Hidden(['secret', 'previous_secret'])]
 class WebhookEndpoint extends Model
 {
     /** @use HasFactory<WebhookEndpointFactory> */
     use HasFactory, HasUuids, RecordsAuditEvents;
+
+    /** @var array<string, int> */
+    protected $attributes = [
+        'secret_version' => 1,
+        'next_delivery_sequence' => 1,
+    ];
 
     /**
      * Get the application that owns the endpoint.
@@ -97,6 +108,31 @@ class WebhookEndpoint extends Model
     }
 
     /**
+     * Rotate with a bounded overlap so in-flight deliveries can still be
+     * verified with the prior secret while all new deliveries use the new one.
+     */
+    public function rotateSecret(string $plainSecret): void
+    {
+        $this->previous_secret = $this->secret;
+        $this->previous_secret_expires_at = now()->addSeconds((int) config('maacc.runtime.webhooks.secret_rotation_overlap_seconds', 86400));
+        $this->secret_version = $this->secret_version + 1;
+        $this->fillSecret($plainSecret);
+    }
+
+    public function signingSecretFor(int $version): ?string
+    {
+        if ($version === $this->secret_version) {
+            return $this->secret;
+        }
+
+        if ($version === $this->secret_version - 1 && $this->previous_secret_expires_at?->isFuture()) {
+            return $this->previous_secret;
+        }
+
+        return null;
+    }
+
+    /**
      * Whether the endpoint currently receives deliveries.
      */
     public function isActive(): bool
@@ -134,6 +170,10 @@ class WebhookEndpoint extends Model
             'status' => WebhookEndpointStatus::class,
             'events' => 'array',
             'secret' => 'encrypted',
+            'previous_secret' => 'encrypted',
+            'previous_secret_expires_at' => 'datetime',
+            'secret_version' => 'integer',
+            'next_delivery_sequence' => 'integer',
             'last_delivered_at' => 'datetime',
             'last_failed_at' => 'datetime',
         ];

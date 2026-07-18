@@ -37,7 +37,7 @@ class McpConnectorController extends Controller
             'team_id' => $team->id,
             'slug' => Slug::unique('mcp_connectors', $request->validated('name')),
             'transport' => 'http',
-            'status' => McpConnectorStatus::Active,
+            'status' => McpConnectorStatus::PendingVerification,
             'created_by' => $request->user()?->getAuthIdentifier(),
         ]);
         $connector->save();
@@ -58,6 +58,12 @@ class McpConnectorController extends Controller
 
         if (! Arr::hasAny($data, ['auth_credential']) || blank($data['auth_credential'] ?? null)) {
             unset($data['auth_credential']);
+        }
+
+        if (Arr::hasAny($data, ['server_url', 'auth_type', 'auth_credential', 'auth_header'])) {
+            $data['status'] = McpConnectorStatus::PendingVerification;
+            $data['capabilities'] = null;
+            $data['last_discovered_at'] = null;
         }
 
         $mcpConnector->update($data);

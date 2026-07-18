@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\KnowledgeDocumentStatus;
+use App\Jobs\ProcessKnowledgeDocument;
 use App\Models\KnowledgeSource;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -144,16 +147,108 @@ test('an upload larger than the size cap is rejected', function () {
     expect($this->source->documents()->count())->toBe(0);
 });
 
-test('a corrupt upload fails validation and cleans up the stored file', function () {
+test('a corrupt upload is retained in quarantine without being indexed', function () {
     $this->actingAs($this->owner)
         ->post(ingestUrl(), [
             'title' => 'Corrupt PDF',
             'document' => UploadedFile::fake()->createWithContent('broken.pdf', 'not a real pdf at all'),
         ])
-        ->assertSessionHasErrors('document');
+        ->assertRedirect();
 
-    expect($this->source->documents()->count())->toBe(0)
-        ->and(Storage::disk('local')->allFiles("knowledge/{$this->source->id}"))->toBe([]);
+    $document = $this->source->documents()->firstOrFail();
+
+    expect($document->ingestion_status)->toBe(KnowledgeDocumentStatus::Quarantined)
+        ->and($document->indexed_at)->toBeNull()
+        ->and($document->quarantine_reason)->not->toBeNull()
+        ->and(Storage::disk('local')->exists((string) $document->storage_path))->toBeTrue();
+});
+
+test('an upload is accepted into quarantine and dispatched to the isolated queue', function () {
+    Queue::fake();
+
+    $this->actingAs($this->owner)
+        ->post(ingestUrl(), [
+            'title' => 'Queued document',
+            'document' => UploadedFile::fake()->createWithContent('queued.txt', 'Safe queued content.'),
+        ])
+        ->assertRedirect();
+
+    $document = $this->source->documents()->firstOrFail();
+
+    expect($document->ingestion_status)->toBe(KnowledgeDocumentStatus::Pending)
+        ->and($document->storage_path)->toStartWith('knowledge-quarantine/')
+        ->and($document->initiated_by)->toBe($this->owner->id)
+        ->and($document->correlation_id)->not->toBeNull();
+
+    Queue::assertPushed(ProcessKnowledgeDocument::class, fn (ProcessKnowledgeDocument $job): bool => $job->document->is($document) && $job->queue === 'ingestion');
+});
+
+test('a filename and content mismatch remains quarantined', function () {
+    $this->actingAs($this->owner)
+        ->post(ingestUrl(), [
+            'title' => 'Disguised binary',
+            'document' => UploadedFile::fake()->createWithContent('disguised.pdf', 'plain text disguised as a PDF'),
+        ])
+        ->assertRedirect();
+
+    expect($this->source->documents()->firstOrFail()->ingestion_status)
+        ->toBe(KnowledgeDocumentStatus::Quarantined);
+});
+
+test('the malware test signature remains quarantined', function () {
+    $eicar = 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*';
+
+    $this->actingAs($this->owner)
+        ->post(ingestUrl(), [
+            'title' => 'Unsafe upload',
+            'document' => UploadedFile::fake()->createWithContent('unsafe.txt', $eicar),
+        ])
+        ->assertRedirect();
+
+    $document = $this->source->documents()->firstOrFail();
+
+    expect($document->ingestion_status)->toBe(KnowledgeDocumentStatus::Quarantined)
+        ->and($document->body)->toBe('')
+        ->and($document->quarantine_reason)->toContain('malware');
+});
+
+test('a compressed document that exceeds expansion limits remains quarantined', function () {
+    config(['maacc.runtime.knowledge.upload.max_decompressed_kb' => 1]);
+
+    $phpWord = new PhpWord;
+    $phpWord->addSection()->addText(str_repeat('highly-compressible-content ', 10000));
+    $tmp = sys_get_temp_dir().'/maacc_bomb_'.uniqid().'.docx';
+    WordIOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+    $bytes = (string) file_get_contents($tmp);
+    unlink($tmp);
+
+    $this->actingAs($this->owner)
+        ->post(ingestUrl(), [
+            'title' => 'Expansion bomb',
+            'document' => UploadedFile::fake()->createWithContent('bomb.docx', $bytes),
+        ])
+        ->assertRedirect();
+
+    $document = $this->source->documents()->firstOrFail();
+
+    expect($document->ingestion_status)->toBe(KnowledgeDocumentStatus::Quarantined)
+        ->and($document->quarantine_reason)->toContain('decompression');
+});
+
+test('the ingestion worker declares isolated bounded retry behavior', function () {
+    $document = $this->source->documents()->create([
+        'title' => 'Worker metadata',
+        'body' => '',
+        'checksum' => '',
+        'ingestion_status' => KnowledgeDocumentStatus::Pending,
+    ]);
+    $job = (new ProcessKnowledgeDocument($document))->onQueue('ingestion');
+
+    expect($job->queue)->toBe('ingestion')
+        ->and($job->tries)->toBe(3)
+        ->and($job->timeout)->toBeLessThan(config('queue.connections.database.retry_after'))
+        ->and($job->backoff())->toBe([10, 30, 60])
+        ->and($job->uniqueId())->toContain($document->id);
 });
 
 test('a plain member cannot ingest a document', function () {
