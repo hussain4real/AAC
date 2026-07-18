@@ -18,6 +18,7 @@ The export manifest uses a separate export key. Its `rows_digest` is explicitly 
 - Generate unrelated high-entropy `MAACC_AUDIT_CHAIN_KEY` and `MAACC_AUDIT_EXPORT_KEY` values in the enterprise secrets manager. Do not reuse `APP_KEY`, database credentials, or webhook secrets.
 - Assign unique key IDs and retain retired verification keys for the signed retention window during a controlled rotation.
 - Point `audit_archive` at an independently administered bucket with versioning, object lock in compliance mode, a retention period of at least `MAACC_AUDIT_ARCHIVE_RETENTION_DAYS`, deletion protection, access logging, and cross-account recovery access.
+- Set `MAACC_AUDIT_ARCHIVE_DRIVER=s3` and `MAACC_AUDIT_ARCHIVE_IMMUTABLE_ENFORCED=true` only after the object-lock, retention, identity and deny-overwrite/delete evidence is approved. Enterprise production refuses local or unattested filesystem archival.
 - Application database role: INSERT/SELECT on `audit_events`, SELECT/UPDATE on `audit_chain_heads`, and INSERT/SELECT/UPDATE on `audit_archive_outbox`; no direct UPDATE/DELETE on signed event fields. A separate retention role may delete only events proven archived and outside legal hold.
 - Archive worker identity: create-object and read-object for verification; no overwrite/delete/bypass-governance permission.
 - Security verifier identity: read-only database/archive/key metadata access; no application write permission.

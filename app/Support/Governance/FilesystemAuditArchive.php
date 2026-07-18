@@ -4,6 +4,7 @@ namespace App\Support\Governance;
 
 use App\Models\AuditArchiveOutbox;
 use App\Support\Governance\Contracts\AuditArchive;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
@@ -16,7 +17,9 @@ class FilesystemAuditArchive implements AuditArchive
 {
     public function archive(AuditArchiveOutbox $outbox): string
     {
-        $disk = Storage::disk((string) config('maacc.audit.archive_disk'));
+        $diskName = (string) config('maacc.audit.archive_disk');
+        $this->ensureEnterpriseArchive($diskName);
+        $disk = Storage::disk($diskName);
         $path = $this->path($outbox);
         $body = (string) json_encode([
             'event' => $outbox->payload,
@@ -49,5 +52,18 @@ class FilesystemAuditArchive implements AuditArchive
         $sequence = str_pad((string) ($outbox->payload['sequence'] ?? 0), 20, '0', STR_PAD_LEFT);
 
         return "teams/{$outbox->team_id}/{$sequence}-{$outbox->audit_event_id}.json";
+    }
+
+    private function ensureEnterpriseArchive(string $diskName): void
+    {
+        if (! App::environment('production') || config('maacc.readiness.status') !== 'enterprise') {
+            return;
+        }
+
+        $driver = config("filesystems.disks.{$diskName}.driver");
+
+        if ($driver !== 's3' || ! (bool) config('maacc.audit.archive_immutable_enforced', false)) {
+            throw new RuntimeException('The enterprise audit archive is not configured and attested as immutable object storage.');
+        }
     }
 }

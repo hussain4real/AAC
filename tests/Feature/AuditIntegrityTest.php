@@ -43,6 +43,19 @@ test('the ledger atomically signs chains and archives audit events', function ()
         ->and(AuditChainHead::find($this->team->id)->next_sequence)->toBe(4);
 });
 
+test('enterprise production refuses a local or unattested audit archive', function () {
+    app()->detectEnvironment(fn (): string => 'production');
+    config([
+        'maacc.readiness.status' => 'enterprise',
+        'maacc.audit.chain_key' => 'independent-test-chain-key',
+        'maacc.audit.archive_immutable_enforced' => false,
+        'filesystems.disks.audit_archive.driver' => 'local',
+    ]);
+
+    expect(fn () => appendAudit('agent.created'))
+        ->toThrow(RuntimeException::class, 'not configured and attested as immutable');
+});
+
 test('independent verification detects tampering and archive payload divergence', function () {
     $event = appendAudit('agent.created');
 

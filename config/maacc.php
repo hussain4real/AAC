@@ -412,6 +412,7 @@ return [
         'export_key' => env('MAACC_AUDIT_EXPORT_KEY'),
         'export_verification_keys' => json_decode((string) env('MAACC_AUDIT_EXPORT_PREVIOUS_KEYS', '{}'), true) ?: [],
         'archive_disk' => env('MAACC_AUDIT_ARCHIVE_DISK', 'audit_archive'),
+        'archive_immutable_enforced' => (bool) env('MAACC_AUDIT_ARCHIVE_IMMUTABLE_ENFORCED', false),
         'archive_retention_days' => (int) env('MAACC_AUDIT_ARCHIVE_RETENTION_DAYS', 2555),
         'archive_driver' => FilesystemAuditArchive::class,
     ],
