@@ -2,6 +2,7 @@
 
 use App\Exceptions\OutboundRequestBlocked;
 use App\Support\Outbound\OutboundRequestPolicy;
+use App\Support\Outbound\SystemDnsResolver;
 use Tests\Support\Outbound\FakeDnsResolver;
 use Tests\TestCase;
 
@@ -127,4 +128,41 @@ it('supports exact and subdomain wildcard allowlists without matching the apex',
         ->toBe('api.example.com')
         ->and(fn () => $policy->inspect('https://example.com/run', 'remote_http', ['*.example.com']))
         ->toThrow(OutboundRequestBlocked::class);
+});
+
+it('rejects malformed unicode and invalid resolved addresses', function () {
+    expect(fn () => outboundPolicy()->inspect('not-a-url', 'remote_http'))
+        ->toThrow(OutboundRequestBlocked::class, 'not a valid URL')
+        ->and(fn () => outboundPolicy(['bad.example.com' => ['not-an-ip']])
+            ->inspect('https://bad.example.com/run', 'remote_http'))
+        ->toThrow(OutboundRequestBlocked::class, 'non-public address')
+        ->and(fn () => outboundPolicy(['reserved.example.com' => ['192.0.2.10']])
+            ->inspect('https://reserved.example.com/run', 'remote_http'))
+        ->toThrow(OutboundRequestBlocked::class, 'non-public address');
+});
+
+it('supports an explicit catch-all host policy and normalizes international hostnames', function () {
+    $policy = outboundPolicy(['xn--bcher-kva.example' => ['1.1.1.1']]);
+
+    expect(outboundPolicy()->inspect('https://api.example.com/run', 'remote_http', ['*'])->host)
+        ->toBe('api.example.com')
+        ->and($policy->inspect('https://bücher.example/run', 'remote_http', ['xn--bcher-kva.example'])->host)
+        ->toBe('xn--bcher-kva.example');
+});
+
+it('resolves literal addresses and normalizes system DNS records', function () {
+    $resolver = new SystemDnsResolver(fn (string $host, int $type): array|false => match ($host) {
+        'missing.example' => false,
+        default => [
+            ['ip' => '1.1.1.1'],
+            ['ipv6' => '2606:4700:4700::1111'],
+            ['ip' => '1.1.1.1'],
+            ['ip' => 123],
+        ],
+    });
+
+    expect($resolver->resolve('8.8.8.8'))->toBe(['8.8.8.8'])
+        ->and($resolver->resolve('missing.example'))->toBe([])
+        ->and($resolver->resolve('api.example'))->toBe(['1.1.1.1', '2606:4700:4700::1111'])
+        ->and((new SystemDnsResolver)->resolve('localhost'))->toBeArray();
 });

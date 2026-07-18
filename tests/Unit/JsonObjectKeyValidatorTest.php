@@ -25,3 +25,21 @@ test('malformed or excessively nested json is rejected', function () {
         ->and(app(JsonObjectKeyValidator::class)->validate('{"input":true} trailing'))->toBeFalse()
         ->and(app(JsonObjectKeyValidator::class)->validate($tooDeep))->toBeFalse();
 });
+
+test('empty collections scalar values whitespace and escaped strings are accepted', function () {
+    $validator = app(JsonObjectKeyValidator::class);
+
+    expect($validator->validate(" \n {\"empty_object\":{},\"empty_array\":[],\"escaped\":\"a\\\\b\",\"null\":null} \t"))->toBeTrue()
+        ->and($validator->validate('[true,false,1,-2.5,null]'))->toBeTrue();
+});
+
+test('object array and string delimiter edge cases are rejected', function (string $json) {
+    expect(app(JsonObjectKeyValidator::class)->validate($json))->toBeFalse();
+})->with([
+    'object key is not a string' => '{1:true}',
+    'missing colon' => '{"key" true}',
+    'missing object comma' => '{"one":1 "two":2}',
+    'missing array comma' => '[1 2]',
+    'unescaped control character' => "{\"key\":\"bad\nvalue\"}",
+    'missing scalar value' => '{"key":}',
+]);

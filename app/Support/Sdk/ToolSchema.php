@@ -381,12 +381,8 @@ class ToolSchema
         };
     }
 
-    private static function matchesFormat(mixed $value, string $format): bool
+    private static function matchesFormat(string $value, string $format): bool
     {
-        if (! is_string($value)) {
-            return false;
-        }
-
         return match ($format) {
             'date' => self::matchesDate($value, 'Y-m-d'),
             'date-time' => DateTimeImmutable::createFromFormat(DateTimeImmutable::ATOM, $value) !== false,

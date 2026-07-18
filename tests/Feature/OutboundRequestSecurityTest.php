@@ -111,6 +111,14 @@ it('fails closed when the redirect limit is exceeded', function () {
     Http::assertSentCount(2);
 });
 
+it('returns a redirect response that omits its location', function () {
+    Http::fake(['api.example.com/*' => Http::response('', 302)]);
+
+    $response = app(OutboundHttpClient::class)->send('remote_http', 'GET', 'https://api.example.com/start');
+
+    expect($response->status())->toBe(302);
+});
+
 it('keeps direct framework HTTP calls behind the unified outbound client', function () {
     $violations = collect(File::allFiles(app_path()))
         ->reject(fn (SplFileInfo $file): bool => $file->getRealPath() === app_path('Support/Outbound/OutboundHttpClient.php'))

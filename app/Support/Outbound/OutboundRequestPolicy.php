@@ -23,18 +23,14 @@ class OutboundRequestPolicy
             throw new OutboundRequestBlocked('production network egress controls have not been attested');
         }
 
-        if (filter_var($url, FILTER_VALIDATE_URL) === false) {
+        $parts = parse_url($url);
+
+        if (! is_array($parts) || ! isset($parts['scheme'], $parts['host'])) {
             throw new OutboundRequestBlocked('the destination is not a valid URL');
         }
 
-        $parts = parse_url($url);
-
-        if (! is_array($parts)) {
-            throw new OutboundRequestBlocked('the destination URL could not be parsed');
-        }
-
-        $scheme = Str::lower((string) ($parts['scheme'] ?? ''));
-        $host = $this->normalizeHost((string) ($parts['host'] ?? ''));
+        $scheme = Str::lower($parts['scheme']);
+        $host = $this->normalizeHost($parts['host']);
 
         if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
             throw new OutboundRequestBlocked('only HTTP(S) destinations with a host are supported');
@@ -44,7 +40,7 @@ class OutboundRequestPolicy
             throw new OutboundRequestBlocked('URL userinfo is not permitted');
         }
 
-        if (($parts['host'] ?? '') !== rtrim((string) ($parts['host'] ?? ''), '.')) {
+        if ($parts['host'] !== rtrim($parts['host'], '.')) {
             throw new OutboundRequestBlocked('a trailing-dot hostname is not permitted');
         }
 
@@ -103,10 +99,6 @@ class OutboundRequestPolicy
         $host = Str::lower(trim($host, '[]'));
 
         if (preg_match('/[^\x20-\x7e]/', $host) === 1) {
-            if (! function_exists('idn_to_ascii')) {
-                return '';
-            }
-
             $ascii = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
             $host = is_string($ascii) ? Str::lower($ascii) : '';
         }

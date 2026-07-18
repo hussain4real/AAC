@@ -161,3 +161,106 @@ test('payload projection removes undeclared nested properties before execution',
         'outside' => 'drop',
     ]))->toBe(['request' => ['query' => 'ports']]);
 });
+
+test('schema limits and malformed rich keywords are rejected', function () {
+    $tooMany = [];
+
+    foreach (range(1, 101) as $index) {
+        $tooMany["field_{$index}"] = 'string';
+    }
+
+    $deep = ['type' => 'object', 'properties' => ['value' => 'string']];
+
+    foreach (range(1, 9) as $index) {
+        $deep = ['type' => 'object', 'properties' => ["level_{$index}" => $deep]];
+    }
+
+    $errors = [
+        ...ToolSchema::validateDefinition($tooMany),
+        ...ToolSchema::validateDefinition(['deep' => $deep]),
+        ...ToolSchema::validateDefinition([
+            'missing_type' => ['required' => true],
+            'required' => ['type' => 'string', 'required' => 'yes'],
+            'enum' => ['type' => 'string', 'enum' => []],
+            'minimum' => ['type' => 'number', 'minimum' => 'zero'],
+            'length' => ['type' => 'string', 'minLength' => -1],
+        ]),
+    ];
+
+    expect(implode(' ', $errors))
+        ->toContain('at most 100 properties')
+        ->toContain('depth exceeds')
+        ->toContain('unsupported type')
+        ->toContain('required')
+        ->toContain('enum')
+        ->toContain('must be numeric')
+        ->toContain('non-negative integer')
+        ->and(ToolSchema::baseType(null))->toBe('')
+        ->and(ToolSchema::isOptional(['type' => 'string', 'required' => false]))->toBeTrue();
+});
+
+test('payload validation covers bounds formats nesting and projection edge cases', function () {
+    $schema = [
+        'short' => ['type' => 'string', 'minLength' => 3, 'maxLength' => 5],
+        'too_short' => ['type' => 'string', 'minLength' => 3],
+        'low' => ['type' => 'number', 'minimum' => 2],
+        'few' => ['type' => 'array', 'minItems' => 2, 'items' => 'integer'],
+        'date_time' => ['type' => 'string', 'format' => 'date-time'],
+        'uuid' => ['type' => 'string', 'format' => 'uuid'],
+        'uri' => ['type' => 'string', 'format' => 'uri'],
+    ];
+
+    $errors = ToolSchema::validatePayload($schema, [
+        'short' => 'excess',
+        'too_short' => 'x',
+        'low' => 1,
+        'few' => [1],
+        'date_time' => 'bad',
+        'uuid' => 'bad',
+        'uri' => 'bad',
+    ]);
+
+    expect(implode(' ', $errors))
+        ->toContain('exceeds maxLength')
+        ->toContain('shorter than minLength')
+        ->toContain('below minimum')
+        ->toContain('fewer than minItems')
+        ->toContain('date-time')
+        ->toContain('uuid')
+        ->toContain('uri')
+        ->and(ToolSchema::validatePayload(['date' => 'string·date'], ['date' => '2026-99-99']))
+        ->toContain('Field "date" must match format date.')
+        ->and(ToolSchema::payloadBytes(['invalid' => "\xB1\x31"]))->toBe(PHP_INT_MAX)
+        ->and(ToolSchema::projectPayload([
+            'open' => ['type' => 'object', 'properties' => ['known' => 'string'], 'additionalProperties' => true],
+            'list' => ['type' => 'array', 'items' => ['type' => 'object', 'properties' => ['known' => 'string']]],
+            'plain' => ['type' => 'array'],
+        ], [
+            'open' => ['known' => 'yes', 'extra' => true],
+            'list' => [['known' => 'yes', 'extra' => true]],
+            'plain' => ['unchanged'],
+        ]))->toBe([
+            'open' => ['known' => 'yes', 'extra' => true],
+            'list' => [['known' => 'yes']],
+            'plain' => ['unchanged'],
+        ]);
+});
+
+test('payload validation guards malformed numeric schema keys and excessive depth', function () {
+    $nestedDefinition = 'string';
+    $nestedPayload = 'value';
+
+    foreach (range(1, 10) as $index) {
+        $nestedDefinition = ['type' => 'object', 'properties' => ['next' => $nestedDefinition]];
+        $nestedPayload = ['next' => $nestedPayload];
+    }
+
+    $errors = ToolSchema::validatePayload([
+        0 => 'string',
+        'nested' => $nestedDefinition,
+    ], [
+        'nested' => $nestedPayload,
+    ]);
+
+    expect(implode(' ', $errors))->toContain('Payload depth exceeds');
+});

@@ -10,6 +10,7 @@ use App\Enums\Sensitivity;
 use App\Enums\ToolCallStatus;
 use App\Enums\TraceEventType;
 use App\Enums\WebhookEventType;
+use App\Exceptions\Sdk\RuntimeRequestException;
 use App\Jobs\DeliverWebhook;
 use App\Models\Agent;
 use App\Models\AgentRun;
@@ -25,6 +26,7 @@ use App\Models\ToolImplementation;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
 use App\Support\Governance\PayloadMasker;
+use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Contracts\HostedTool;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
@@ -34,6 +36,7 @@ use App\Support\Runtime\LlmRequest;
 use App\Support\Runtime\RunStateStore;
 use App\Support\Sdk\CallerContextSigner;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
@@ -280,6 +283,18 @@ test('tampered expired and wrong-audience caller contexts fail before run persis
         ->assertJsonPath('error', 'invalid_caller_context');
 
     expect(AgentRun::query()->count())->toBe(0);
+});
+
+test('caller context verification rejects a correctly signed malformed payload with a raw key', function () {
+    config(['maacc.caller_context.signing_key' => 'raw-test-signing-key']);
+    $payload = rtrim(strtr(base64_encode('{'), '+/', '-_'), '=');
+    $signature = rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, 'raw-test-signing-key', true)), '+/', '-_'), '=');
+
+    expect(fn () => app(CallerContextSigner::class)->verify(
+        "{$payload}.{$signature}",
+        $this->application,
+        Environment::Production,
+    ))->toThrow(RuntimeRequestException::class);
 });
 
 test('the system prompt sent to the model is the user prompt plus the auto-generated tool brief', function () {
@@ -535,6 +550,21 @@ test('a run fails when the model produces invalid tool arguments', function () {
         ->and($run->traceEvents()->where('type', TraceEventType::Failed)->exists())->toBeTrue();
 });
 
+test('a run fails when model tool arguments exceed the contract payload limit', function () {
+    assignTool([
+        'slug' => 'echo',
+        'execution_mode' => ExecMode::Hosted,
+        'input_schema' => ['message' => 'string'],
+        'output_schema' => ['message' => 'string'],
+        'max_payload_kb' => 1,
+    ]);
+    fakeRouter()->toolCallThen('echo', ['message' => str_repeat('x', 4000)]);
+
+    invokeAgent()->assertCreated()
+        ->assertJsonPath('status', RunStatus::Failed->value)
+        ->assertJsonPath('error_code', 'tool_arguments_too_large');
+});
+
 test('a run fails when a hosted tool has no registered handler', function () {
     assignTool([
         'slug' => 'mystery_tool',
@@ -630,6 +660,42 @@ test('a run fails when a hosted tool returns invalid output', function () {
     invokeAgent()->assertCreated()
         ->assertJsonPath('status', RunStatus::Failed->value)
         ->assertJsonPath('error_code', 'hosted_tool_invalid_output');
+});
+
+test('a run fails when a server tool result exceeds the contract payload limit', function () {
+    app(HostedToolRegistry::class)->register('huge_result', new class implements HostedTool
+    {
+        public function handle(array $arguments): array
+        {
+            return ['message' => str_repeat('x', 4000)];
+        }
+    });
+    assignTool([
+        'slug' => 'huge_result',
+        'execution_mode' => ExecMode::Hosted,
+        'input_schema' => ['message' => 'string?'],
+        'output_schema' => ['message' => 'string'],
+        'max_payload_kb' => 1,
+    ]);
+    fakeRouter()->toolCallThen('huge_result', []);
+
+    invokeAgent()->assertCreated()
+        ->assertJsonPath('status', RunStatus::Failed->value)
+        ->assertJsonPath('error_code', 'tool_result_too_large');
+});
+
+test('a concurrent client result submission loses the waiting-state claim', function () {
+    assignTool(['slug' => 'getRecords', 'execution_mode' => ExecMode::Client]);
+    fakeRouter()->toolCallThen('getRecords', ['query' => 'today']);
+    $start = invokeAgent()->assertCreated();
+    $run = AgentRun::firstWhere('slug', $start->json('run_id'));
+    DB::table('agent_runs')->where('id', $run->id)->update(['status' => RunStatus::Running->value]);
+
+    expect(fn () => app(AgentRunner::class)->acceptToolResult(
+        $run,
+        $start->json('tool_call.id'),
+        ['results' => [], 'total' => 0],
+    ))->toThrow(RuntimeRequestException::class);
 });
 
 test('a run fails with a controlled code when a db tool is not mapped to a data source', function () {

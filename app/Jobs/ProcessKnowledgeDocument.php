@@ -53,6 +53,12 @@ class ProcessKnowledgeDocument implements ShouldBeEncrypted, ShouldBeUnique, Sho
         $document = $this->document->fresh();
 
         if (! $document instanceof KnowledgeDocument || $document->disk === null || $document->storage_path === null || $document->original_filename === null) {
+            KnowledgeDocument::query()->whereKey($this->document->id)->update([
+                'ingestion_status' => KnowledgeDocumentStatus::Failed,
+                'quarantine_reason' => 'The ingestion record is missing its quarantined file metadata.',
+                'processed_at' => now(),
+            ]);
+
             return;
         }
 

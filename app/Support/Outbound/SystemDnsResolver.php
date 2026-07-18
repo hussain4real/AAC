@@ -2,8 +2,13 @@
 
 namespace App\Support\Outbound;
 
+use Closure;
+
 class SystemDnsResolver implements DnsResolver
 {
+    /** @param (Closure(string, int): (array<int, array<string, mixed>>|false))|null $lookup */
+    public function __construct(private readonly ?Closure $lookup = null) {}
+
     /** @return array<int, string> */
     public function resolve(string $host): array
     {
@@ -11,7 +16,9 @@ class SystemDnsResolver implements DnsResolver
             return [$host];
         }
 
-        $records = dns_get_record($host, DNS_A | DNS_AAAA);
+        $records = $this->lookup instanceof Closure
+            ? ($this->lookup)($host, DNS_A | DNS_AAAA)
+            : dns_get_record($host, DNS_A | DNS_AAAA);
 
         if (! is_array($records)) {
             return [];

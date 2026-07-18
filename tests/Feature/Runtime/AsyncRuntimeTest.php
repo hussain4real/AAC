@@ -277,6 +277,15 @@ test('the public API rejects oversized envelopes before execution', function () 
         ->assertJsonPath('error', 'request_body_too_large');
 });
 
+test('the public API rejects oversized request headers before execution', function () {
+    config(['maacc.runtime.gateway.max_header_kb' => 1]);
+
+    test()->withHeader('X-Oversized', str_repeat('x', 2048))
+        ->postJson('/api/v1/agents/ops-summary/runs', ['input' => 'Status?'])
+        ->assertStatus(431)
+        ->assertJsonPath('error', 'request_headers_too_large');
+});
+
 test('the public API applies application-scoped concurrency backpressure', function () {
     config(['maacc.runtime.api_concurrency.run' => 1]);
     $lease = Cache::lock("maacc:api-concurrency:{$this->application->id}:run:1", 30);
@@ -327,6 +336,12 @@ test('an application activates a webhook only after a successful test delivery',
         ->assertOk()
         ->assertJsonPath('verified', true)
         ->assertJsonPath('status', 'active');
+});
+
+test('verifying an unknown application webhook returns a controlled error', function () {
+    test()->postJson('/api/v1/webhook-endpoints/missing/verify')
+        ->assertNotFound()
+        ->assertJsonPath('error', 'webhook_endpoint_not_found');
 });
 
 test('deleting an unknown webhook endpoint returns a controlled error', function () {
@@ -442,6 +457,35 @@ test('delivery is a no-op when the delivery has been removed', function () {
     app()->call([new DeliverWebhook($delivery), 'handle']);
 
     expect(WebhookDelivery::count())->toBe(0);
+});
+
+test('delivery fails closed when the signing-key overlap has elapsed', function () {
+    Http::preventStrayRequests();
+    $endpoint = webhookEndpoint();
+    $delivery = WebhookDelivery::factory()->for($endpoint, 'endpoint')->create([
+        'secret_version' => $endpoint->secret_version,
+    ]);
+    $endpoint->rotateSecret(WebhookEndpoint::generateSecret());
+    $endpoint->update(['previous_secret' => null, 'previous_secret_expires_at' => null]);
+
+    app()->call([new DeliverWebhook($delivery), 'handle']);
+
+    expect($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Failed)
+        ->and($delivery->fresh()->error)->toContain('rotation overlap');
+    Http::assertNothingSent();
+});
+
+test('the webhook worker failure callback releases its processing claim', function () {
+    $delivery = WebhookDelivery::factory()->for(webhookEndpoint(), 'endpoint')->create([
+        'processing_token' => 'claimed',
+        'processing_claimed_at' => now(),
+    ]);
+
+    (new DeliverWebhook($delivery))->failed(new RuntimeException('worker failed'));
+
+    expect($delivery->fresh()->processing_token)->toBeNull()
+        ->and($delivery->fresh()->processing_claimed_at)->toBeNull()
+        ->and($delivery->fresh()->error)->toContain('worker failed');
 });
 
 test('an application exposes its registered webhook endpoints', function () {

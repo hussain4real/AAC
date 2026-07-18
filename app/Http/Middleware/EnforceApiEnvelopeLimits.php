@@ -40,10 +40,6 @@ class EnforceApiEnvelopeLimits
             return $this->error('request_headers_too_large', 'The request headers exceed the public API limit.', 431);
         }
 
-        if (function_exists('set_time_limit')) {
-            set_time_limit(max(1, (int) config('maacc.runtime.gateway.request_timeout_seconds', 150)));
-        }
-
         return $next($request);
     }
 

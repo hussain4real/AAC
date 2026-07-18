@@ -5,11 +5,15 @@ use App\Enums\ExecMode;
 use App\Enums\RemoteAuthType;
 use App\Models\McpConnector;
 use App\Models\ToolContract;
+use App\Support\Outbound\OutboundHttpClient;
+use App\Support\Runtime\Mcp\GuardedHttpTransport;
 use App\Support\Runtime\Mcp\McpCapabilityDiscoverer;
 use App\Support\Runtime\Mcp\McpToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Laravel\Mcp\Exceptions\ClientException;
+use Laravel\Mcp\Exceptions\SessionExpiredException;
 use Tests\Support\Mcp\FakeMcpServer;
 
 function mcpExecutor(): McpToolExecutor
@@ -172,4 +176,60 @@ it('discovers and persists connector capabilities', function () {
         ->and($capabilities[0]['name'])->toBe('lookup')
         ->and($connector->fresh()->discoveredToolNames())->toBe(['lookup', 'translate'])
         ->and($connector->fresh()->last_discovered_at)->not->toBeNull();
+});
+
+it('the guarded transport expires stale sessions and handles unexpected responses', function () {
+    Http::preventStrayRequests();
+    Http::fakeSequence()
+        ->push('{}', 200, ['MCP-Session-Id' => 'session-1'])
+        ->push('', 404);
+    $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->send('{}');
+
+    expect($transport->receive())->toBe('{}')
+        ->and(fn () => $transport->send('{}'))
+        ->toThrow(SessionExpiredException::class);
+});
+
+it('the guarded transport rejects unexpected HTTP responses', function () {
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 500)]);
+    $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    expect(fn () => $transport->send('{}'))
+        ->toThrow(ClientException::class, 'unexpected HTTP status');
+});
+
+it('the guarded transport reads SSE messages and terminates remote sessions', function () {
+    Http::preventStrayRequests();
+    Http::fakeSequence()
+        ->push("data: {\"jsonrpc\":\"2.0\",\"result\":{}}\n\n", 200, [
+            'Content-Type' => 'text/event-stream',
+            'MCP-Session-Id' => 'session-2',
+        ])
+        ->push('', 204);
+    $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->send('{}');
+
+    expect($transport->receive())->toContain('jsonrpc');
+    $transport->disconnect();
+    Http::assertSent(fn ($request): bool => $request->method() === 'DELETE');
+});
+
+it('remote MCP session termination is best effort', function () {
+    Http::preventStrayRequests();
+    $calls = 0;
+    Http::fake(function () use (&$calls) {
+        $calls++;
+
+        if ($calls === 1) {
+            return Http::response('', 202, ['MCP-Session-Id' => 'session-3']);
+        }
+
+        throw new ConnectionException('disconnect failed');
+    });
+    $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->send('{}');
+    $transport->disconnect();
+
+    expect($calls)->toBe(2);
 });

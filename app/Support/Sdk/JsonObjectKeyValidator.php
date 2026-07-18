@@ -160,10 +160,6 @@ class JsonObjectKeyValidator
                     JSON_THROW_ON_ERROR,
                 );
 
-                if (! is_string($decoded)) {
-                    throw new RuntimeException('Invalid JSON string.');
-                }
-
                 return $decoded;
             }
 

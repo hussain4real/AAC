@@ -18,6 +18,7 @@ use App\Models\ToolAssignment;
 use App\Models\ToolContract;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Knowledge\Contracts\KnowledgeRetriever;
+use App\Support\Runtime\Knowledge\KnowledgeExtractionException;
 use App\Support\Runtime\Knowledge\KnowledgeIndexer;
 use App\Support\Runtime\Knowledge\KnowledgeToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
@@ -307,4 +308,38 @@ it('retrieves and cites chunks from an uploaded document', function () {
         ->and($result['citations'][0]['uri'])->toBe('https://docs.example/tug-scheduling')
         ->and($result['citations'][0]['score'])->toBeGreaterThan(0)
         ->and($result['citations'][0]['indexed_at'])->not->toBeNull();
+});
+
+it('rejects stored-document records without complete storage metadata', function () {
+    $document = $this->source->documents()->create([
+        'title' => 'Missing file metadata',
+        'body' => '',
+        'checksum' => '',
+    ]);
+
+    expect(fn () => app(KnowledgeIndexer::class)->indexStoredDocument($document))
+        ->toThrow(KnowledgeExtractionException::class, 'could not be read');
+});
+
+it('the document index path re-extracts uploaded records and enforces the chunk ceiling', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('knowledge/reindex.txt', 'Re-extracted body.');
+    $document = $this->source->documents()->create([
+        'title' => 'Uploaded',
+        'body' => 'old',
+        'checksum' => hash('sha256', 'old'),
+        'disk' => 'local',
+        'storage_path' => 'knowledge/reindex.txt',
+        'original_filename' => 'reindex.txt',
+    ]);
+    $indexer = app(KnowledgeIndexer::class);
+    $method = new ReflectionMethod($indexer, 'indexDocument');
+    $method->invoke($indexer, $document);
+    expect($document->fresh()->body)->toBe('Re-extracted body.');
+
+    config(['maacc.runtime.knowledge.upload.max_chunks' => 1]);
+    expect(fn () => $indexer->ingestDocument($this->source, [
+        'title' => 'Too many chunks',
+        'body' => "First paragraph.\n\nSecond paragraph.",
+    ]))->toThrow(KnowledgeExtractionException::class, 'chunk safety limit');
 });

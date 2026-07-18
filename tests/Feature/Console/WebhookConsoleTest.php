@@ -7,6 +7,7 @@ use App\Jobs\DeliverWebhook;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
 use App\Support\MaaccConsoleData;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Inertia\Testing\AssertableInertia;
@@ -81,6 +82,23 @@ test('a failed webhook test remains pending verification', function () {
     expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::PendingVerification);
 });
 
+test('a blocked webhook verification remains pending verification', function () {
+    $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
+        'status' => WebhookEndpointStatus::PendingVerification,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake(fn () => throw new ConnectionException('blocked'));
+
+    $this->actingAs($this->owner)
+        ->post(route('webhooks.verify', [
+            'current_team' => $this->team->slug,
+            'webhookEndpoint' => $endpoint->id,
+        ]))
+        ->assertRedirect();
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::PendingVerification);
+});
+
 test('registering without events defaults to all events', function () {
     $this->actingAs($this->owner)
         ->post(route('webhooks.store', ['current_team' => $this->team->slug]), [
@@ -119,6 +137,14 @@ test('an endpoint can be toggled, edited, rotated, and deleted', function () {
         ])
         ->assertRedirect();
     expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::Disabled);
+
+    // Changing the destination requires verification again.
+    $this->actingAs($this->owner)
+        ->put(route('webhooks.update', ['current_team' => $this->team->slug, 'webhookEndpoint' => $endpoint->id]), [
+            'url' => 'https://new.example.com/webhooks/maacc',
+        ])
+        ->assertRedirect();
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::PendingVerification);
 
     // Rotate — re-displays a new secret.
     $rotate = $this->actingAs($this->owner)

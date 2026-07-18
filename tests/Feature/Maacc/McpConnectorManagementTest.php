@@ -92,6 +92,23 @@ test('updating a connector without a credential preserves the stored one', funct
         ->and($fresh->auth_credential)->toBe('original-secret');
 });
 
+test('changing connector connectivity resets discovery evidence', function () {
+    [$owner, $team] = ownerAndTeam();
+    $connector = McpConnector::factory()->for($team)->withCapabilities([
+        ['name' => 'lookup', 'description' => 'Lookup', 'input_schema' => []],
+    ])->create(['status' => McpConnectorStatus::Active]);
+
+    $this->actingAs($owner)
+        ->put(route('connectors.update', ['current_team' => $team->slug, 'mcpConnector' => $connector->slug]), [
+            'server_url' => 'https://new.example.com/mcp',
+        ])
+        ->assertRedirect();
+
+    expect($connector->fresh()->status)->toBe(McpConnectorStatus::PendingVerification)
+        ->and($connector->fresh()->capabilities)->toBeNull()
+        ->and($connector->fresh()->last_discovered_at)->toBeNull();
+});
+
 test('a connector can be disabled and re-enabled', function () {
     [$owner, $team] = ownerAndTeam();
     $connector = McpConnector::factory()->for($team)->create();

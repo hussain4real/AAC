@@ -2,6 +2,7 @@
 
 namespace App\Support\Runtime\Knowledge;
 
+use Closure;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
@@ -25,6 +26,15 @@ class DocumentUploadGuard
         'pdf' => ['application/pdf'],
         'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
     ];
+
+    /**
+     * @param  (Closure(string): (string|false))|null  $temporaryFile
+     * @param  (Closure(array<int, string>): Process)|null  $processFactory
+     */
+    public function __construct(
+        private readonly ?Closure $temporaryFile = null,
+        private readonly ?Closure $processFactory = null,
+    ) {}
 
     public function assertSafe(string $disk, string $path, string $originalFilename): void
     {
@@ -99,7 +109,7 @@ class DocumentUploadGuard
             return;
         }
 
-        $temporary = tempnam(sys_get_temp_dir(), 'maacc_docx_');
+        $temporary = $this->temporaryFile('maacc_docx_');
 
         if ($temporary === false) {
             throw KnowledgeExtractionException::unsafe('A secure temporary file could not be created for document inspection.');
@@ -156,7 +166,7 @@ class DocumentUploadGuard
             return;
         }
 
-        $temporary = tempnam(sys_get_temp_dir(), 'maacc_scan_');
+        $temporary = $this->temporaryFile('maacc_scan_');
 
         if ($temporary === false) {
             throw KnowledgeExtractionException::unsafe('A secure temporary file could not be created for malware scanning.');
@@ -165,7 +175,10 @@ class DocumentUploadGuard
         file_put_contents($temporary, $contents);
 
         try {
-            $process = new Process([$binary, '--no-summary', $temporary]);
+            $command = [$binary, '--no-summary', $temporary];
+            $process = $this->processFactory instanceof Closure
+                ? ($this->processFactory)($command)
+                : new Process($command);
             $process->setTimeout(max(1, (int) config('maacc.runtime.knowledge.upload.scanner_timeout_seconds', 60)));
             $process->run();
 
@@ -183,5 +196,12 @@ class DocumentUploadGuard
         } finally {
             @unlink($temporary);
         }
+    }
+
+    private function temporaryFile(string $prefix): string|false
+    {
+        return $this->temporaryFile instanceof Closure
+            ? ($this->temporaryFile)($prefix)
+            : tempnam(sys_get_temp_dir(), $prefix);
     }
 }

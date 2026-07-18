@@ -7,6 +7,8 @@ use App\Models\Application;
 use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ProjectMember;
+use App\Models\ToolAssignment;
+use App\Models\ToolContract;
 use App\Support\MaaccAccess;
 use App\Support\MaaccConsoleData;
 use Illuminate\Support\Facades\Cache;
@@ -96,4 +98,74 @@ test('a plain team member receives no tenant object corpus or navigation capabil
     $this->actingAs($user)
         ->get(route('projects', $team->slug))
         ->assertForbidden();
+});
+
+test('auditor and security reviewer navigation comes from their authoritative roles', function () {
+    [, $team] = ownerAndTeam();
+    $project = Project::factory()->for(Application::factory()->for($team))->create();
+    $auditor = projectRoleUser($team, $project, MaaccRole::Auditor);
+    $reviewer = projectRoleUser($team, $project, MaaccRole::SecurityReviewer);
+
+    expect(app(MaaccAccess::class)->forUser($auditor, $team)['navigation'])
+        ->toContain('sdk', 'governance')
+        ->not->toContain('connectors')
+        ->and(app(MaaccAccess::class)->forUser($reviewer, $team)['navigation'])
+        ->toContain('connectors', 'dataSources', 'governance')
+        ->not->toContain('sdk');
+});
+
+test('project owners receive assigned global tools and the team member directory', function () {
+    [, $team] = ownerAndTeam();
+    $application = Application::factory()->for($team)->create();
+    $project = Project::factory()->for($application)->create();
+    $provider = LlmProvider::factory()->for($team)->create();
+    $agent = Agent::factory()->for($project)->for($provider)->create();
+    $tool = ToolContract::factory()->for($team)->global()->create();
+    ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    $owner = projectRoleUser($team, $project, MaaccRole::ProjectOwner);
+
+    $data = MaaccConsoleData::forUser($owner, $team);
+
+    expect(collect($data['tools'])->pluck('uuid'))->toContain($tool->id)
+        ->and(collect($data['memberDirectory'])->pluck('id'))->toContain($owner->id);
+
+    $rows = new ReflectionMethod(MaaccConsoleData::class, 'rows');
+    expect($rows->invoke(null, null)->all())->toBe([])
+        ->and($rows->invoke(null, [1, ['valid' => true]])->all())->toBe([['valid' => true]]);
+});
+
+test('non-admin application and tool visibility follows project membership', function () {
+    [, $team] = ownerAndTeam();
+    $allowedApplication = Application::factory()->for($team)->create();
+    $hiddenApplication = Application::factory()->for($team)->create();
+    $project = Project::factory()->for($allowedApplication)->create();
+    Project::factory()->for($hiddenApplication)->create();
+    $user = projectRoleUser($team, $project, MaaccRole::Viewer);
+    $applicationTool = ToolContract::factory()->for($team)->for($allowedApplication)->create();
+    $globalTool = ToolContract::factory()->for($team)->global()->create();
+    $provider = LlmProvider::factory()->for($team)->create();
+    $agent = Agent::factory()->for($project)->for($provider)->create();
+    ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $globalTool->id]);
+
+    expect($user->can('view', $allowedApplication))->toBeTrue()
+        ->and($user->can('view', $hiddenApplication))->toBeFalse()
+        ->and($user->can('view', $applicationTool))->toBeTrue()
+        ->and($user->can('view', $globalTool))->toBeTrue();
+});
+
+test('project member assignment supports the browser redirect response', function () {
+    [$owner, $team] = ownerAndTeam();
+    $project = Project::factory()->for(Application::factory()->for($team))->create();
+    $member = teamMember($team);
+
+    $this->actingAs($owner)->post(route('projects.members.store', [
+        'current_team' => $team->slug,
+        'project' => $project->slug,
+    ]), [
+        'user_id' => $member->id,
+        'role' => MaaccRole::Viewer->value,
+        'reason' => 'Project onboarding',
+    ])->assertRedirect();
+
+    expect($project->projectMembers()->where('user_id', $member->id)->exists())->toBeTrue();
 });
