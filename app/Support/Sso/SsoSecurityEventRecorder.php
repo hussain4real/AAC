@@ -3,8 +3,8 @@
 namespace App\Support\Sso;
 
 use App\Enums\SsoFailureCode;
-use App\Models\AuditEvent;
 use App\Models\SsoConnection;
+use App\Support\Governance\AuditLedger;
 use App\Support\Observability\SsoAnomalyDetector;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -25,7 +25,7 @@ class SsoSecurityEventRecorder
             : 'corr_'.Str::lower((string) Str::ulid());
         $request->attributes->set('correlation_id', $correlationId);
 
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $connection->team_id,
             'actor_label' => 'anonymous',
             'action' => $code->auditAction(),

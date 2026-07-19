@@ -36,4 +36,9 @@ class KnowledgeExtractionException extends RuntimeException
     {
         return new self("Could not extract text from the {$extension} document.", 0, $previous);
     }
+
+    public static function unsafe(string $reason): self
+    {
+        return new self($reason);
+    }
 }

@@ -352,9 +352,15 @@ export default function Connectors() {
     };
 
     const toggleStatus = (connector: MaaccConnector) => {
+        if (connector.status !== 'active') {
+            discover(connector);
+
+            return;
+        }
+
         router.put(
             updateConnector([teamSlug, connector.id]).url,
-            { status: connector.status === 'active' ? 'disabled' : 'active' },
+            { status: 'disabled' },
             { preserveScroll: true },
         );
     };

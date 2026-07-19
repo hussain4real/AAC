@@ -21,17 +21,23 @@ use Throwable;
  */
 class DocumentTextExtractor
 {
+    public function __construct(private readonly DocumentUploadGuard $guard) {}
+
     /**
      * Extract the document's text from storage, keyed on its file extension.
      */
     public function extract(string $disk, string $path, string $extension): string
     {
-        return match (strtolower($extension)) {
+        $text = match (strtolower($extension)) {
             'txt', 'md', 'markdown', 'csv' => $this->readText($disk, $path),
             'pdf' => $this->extractPdf($disk, $path),
             'docx' => $this->extractDocx($disk, $path),
             default => throw KnowledgeExtractionException::unsupportedExtension(strtolower($extension)),
         };
+
+        $this->guard->assertExtractedText($text);
+
+        return $text;
     }
 
     /**

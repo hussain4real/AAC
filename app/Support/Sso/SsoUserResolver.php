@@ -4,12 +4,12 @@ namespace App\Support\Sso;
 
 use App\Enums\SsoFailureCode;
 use App\Enums\TeamRole;
-use App\Models\AuditEvent;
 use App\Models\Project;
 use App\Models\SsoConnection;
 use App\Models\SsoIdentity;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Governance\AuditLedger;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -166,7 +166,7 @@ class SsoUserResolver
      */
     private function audit(SsoConnection $connection, User $user, bool $provisioned, TeamRole $role): void
     {
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $connection->team_id,
             'actor_user_id' => $user->getAuthIdentifier(),
             'actor_label' => $user->name,

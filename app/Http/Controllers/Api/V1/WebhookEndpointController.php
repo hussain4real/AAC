@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\RegisterWebhookEndpointRequest;
 use App\Models\WebhookEndpoint;
 use App\Support\Sdk\SdkContext;
+use App\Support\Webhooks\WebhookEndpointVerifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -53,7 +54,7 @@ class WebhookEndpointController extends Controller
             'url' => $request->webhookUrl(),
             'events' => $request->events(),
             'description' => $request->description(),
-            'status' => WebhookEndpointStatus::Active,
+            'status' => WebhookEndpointStatus::PendingVerification,
         ]);
         $endpoint->fillSecret($secret);
         $endpoint->save();
@@ -83,6 +84,30 @@ class WebhookEndpointController extends Controller
         $endpoint->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Send a signed test delivery and activate a scoped endpoint on success.
+     */
+    public function verify(Request $request, string $webhookEndpoint, WebhookEndpointVerifier $verifier): JsonResponse
+    {
+        $context = SdkContext::fromRequest($request);
+        $endpoint = WebhookEndpoint::query()
+            ->where('id', $webhookEndpoint)
+            ->where('application_id', $context->application->id)
+            ->where('environment', $context->environment->value)
+            ->first();
+
+        if (! $endpoint instanceof WebhookEndpoint) {
+            throw RuntimeRequestException::webhookEndpointNotFound();
+        }
+
+        $verified = $verifier->verify($endpoint);
+
+        return new JsonResponse([
+            'verified' => $verified,
+            ...$this->endpointPayload($endpoint->refresh()),
+        ], $verified ? 200 : 422);
     }
 
     /**

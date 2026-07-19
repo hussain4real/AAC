@@ -15,6 +15,10 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $id
  * @property int $team_id
+ * @property int|null $sequence
+ * @property string|null $previous_signature
+ * @property string|null $signature
+ * @property string|null $signature_key_id
  * @property int|null $actor_user_id
  * @property string|null $actor_label
  * @property string $action
@@ -23,13 +27,16 @@ use Illuminate\Support\Carbon;
  * @property Environment|null $environment
  * @property array<string, mixed>|null $metadata
  * @property string|null $ip_address
+ * @property Carbon|null $legal_hold_until
+ * @property Carbon|null $archived_at
+ * @property string|null $archive_receipt
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Team $team
  * @property-read User|null $actor
  * @property-read Model|null $auditable
  */
-#[Fillable(['team_id', 'actor_user_id', 'actor_label', 'action', 'auditable_type', 'auditable_id', 'environment', 'metadata', 'ip_address'])]
+#[Fillable(['team_id', 'sequence', 'previous_signature', 'signature', 'signature_key_id', 'actor_user_id', 'actor_label', 'action', 'auditable_type', 'auditable_id', 'environment', 'metadata', 'ip_address', 'legal_hold_until', 'archived_at', 'archive_receipt'])]
 class AuditEvent extends Model
 {
     /** @use HasFactory<AuditEventFactory> */
@@ -75,6 +82,9 @@ class AuditEvent extends Model
         return [
             'environment' => Environment::class,
             'metadata' => 'array',
+            'sequence' => 'integer',
+            'legal_hold_until' => 'datetime',
+            'archived_at' => 'datetime',
         ];
     }
 }

@@ -161,15 +161,19 @@ class DataSource extends Model
 
     /**
      * Whether the source's last-refreshed time is older than the requested
-     * maximum age, indicating a potentially stale replica. A null marker or a
-     * null/zero age means freshness is not enforced.
+     * maximum age, indicating a potentially stale replica. When freshness is
+     * required, a source that has never recorded a refresh is stale.
      */
     public function isStale(?int $maxAgeMinutes): bool
     {
         $threshold = $maxAgeMinutes ?? $this->staleness_threshold_minutes;
 
-        if ($threshold === null || $threshold <= 0 || $this->data_refreshed_at === null) {
+        if ($threshold === null || $threshold <= 0) {
             return false;
+        }
+
+        if ($this->data_refreshed_at === null) {
+            return true;
         }
 
         return $this->data_refreshed_at->lt(Date::now()->subMinutes($threshold));

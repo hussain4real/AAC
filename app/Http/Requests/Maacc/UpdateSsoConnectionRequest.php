@@ -5,7 +5,8 @@ namespace App\Http\Requests\Maacc;
 use App\Enums\MaaccRole;
 use App\Enums\SsoProvider;
 use App\Enums\TeamRole;
-use App\Rules\PublicHttpsUrl;
+use App\Rules\SafeOutboundUrl;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,16 +18,18 @@ class UpdateSsoConnectionRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
+        $safeSsoUrl = fn (): SafeOutboundUrl => new SafeOutboundUrl($policy, 'sso');
+
         return [
             'name' => ['sometimes', 'string', 'max:255'],
             'provider' => ['sometimes', Rule::in([SsoProvider::Oidc->value])],
-            'issuer' => ['sometimes', new PublicHttpsUrl, 'max:2048'],
-            'authorize_url' => ['sometimes', new PublicHttpsUrl, 'max:2048'],
-            'token_url' => ['sometimes', new PublicHttpsUrl, 'max:2048'],
-            'userinfo_url' => ['sometimes', new PublicHttpsUrl, 'max:2048'],
-            'jwks_url' => ['sometimes', new PublicHttpsUrl, 'max:2048'],
+            'issuer' => ['sometimes', $safeSsoUrl(), 'max:2048'],
+            'authorize_url' => ['sometimes', $safeSsoUrl(), 'max:2048'],
+            'token_url' => ['sometimes', $safeSsoUrl(), 'max:2048'],
+            'userinfo_url' => ['sometimes', $safeSsoUrl(), 'max:2048'],
+            'jwks_url' => ['sometimes', $safeSsoUrl(), 'max:2048'],
             'client_id' => ['sometimes', 'string', 'max:512'],
             'client_secret' => ['nullable', 'string', 'max:2048'],
             'scopes' => ['nullable', 'string', 'max:512'],

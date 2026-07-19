@@ -18,9 +18,20 @@ export type PlatformAccess = {
     isAdministrator: boolean;
 };
 
+/** Server-authoritative tenant/project access used by console data and nav. */
+export type MaaccAccess = {
+    roles: string[];
+    permissions: string[];
+    navigation: string[];
+    projectIds: string[];
+    isPlatformAdmin: boolean;
+    roleLabel: string;
+};
+
 export type Auth = {
     user: User;
     platform: PlatformAccess;
+    maacc: MaaccAccess;
 };
 
 /* @chisel-passkeys */

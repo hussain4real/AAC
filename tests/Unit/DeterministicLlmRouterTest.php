@@ -73,3 +73,23 @@ test('it answers with final text once a tool result is in the conversation', fun
     expect($completion->isToolCall())->toBeFalse()
         ->and($completion->text)->toBe('Deterministic agent response.');
 });
+
+test('it synthesizes nested rich object and array arguments', function () {
+    $tool = new LlmToolDefinition('nested', 'Nested input', [
+        'request' => [
+            'type' => 'object',
+            'properties' => ['name' => 'string'],
+        ],
+        'items' => [
+            'type' => 'array',
+            'items' => ['type' => 'object', 'properties' => ['active' => 'boolean']],
+        ],
+    ]);
+
+    $completion = (new DeterministicLlmRouter)->complete(deterministicRequest([$tool]));
+
+    expect($completion->toolArguments)->toBe([
+        'request' => ['name' => 'e2e'],
+        'items' => [['active' => true]],
+    ]);
+});

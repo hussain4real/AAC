@@ -1,5 +1,5 @@
 {
-    "api_version": "0.0.1",
+    "api_version": "1.0.0",
     "schema_validation": [
         {
             "name": "all base types valid",
@@ -124,7 +124,7 @@
             ]
         },
         {
-            "name": "format hint is ignored",
+            "name": "date format is enforced",
             "schema": {
                 "d": "string·date"
             },
@@ -135,7 +135,7 @@
             "errors": []
         },
         {
-            "name": "extra fields are tolerated",
+            "name": "undeclared fields are rejected",
             "schema": {
                 "query": "string"
             },
@@ -143,8 +143,95 @@
                 "query": "hi",
                 "extra": true
             },
+            "valid": false,
+            "errors": [
+                "Field \"extra\" is not declared by the schema."
+            ]
+        },
+        {
+            "name": "nested arrays enums formats and bounds are valid",
+            "schema": {
+                "request": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                        "email": {
+                            "type": "string",
+                            "format": "email",
+                            "maxLength": 254
+                        },
+                        "priority": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                        },
+                        "tags": {
+                            "type": "array",
+                            "maxItems": 3,
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "ops",
+                                    "safety"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "payload": {
+                "request": {
+                    "email": "ops@example.com",
+                    "priority": 3,
+                    "tags": [
+                        "ops"
+                    ]
+                }
+            },
             "valid": true,
             "errors": []
+        },
+        {
+            "name": "nested constraints and additional properties are rejected",
+            "schema": {
+                "request": {
+                    "type": "object",
+                    "properties": {
+                        "priority": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 5
+                        },
+                        "tags": {
+                            "type": "array",
+                            "maxItems": 1,
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "ops"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            "payload": {
+                "request": {
+                    "priority": 9,
+                    "tags": [
+                        "ops",
+                        "other"
+                    ],
+                    "admin": true
+                }
+            },
+            "valid": false,
+            "errors": [
+                "Field \"request.priority\" exceeds maximum.",
+                "Field \"request.tags\" exceeds maxItems.",
+                "Field \"request.tags[1]\" must be one of the declared enum values.",
+                "Field \"request.admin\" is not declared by the schema."
+            ]
         }
     ],
     "fingerprint": [
@@ -238,36 +325,36 @@
     "version_negotiation": [
         {
             "name": "within the window is compatible",
-            "reported": "0.1.0",
-            "minimum": "0.0.1",
-            "current": "0.2.0",
+            "reported": "1.0.1",
+            "minimum": "1.0.0",
+            "current": "1.1.0",
             "status": "compatible",
             "compatible": true,
             "upgrade_required": false
         },
         {
             "name": "at the exact minimum is compatible",
-            "reported": "0.0.1",
-            "minimum": "0.0.1",
-            "current": "0.2.0",
+            "reported": "1.0.0",
+            "minimum": "1.0.0",
+            "current": "1.1.0",
             "status": "compatible",
             "compatible": true,
             "upgrade_required": false
         },
         {
             "name": "below the minimum requires an upgrade",
-            "reported": "0.0.0",
-            "minimum": "0.0.1",
-            "current": "0.2.0",
+            "reported": "0.2.0",
+            "minimum": "1.0.0",
+            "current": "1.1.0",
             "status": "upgrade_required",
             "compatible": false,
             "upgrade_required": true
         },
         {
             "name": "ahead of current is compatible",
-            "reported": "1.0.0",
-            "minimum": "0.0.1",
-            "current": "0.2.0",
+            "reported": "2.0.0",
+            "minimum": "1.0.0",
+            "current": "1.1.0",
             "status": "ahead",
             "compatible": true,
             "upgrade_required": false
@@ -275,8 +362,8 @@
         {
             "name": "unreported is unknown",
             "reported": null,
-            "minimum": "0.0.1",
-            "current": "0.2.0",
+            "minimum": "1.0.0",
+            "current": "1.1.0",
             "status": "unknown",
             "compatible": true,
             "upgrade_required": false
@@ -317,6 +404,34 @@
         {
             "code": "credential_revoked",
             "status": 403
+        },
+        {
+            "code": "invalid_json",
+            "status": 400
+        },
+        {
+            "code": "invalid_caller_context",
+            "status": 422
+        },
+        {
+            "code": "idempotency_conflict",
+            "status": 409
+        },
+        {
+            "code": "request_body_too_large",
+            "status": 413
+        },
+        {
+            "code": "request_headers_too_large",
+            "status": 431
+        },
+        {
+            "code": "stream_concurrency_exceeded",
+            "status": 429
+        },
+        {
+            "code": "api_concurrency_exceeded",
+            "status": 429
         },
         {
             "code": "agent_not_found",

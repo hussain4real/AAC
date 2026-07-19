@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Application;
+use App\Models\ToolContract;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -36,6 +38,10 @@ function maaccScreens(): array
 test('authenticated users can reach every MAACC console screen', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
+    Application::factory()->for($team)->create(['slug' => 'MOP']);
+    $agent = maaccAgent($team, ['slug' => 'ag_ops_summary']);
+    ToolContract::factory()->for($team)->create(['slug' => 'getOperationalRecords']);
+    maaccRun($agent, ['slug' => 'run_8fa31c']);
 
     foreach (maaccScreens() as [$name, $params, $component]) {
         $this
@@ -55,6 +61,8 @@ test('guests are redirected from MAACC console routes to login', function () {
 test('console detail routes forward the record identifier as a prop', function () {
     $user = User::factory()->create();
     $team = $user->currentTeam;
+    Application::factory()->for($team)->create(['slug' => 'MOP']);
+    $run = maaccRun(maaccAgent($team), ['slug' => 'run_8fa31c']);
 
     $this
         ->actingAs($user)
@@ -71,6 +79,6 @@ test('console detail routes forward the record identifier as a prop', function (
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('maacc/runs/show')
-            ->where('id', 'run_8fa31c'),
+            ->where('id', $run->slug),
         );
 });

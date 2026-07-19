@@ -2,7 +2,6 @@
 
 namespace App\Support\Webhooks;
 
-use App\Enums\WebhookDeliveryStatus;
 use App\Enums\WebhookEndpointStatus;
 use App\Enums\WebhookEventType;
 use App\Jobs\DeliverWebhook;
@@ -20,6 +19,8 @@ use App\Models\WebhookEndpoint;
  */
 class RunWebhookEmitter
 {
+    public function __construct(private readonly WebhookOutbox $outbox) {}
+
     /**
      * Emit a run event to all matching webhook endpoints.
      */
@@ -43,15 +44,13 @@ class RunWebhookEmitter
         $payload = WebhookPayload::for($run, $event);
 
         foreach ($endpoints as $endpoint) {
-            $delivery = $endpoint->deliveries()->create([
-                'agent_run_id' => $run->id,
-                'event' => $event,
-                'payload' => $payload,
-                'status' => WebhookDeliveryStatus::Pending,
-                'attempts' => 0,
-            ]);
-
-            DeliverWebhook::dispatch($delivery)->onQueue('webhooks');
+            $this->outbox->enqueue(
+                $endpoint,
+                $event,
+                $payload,
+                "run:{$run->id}:{$event->value}",
+                $run,
+            );
         }
     }
 }

@@ -4,6 +4,7 @@ import type { Run, ToolCall } from './types.ts';
 export interface ToolContext {
   run: Run;
   toolCall: ToolCall;
+  callerContext: Record<string, unknown>;
 }
 
 /**

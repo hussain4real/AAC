@@ -7,6 +7,7 @@ use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Http\Requests\Maacc\Concerns\ValidatesToolConfig;
 use App\Rules\ValidToolSchema;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,7 +20,7 @@ class UpdateToolContractRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -32,10 +33,8 @@ class UpdateToolContractRequest extends FormRequest
             'max_payload_kb' => ['sometimes', 'required', 'integer', 'min:1', 'max:10240'],
             'version' => ['sometimes', 'string', 'max:32'],
             'input_schema' => ['sometimes', 'required', 'array', new ValidToolSchema],
-            'input_schema.*' => ['required', 'string', 'max:64'],
             'output_schema' => ['sometimes', 'required', 'array', new ValidToolSchema],
-            'output_schema.*' => ['required', 'string', 'max:64'],
-            ...$this->toolConfigRules($this->user()?->currentTeam()->value('id')),
+            ...$this->toolConfigRules($this->user()?->currentTeam()->value('id'), $policy),
         ];
     }
 }

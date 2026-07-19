@@ -21,6 +21,8 @@ use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Db\DbToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
 use App\Support\Secrets\Contracts\SecretVault;
+use Illuminate\Database\Connection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -275,6 +277,33 @@ it('fails when the source data is stale', function () {
     ))->toThrow(ToolExecutionException::class, 'stale');
 });
 
+it('treats a never-refreshed source as stale when freshness is required', function () {
+    $this->source->update([
+        'data_refreshed_at' => null,
+        'staleness_threshold_minutes' => 60,
+    ]);
+
+    expect(fn () => app(DbToolExecutor::class)->execute(
+        dbTool($this->source),
+        Environment::Production,
+        ['region' => 'EU'],
+    ))->toThrow(ToolExecutionException::class, 'stale');
+});
+
+it('cleans up its session statement timeout after a query', function () {
+    $this->source->update(['statement_timeout_ms' => 1234]);
+
+    app(DbToolExecutor::class)->execute(
+        dbTool($this->source),
+        Environment::Production,
+        ['region' => 'EU'],
+    );
+
+    $timeout = DB::connection()->selectOne('PRAGMA busy_timeout');
+
+    expect((int) ($timeout->timeout ?? -1))->toBe(0);
+});
+
 it('fails when the referenced connection is not configured', function () {
     $this->source->update(['connection' => 'nonexistent_replica']);
 
@@ -440,4 +469,51 @@ it('fails the run with db_invalid_output when the result violates the output sch
 
     expect($run->status)->toBe(RunStatus::Failed)
         ->and($run->failure_reason)->toBe('db_invalid_output');
+});
+
+it('applies and resets governed timeouts for every supported database driver', function () {
+    $executor = app(DbToolExecutor::class);
+    $apply = new ReflectionMethod($executor, 'applyStatementTimeout');
+    $reset = new ReflectionMethod($executor, 'resetStatementTimeout');
+    $statements = [
+        'pgsql' => 'SET statement_timeout TO 500',
+        'mysql' => 'SET SESSION MAX_EXECUTION_TIME = 500',
+        'mariadb' => 'SET SESSION MAX_EXECUTION_TIME = 500',
+        'sqlsrv' => 'SET LOCK_TIMEOUT 500',
+    ];
+
+    foreach ($statements as $driver => $statement) {
+        $pdo = Mockery::mock(PDO::class);
+        $pdo->shouldReceive('exec')->once()->with($statement)->andReturn(0);
+        $connection = Mockery::mock(Connection::class);
+        $connection->shouldReceive('getDriverName')->andReturn($driver);
+        $connection->shouldReceive('getPdo')->once()->andReturn($pdo);
+        $apply->invoke($executor, $connection, 500);
+
+        $connection->shouldReceive('unprepared')->once()->andReturnTrue();
+        $reset->invoke($executor, $connection);
+    }
+
+    $unsupported = Mockery::mock(Connection::class);
+    $unsupported->shouldReceive('getDriverName')->andReturn('oracle');
+    expect(fn () => $apply->invoke($executor, $unsupported, 500))
+        ->toThrow(ToolExecutionException::class, 'does not support governed statement timeouts');
+});
+
+it('disconnects a database session when resetting its timeout fails', function () {
+    $executor = app(DbToolExecutor::class);
+    $reset = new ReflectionMethod($executor, 'resetStatementTimeout');
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('getDriverName')->andReturn('pgsql');
+    $connection->shouldReceive('unprepared')->andThrow(new QueryException(
+        'reporting',
+        'SET statement_timeout TO DEFAULT',
+        [],
+        new RuntimeException('connection lost'),
+    ));
+    $connection->shouldReceive('disconnect')->once();
+
+    $reset->invoke($executor, $connection);
+
+    expect(true)->toBeTrue();
 });

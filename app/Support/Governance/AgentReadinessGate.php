@@ -138,6 +138,18 @@ class AgentReadinessGate
      */
     public function configurationHash(Agent $agent): string
     {
+        return hash('sha256', (string) json_encode($this->executionSnapshot($agent), JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * Build the complete, secret-free execution snapshot persisted at publish
+     * and run creation time. This is the rollback/reproduction source of truth;
+     * the hash is only its integrity-friendly identifier.
+     *
+     * @return array<string, mixed>
+     */
+    public function executionSnapshot(Agent $agent): array
+    {
         $agent->load([
             'project.application',
             'llmProvider.vaultSecret',
@@ -151,11 +163,18 @@ class AgentReadinessGate
         $tools = $agent->tools->sortBy('id')->map(function (ToolContract $tool): array {
             return [
                 'id' => $tool->id,
+                'slug' => $tool->slug,
+                'name' => $tool->name,
                 'version' => $tool->version,
                 'status' => $tool->status,
+                'scope' => $tool->scope->value,
                 'execution_mode' => $tool->execution_mode->value,
                 'sensitivity' => $tool->sensitivity->value,
                 'requires_approval' => $tool->requires_approval,
+                'timeout_seconds' => $tool->timeout_seconds,
+                'max_payload_kb' => $tool->max_payload_kb,
+                'input_schema' => $tool->input_schema,
+                'output_schema' => $tool->output_schema,
                 'schema_fingerprint' => $tool->schemaFingerprint(),
                 'http_config' => $tool->http_config,
                 'mcp_tool_name' => $tool->mcp_tool_name,
@@ -172,7 +191,9 @@ class AgentReadinessGate
         $routing = $agent->routingPolicy;
         $governance = GovernanceSetting::forTeam($agent->project->application->team);
 
-        $configuration = [
+        return [
+            'snapshot_version' => 1,
+            'runtime_policy_version' => (string) config('maacc.runtime.policy_version', '1.0.0'),
             'agent' => [
                 'id' => $agent->id,
                 'prompt' => $agent->system_prompt,
@@ -203,6 +224,8 @@ class AgentReadinessGate
                 'verified_at' => $agent->llmProvider->verified_at?->toJSON(),
             ],
             'routing' => $routing === null ? null : [
+                'id' => $routing->id,
+                'name' => $routing->name,
                 'strategy' => $routing->strategy->value,
                 'primary_provider_id' => $routing->primary_provider_id,
                 'fallback_provider_ids' => $routing->fallback_provider_ids,
@@ -213,8 +236,6 @@ class AgentReadinessGate
             'governance_updated_at' => $governance->updated_at?->toJSON(),
             'tools' => $tools,
         ];
-
-        return hash('sha256', (string) json_encode($configuration, JSON_THROW_ON_ERROR));
     }
 
     /**

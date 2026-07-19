@@ -105,7 +105,17 @@ class Project extends Model
     {
         return $this->belongsToMany(User::class, 'project_members')
             ->using(ProjectMember::class)
-            ->withPivot(['maacc_role'])
+            ->withPivot([
+                'maacc_role',
+                'granted_by_user_id',
+                'revoked_by_user_id',
+                'certified_by_user_id',
+                'expires_at',
+                'revoked_at',
+                'certified_at',
+                'reason',
+                'certification_note',
+            ])
             ->withTimestamps();
     }
 

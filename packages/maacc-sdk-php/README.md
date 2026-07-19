@@ -4,7 +4,7 @@ A framework-agnostic PHP client for the MAACC SDK and runtime API: token
 exchange, manifest sync, implementation reporting, and pause/resume agent runs.
 Only `ext-curl` and `ext-json` are required.
 
-- **Status:** ✅ Supported · **Version:** 0.2.0 · **MAACC API contract:** v0.0.1
+- **Status:** ✅ Supported · **Version:** 1.0.0 · **MAACC API contract:** v1.0.0
 - **Requires:** PHP ≥ 8.2
 
 See the [SDK Integration Guide](../../docs/MAACC_SDK_Integration_Guide.md) for the
@@ -16,7 +16,7 @@ package setup, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 ## Install
 
 ```bash
-composer require maacc/sdk:^0.2
+composer require maacc/sdk:^1.0
 ```
 
 Private pilot installs require Composer repository/auth configuration. See the
@@ -39,6 +39,13 @@ $client->reportHandlers($client->manifest(), $registry);
 $run = $client->run('ops-agent', 'Summarize today', $registry);
 
 echo $run->isCompleted() ? $run->response : "Run {$run->status}: {$run->error}";
+```
+
+For trusted identity-aware tools, issue and pass a minimized caller context:
+
+```php
+$context = $client->issueCallerContext('user:42', department: 'operations', roles: ['viewer']);
+$run = $client->run('ops-agent', 'Summarize today', $registry, callerContext: $context);
 ```
 
 See [`examples/simple.php`](examples/simple.php) and
@@ -68,3 +75,12 @@ if ($result->fails()) {
     // $result->errors lists exactly which input/output schema rules were violated.
 }
 ```
+
+## Receive webhooks safely
+
+Use `WebhookSignature` to verify the raw body and timestamp, or
+`WebhookDeliveryVerifier` to verify the stable delivery ID and endpoint sequence
+as well. Persist processed delivery IDs with a unique constraint in production;
+acknowledge duplicates with 2xx but do not repeat their side effects. Delivery is
+at least once and may arrive out of order. See
+[`docs/MAACC_Webhook_Delivery_Contract_v1.md`](../../docs/MAACC_Webhook_Delivery_Contract_v1.md).

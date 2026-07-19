@@ -157,17 +157,27 @@ test('the console run honors an explicit caller label', function () {
     expect(AgentRun::firstWhere('slug', $response->json('run_id'))->caller)->toBe('qa-suite');
 });
 
-test('a draft agent cannot be run from the console', function () {
+test('an authorized console user can run a governed draft without publishing it', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = playgroundAgent($team, ['status' => AgentStatus::Draft]);
-    bindFakeRouter()->textThen('Should not run.');
+    bindFakeRouter()->textThen('Draft test completed.');
 
-    $this->actingAs($owner)
+    $response = $this->actingAs($owner)
         ->postJson(route('playground.runs.store', ['current_team' => $team->slug, 'agent' => $agent->slug]), playgroundRunPayload([
             'input' => 'Run me',
         ]))
-        ->assertStatus(422)
-        ->assertJsonPath('message', 'The agent must be published before it can be run from the console.');
+        ->assertCreated()
+        ->assertJsonPath('status', RunStatus::Completed->value)
+        ->assertJsonPath('response', 'Draft test completed.');
+
+    $run = AgentRun::firstWhere('slug', $response->json('run_id'));
+
+    expect($agent->fresh()->status)->toBe(AgentStatus::Draft)
+        ->and($run->is_test)->toBeTrue()
+        ->and($run->initiated_by)->toBe($owner->id)
+        ->and($run->agent_version_id)->toBeNull()
+        ->and($run->policy_version)->toBe('1.0.0')
+        ->and($run->execution_snapshot['agent']['prompt'])->toBe('You summarize operations.');
 });
 
 test('the run request validates the input prompt', function () {

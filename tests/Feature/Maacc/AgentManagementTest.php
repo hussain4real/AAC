@@ -10,6 +10,7 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\ToolContract;
+use App\Support\Governance\AgentReadinessGate;
 
 /**
  * Build an application, project and approved model for the given team.
@@ -101,7 +102,18 @@ test('publishing an agent snapshots a new version and bumps the version label', 
         ->and($agent->published_at)->not->toBeNull()
         ->and($agent->version)->toBe('v2')
         ->and($agent->currentVersion->version)->toBe('v2')
-        ->and($agent->currentVersion->status)->toBe(AgentStatus::Published);
+        ->and($agent->currentVersion->status)->toBe(AgentStatus::Published)
+        ->and($agent->currentVersion->settings['execution_snapshot']['snapshot_version'])->toBe(1)
+        ->and($agent->currentVersion->settings['execution_snapshot']['runtime_policy_version'])->toBe('1.0.0')
+        ->and($agent->currentVersion->settings['execution_snapshot']['agent']['prompt'])->toBe($agent->system_prompt)
+        ->and($agent->currentVersion->settings['execution_snapshot']['agent']['model_id'])->toBe($agent->llm_provider_id)
+        ->and($agent->currentVersion->settings['execution_snapshot']['agent']['sensitivity'])->toBe($agent->sensitivity->value)
+        ->and($agent->currentVersion->settings['execution_snapshot']['agent']['requires_runtime_approval'])->toBe($agent->requires_runtime_approval)
+        ->and($agent->currentVersion->settings['execution_snapshot']['application']['environment'])->toBe($agent->project->application->environment->value)
+        ->and($agent->currentVersion->settings['execution_snapshot']['project']['environment'])->toBe($agent->project->environment->value)
+        ->and($agent->currentVersion->settings['execution_snapshot']['tools'])->toBe([])
+        ->and($agent->currentVersion->settings['configuration_hash'])
+        ->toBe(app(AgentReadinessGate::class)->configurationHash($agent));
 });
 
 test('a developer can create an agent in a project they belong to', function () {

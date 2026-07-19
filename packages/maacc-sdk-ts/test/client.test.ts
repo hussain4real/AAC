@@ -88,6 +88,7 @@ test('fetches and parses the manifest with a bearer token', async () => {
           {
             name: 'fetch',
             version: '1.0.0',
+            schema_dialect: 'https://maacc.dev/schema/compact/1.0',
             schema_fingerprint: 'fp-1',
             input_schema: { query: 'string' },
             output_schema: { records: 'array' },
@@ -103,6 +104,7 @@ test('fetches and parses the manifest with a bearer token', async () => {
   assert.equal(manifest.environment, 'production');
   assert.deepEqual(manifest.agents[0].tools, ['fetch']);
   assert.equal(manifest.tools[0].schemaFingerprint, 'fp-1');
+  assert.equal(manifest.tools[0].schemaDialect, 'https://maacc.dev/schema/compact/1.0');
   assert.equal(manifest.tools[0].implementation.status, 'required');
   assert.equal(requests[1].headers.Authorization, 'Bearer tok-123');
 });
@@ -186,6 +188,7 @@ test('drives a paused run to completion through the registry', async () => {
         status: 'waiting_for_client',
         usage: { tokens_in: 5, tokens_out: 0 },
         cost: 0.01,
+        caller_context: { v: 1, sub: 'user:42' },
         tool_call: { id: 'call-1', tool: 'fetch', arguments: { query: 'today' }, output_schema: { records: 'array' } },
       },
     },
@@ -203,8 +206,8 @@ test('drives a paused run to completion through the registry', async () => {
   ]);
 
   let captured: Record<string, unknown> = {};
-  const registry = new ToolHandlerRegistry().register('fetch', (args) => {
-    captured = args;
+  const registry = new ToolHandlerRegistry().register('fetch', (args, context) => {
+    captured = { args, caller: context.callerContext };
 
     return { records: ['a'], total: 1 };
   });
@@ -214,7 +217,7 @@ test('drives a paused run to completion through the registry', async () => {
   assert.equal(run.status, 'completed');
   assert.equal(run.response, 'All clear.');
   assert.equal(run.tokensOut, 7);
-  assert.deepEqual(captured, { query: 'today' });
+  assert.deepEqual(captured, { args: { query: 'today' }, caller: { v: 1, sub: 'user:42' } });
 
   const submit = JSON.parse(requests[2].body ?? '{}');
   assert.equal(requests[2].url, 'https://maacc.test/api/v1/runs/run-1/tool-results');

@@ -588,7 +588,11 @@ test('security event recording preserves an existing correlation id', function (
 
     expect($correlationId)->toBe('corr_existing_sso')
         ->and($request->attributes->get('correlation_id'))->toBe('corr_existing_sso')
-        ->and($team->auditEvents()->latest('id')->firstOrFail()->metadata['correlation_id'])
+        ->and($team->auditEvents()
+            ->where('action', SsoFailureCode::AuthorizationCodeMissing->auditAction())
+            ->latest('sequence')
+            ->firstOrFail()
+            ->metadata['correlation_id'])
         ->toBe('corr_existing_sso');
 });
 

@@ -75,12 +75,20 @@ test('reports its handler and completes a run from environment configuration', a
       {
         status: 201,
         body: {
+          envelope: 'signed-context',
+          claims: { v: 1, sub: 'reference:node-consumer', exp: 9999999999 },
+        },
+      },
+      {
+        status: 201,
+        body: {
           run_id: 'run-1',
           agent_slug: 'ops',
           status: 'waiting_for_client',
           usage: { tokens_in: 4, tokens_out: 0 },
           cost: 0.01,
           tool_call: { id: 'call-1', tool: 'fetch', arguments: { query: 'berth' }, output_schema: { records: 'array' } },
+          caller_context: { v: 1, sub: 'reference:node-consumer' },
         },
       },
       {
@@ -92,6 +100,7 @@ test('reports its handler and completes a run from environment configuration', a
           usage: { tokens_in: 4, tokens_out: 6 },
           cost: 0.02,
           response: 'Operations nominal.',
+          caller_context: { v: 1, sub: 'reference:node-consumer' },
         },
       },
     ]);

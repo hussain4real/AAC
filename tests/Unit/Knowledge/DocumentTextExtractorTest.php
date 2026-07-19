@@ -14,7 +14,7 @@ uses(TestCase::class);
 
 beforeEach(function () {
     Storage::fake('local');
-    $this->extractor = new DocumentTextExtractor;
+    $this->extractor = app(DocumentTextExtractor::class);
 });
 
 it('reads plain-text formats verbatim from storage', function (string $extension) {

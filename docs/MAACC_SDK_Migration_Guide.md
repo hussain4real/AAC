@@ -20,6 +20,25 @@ versions:
 All three follow [Semantic Versioning](https://semver.org/). An SDK package's
 MAJOR tracks the API contract MAJOR it targets: **API contract v1.x ⇒ SDK v1.x**.
 
+## Migrating from pre-v1 to v1
+
+API 1.0.0 and SDK 1.0.0 are the enterprise contract baseline frozen by [ADR-P2-001](MAACC_Public_API_v1_Contract_ADR.md). Pre-v1 clients receive `upgrade_required`.
+
+1. Upgrade to `maacc/sdk:^1.0` or `@qatar-navigation-milaha/sdk@^1.0`.
+2. Re-fetch the manifest and validate every local handler against `schema_dialect = https://maacc.dev/schema/compact/1.0`.
+3. Issue a short-lived caller context and pass it to `startRun`, `run`, or `runAsync`; do not make authorization decisions from the free-form caller label.
+4. Treat `waiting_for_client` as the durable pause and service its `tool_call` once. Do not wait for a persisted `requires_tool` status.
+5. Reject duplicate JSON keys before signing or sending custom requests. The official SDK serializers already produce compliant JSON.
+6. Re-report handlers with SDK 1.0.0 and confirm the manifest shows `implemented` for every `required` tool.
+
+### v1 run-status migration
+
+`requires_tool` now names an internal model decision only. The server materializes the tool-call record and atomically exposes `waiting_for_client` to consumers. Both SDKs continue to parse the legacy token throughout 1.x, but helpers such as `isWaiting()` intentionally return true only for `waiting_for_client`. Compatibility parsing is scheduled for removal in 2.0.0, no earlier than 18 January 2027.
+
+### v1 schema migration
+
+Legacy scalar definitions (`string`, `integer?`, `string·date`) remain accepted during 1.x. New and changed contracts should use rich compact definitions for nested `properties`, array `items`, enums, formats, and bounds. Objects are closed by default; set `additionalProperties: true` only after data-minimization review. Legacy scalar definitions are scheduled for removal in 2.0.0, no earlier than 18 January 2027.
+
 ## Detecting compatibility
 
 ### Is my SDK compatible with this MAACC?
@@ -122,7 +141,7 @@ const result = await new ToolTester().test(tool!, handler, { query: 'today' });
 
 ## Upgrading the SDK package
 
-1. Bump the dependency (`composer require maacc/sdk:^2` / `npm i @qatar-navigation-milaha/sdk@^2`).
+1. Bump the dependency to the target major (`composer require maacc/sdk:^1.0` / `npm i @qatar-navigation-milaha/sdk@^1.0` for API v1).
 2. Read this CHANGELOG entry for the new MAJOR and follow any per-change steps.
 3. Run `client.compatibility()` against each target MAACC environment — it must
    return `compatible` (or `ahead`).

@@ -2,7 +2,7 @@
     "name": "maacc/sdk",
     "description": "Framework-agnostic PHP client for the MAACC SDK and runtime API: token exchange, manifest sync, implementation reporting, and pause/resume agent runs.",
     "type": "library",
-    "version": "0.2.0",
+    "version": "1.0.0",
     "license": "MIT",
     "keywords": [
         "maacc",

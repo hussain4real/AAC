@@ -3,6 +3,7 @@
 use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
+use App\Enums\ToolScope;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\Credential;
@@ -50,6 +51,7 @@ test('the manifest describes the application, its agents and required tools', fu
         ->assertJsonPath('tools.0.name', 'getOperationalRecords')
         ->assertJsonPath('tools.0.version', '1.0.0')
         ->assertJsonPath('tools.0.implementation.status', 'required')
+        ->assertJsonPath('tools.0.schema_dialect', 'https://maacc.dev/schema/compact/1.0')
         ->assertJsonPath('tools.0.used_by_agents.0', $this->agent->agent_slug);
 
     expect($response->json('tools.0.schema_fingerprint'))->toBe($this->tool->schemaFingerprint())
@@ -57,6 +59,35 @@ test('the manifest describes the application, its agents and required tools', fu
         ->and($response->json('tools.0.input_schema'))->toBe($this->tool->input_schema)
         ->and(collect($response->json('sdk_languages'))->pluck('value')->all())
         ->toBe(['typescript', 'php', 'python']);
+});
+
+test('the manifest includes global client tools and derives required not-required and disabled states', function () {
+    $global = ToolContract::factory()->for($this->team)->create([
+        'application_id' => null,
+        'slug' => 'global_lookup',
+        'scope' => ToolScope::Global,
+        'execution_mode' => ExecMode::Client,
+        'status' => 'Active',
+    ]);
+    $unused = ToolContract::factory()->for($this->team)->for($this->application)->create([
+        'slug' => 'unused_lookup',
+        'scope' => ToolScope::Project,
+        'execution_mode' => ExecMode::Client,
+        'status' => 'Active',
+    ]);
+    $disabled = ToolContract::factory()->for($this->team)->for($this->application)->create([
+        'slug' => 'disabled_lookup',
+        'scope' => ToolScope::Agent,
+        'execution_mode' => ExecMode::Client,
+        'status' => 'Disabled',
+    ]);
+    ToolAssignment::factory()->forAgent($this->agent)->create(['tool_contract_id' => $disabled->id]);
+
+    $tools = collect($this->getJson('/api/v1/manifest')->assertOk()->json('tools'))->keyBy('name');
+
+    expect($tools[$global->slug]['implementation']['status'])->toBe('required')
+        ->and($tools[$unused->slug]['implementation']['status'])->toBe('not_required')
+        ->and($tools[$disabled->slug]['implementation']['status'])->toBe('disabled');
 });
 
 test('the manifest reflects a reported implementation for the environment', function () {

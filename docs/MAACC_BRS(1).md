@@ -1,5 +1,7 @@
 # Business Requirements Specification (BRS)
 
+> **Enterprise v1 reconciliation (18 July 2026):** The approved implementation contract is [ADR-P2-001](MAACC_Public_API_v1_Contract_ADR.md). Where an older example in this draft conflicts, API 1.0.0 uses the versioned compact schema dialect, treats `requires_tool` as a transient model decision and `waiting_for_client` as the durable client pause, and uses signed minimized caller context. Organizational approval of the full BRS baseline remains governed separately.
+
 # Milaha AI Agent Center (MAACC)
 
 **Version:** 1.1  

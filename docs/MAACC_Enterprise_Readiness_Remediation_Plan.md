@@ -126,7 +126,7 @@ Remove the immediate account-takeover, cross-tenant, credential-isolation, sensi
 
 ## Phase 2: Authoritative Access, Contracts, Egress, Runtime, and Audit Controls
 
-> **Status: ⬜ Not started — depends on the Phase 1 ownership, identity, data, and readiness foundations.**
+> **Status: 🟨 Engineering complete and locally/hosted verified — all Phase 2 implementation checklist items are complete. Aminu Hussain approved the demo implementation baseline on 18 July 2026. Enterprise acceptance remains blocked by independent G1/G2/G3/G6 signatures and controlled-environment egress, WORM/SIEM, key, database-role, gateway, cache, queue, and recovery evidence. The deployment remains `non_enterprise` with no real data. See the [Phase 2 engineering evidence](enterprise-readiness-evidence/Phase_2_Engineering_Evidence_2026-07-18.md).**
 
 ### Goal
 
@@ -136,55 +136,55 @@ Make least-privilege authorization, project administration, public SDK/runtime c
 
 #### Authoritative RBAC and scoped data — ER-06
 
-- [ ] Publish a route/action/object/field/export/navigation capability matrix for every tenant and platform role.
-- [ ] Replace production personas and `localStorage` authorization behavior with server-issued capabilities.
-- [ ] Implement audited project-member assignment, revocation, expiry, role change, and access certification through UI and API.
-- [ ] Enforce the documented cross-tenant remit of each platform role in policies, query scopes, resources, exports, and direct URLs.
-- [ ] Deliver only data authorized for the actor, tenant, project, environment, and permission; hidden UI must never receive unauthorized props.
-- [ ] Add page-prop, direct-URL, action, field, export, current-team switch, and object-level tests for every role/no-role combination.
+- [x] Publish a route/action/object/field/export/navigation capability matrix for every tenant and platform role.
+- [x] Replace production personas and `localStorage` authorization behavior with server-issued capabilities.
+- [x] Implement audited project-member assignment, revocation, expiry, role change, and access certification through UI and API.
+- [x] Enforce the documented cross-tenant remit of each platform role in policies, query scopes, resources, exports, and direct URLs.
+- [x] Deliver only data authorized for the actor, tenant, project, environment, and permission; hidden UI must never receive unauthorized props.
+- [x] Add page-prop, direct-URL, action, field, export, current-team switch, and object-level tests for every role/no-role combination.
 
 #### Unified outbound request security — ER-07, EC-20
 
-- [ ] Route webhooks, SSO discovery/token/userinfo, remote tools, MCP connectors, knowledge/document fetchers, and future outbound HTTP through one hardened policy.
-- [ ] Require HTTPS in production and approved destination domains where feasible.
-- [ ] Resolve all destination IPs and deny loopback, private, link-local, multicast, metadata, and disallowed port ranges for IPv4 and IPv6.
-- [ ] Revalidate and pin destinations through redirects, prevent DNS rebinding, strip sensitive headers on host changes, and enforce infrastructure egress controls.
-- [ ] Add safe destination verification and test delivery before activation.
-- [ ] Add SSRF tests for literals, alternate numeric encodings, userinfo, DNS-to-private, rebinding, redirects, IPv6, ports, and metadata endpoints.
+- [x] Route webhooks, SSO discovery/token/userinfo, remote tools, MCP connectors, knowledge/document fetchers, and future outbound HTTP through one hardened policy.
+- [x] Require HTTPS in production and approved destination domains where feasible.
+- [x] Resolve all destination IPs and deny loopback, private, link-local, multicast, metadata, and disallowed port ranges for IPv4 and IPv6.
+- [x] Revalidate and pin destinations through redirects, prevent DNS rebinding, strip sensitive headers on host changes, and enforce infrastructure egress controls. Application enforcement and the fail-closed production attestation gate are complete; real firewall/proxy evidence remains an acceptance dependency.
+- [x] Add safe destination verification and test delivery before activation.
+- [x] Add SSRF tests for literals, alternate numeric encodings, userinfo, DNS-to-private, rebinding, redirects, IPv6, ports, and metadata endpoints.
 
 #### Versioned BRS, API, SDK, and tool contract — ER-08, FR-053, EC-02–EC-04, EC-26
 
-- [ ] Freeze the public v1 contract in an ADR and resolve every BRS/architecture/server/SDK disagreement.
-- [ ] Adopt JSON Schema 2020-12 or formally version the compact dialect, including nested objects, arrays/items, enum/bounds/formats, duplicate-key handling, and `additionalProperties` policy.
-- [ ] Validate, project, and size-check arguments before persistence or execution for every tool mode; apply uniform bounded reads and output limits before parse/persist.
-- [ ] Add a signed, minimized caller-context envelope to the API, PHP SDK, TypeScript SDK, tool context, fixtures, responses, and compatibility suite.
-- [ ] Resolve and version `requires_tool` versus `waiting_for_client` semantics with a documented migration/deprecation window.
-- [ ] Snapshot every execution-relevant prompt, model, tool, sensitivity, routing, approval, policy, environment, and version field for reproducible rollback.
-- [ ] Correct manifest project/environment/scope/status rules, including global tools and Required/Not Required/Disabled derivation.
-- [ ] Support governed draft-agent testing without creating a publication bypass.
-- [ ] Update BRS, architecture, fixtures, SDKs, reference applications, examples, compatibility policy, and migration guide in one coordinated change.
+- [x] Freeze the public v1 contract in an ADR and resolve every BRS/architecture/server/SDK disagreement.
+- [x] Adopt JSON Schema 2020-12 or formally version the compact dialect, including nested objects, arrays/items, enum/bounds/formats, duplicate-key handling, and `additionalProperties` policy.
+- [x] Validate, project, and size-check arguments before persistence or execution for every tool mode; apply uniform bounded reads and output limits before parse/persist.
+- [x] Add a signed, minimized caller-context envelope to the API, PHP SDK, TypeScript SDK, tool context, fixtures, responses, and compatibility suite.
+- [x] Resolve and version `requires_tool` versus `waiting_for_client` semantics with a documented migration/deprecation window.
+- [x] Snapshot every execution-relevant prompt, model, tool, sensitivity, routing, approval, policy, environment, and version field for reproducible rollback.
+- [x] Correct manifest project/environment/scope/status rules, including global tools and Required/Not Required/Disabled derivation.
+- [x] Support governed draft-agent testing without creating a publication bypass.
+- [x] Update BRS, architecture, fixtures, SDKs, reference applications, examples, compatibility policy, and migration guide in one coordinated change.
 
 #### Concurrency-safe runtime lifecycle — ER-09, EC-05–EC-14, EC-21, EC-23–EC-25, EC-39
 
-- [ ] Add application-scoped idempotency keys and request hashes for run creation with stable replay and conflict behavior.
-- [ ] Use row-locked compare-and-swap or equivalent claims so duplicate jobs/tool results can cause only one execution and transition.
-- [ ] Align job timeout below queue visibility timeout with margin; define tries, backoff, uniqueness, failure repair, poison-message handling, and stuck-run recovery.
-- [ ] Replace `max + 1` sequence allocation with locked counters or unique constraints plus conflict retry.
-- [ ] Reserve quotas atomically against the routed provider and reconcile actual usage after completion/failure.
-- [ ] Add proactive waiting-run expiry, stale-approval/webhook/token/failed-job cleanup, exactly-once terminal events, and monitored scheduler overlap controls.
-- [ ] Add weighted per-client API rate and concurrency limits, stream caps, gateway body/header/time limits, and backpressure.
-- [ ] Enforce database statement timeouts and cleanup; treat never-refreshed sources as stale when freshness is required.
-- [ ] Move upload/parsing to isolated asynchronous workers with MIME/magic validation, malware quarantine, decompression/page/text/chunk caps, and no long database transaction.
-- [ ] Persist initiating user/application, correlation ID, and policy version before dispatch so background work has authoritative provenance.
-- [ ] Add race, crash/retry, duplicate delivery, queue backlog, provider failure, tool timeout, stream saturation, upload bomb, and partial-failure tests.
+- [x] Add application-scoped idempotency keys and request hashes for run creation with stable replay and conflict behavior.
+- [x] Use row-locked compare-and-swap or equivalent claims so duplicate jobs/tool results can cause only one execution and transition.
+- [x] Align job timeout below queue visibility timeout with margin; define tries, backoff, uniqueness, failure repair, poison-message handling, and stuck-run recovery.
+- [x] Replace `max + 1` sequence allocation with locked counters or unique constraints plus conflict retry.
+- [x] Reserve quotas atomically against the routed provider and reconcile actual usage after completion/failure.
+- [x] Add proactive waiting-run expiry, stale-approval/webhook/token/failed-job cleanup, exactly-once terminal events, and monitored scheduler overlap controls.
+- [x] Add weighted per-client API rate and concurrency limits, stream caps, gateway body/header/time limits, and backpressure.
+- [x] Enforce database statement timeouts and cleanup; treat never-refreshed sources as stale when freshness is required.
+- [x] Move upload/parsing to isolated asynchronous workers with MIME/magic validation, malware quarantine, decompression/page/text/chunk caps, and no long database transaction.
+- [x] Persist initiating user/application, correlation ID, and policy version before dispatch so background work has authoritative provenance.
+- [x] Add race, crash/retry, duplicate delivery, queue backlog, provider failure, tool timeout, stream saturation, upload bomb, and partial-failure tests.
 
 #### Verifiable audit and webhook semantics — EC-15, EC-16, EC-38
 
-- [ ] Replace a recomputable checksum claim with HMAC/asymmetric signatures backed by independently managed keys, or rename the control accurately.
-- [ ] Deliver append-only/WORM or SIEM-backed audit archival, protected database roles, legal hold, hash chaining/signature as required, and monitored outbox delivery.
-- [ ] Detect tampering, reordering, deletion, exporter-key misuse, archive failure, and recovery failure.
-- [ ] Document webhook delivery-ID idempotency, duplicate/out-of-order delivery, signature tolerance, key-rotation overlap, replay behavior, and retention.
-- [ ] Add independently verified audit exports and consumer compatibility tests.
+- [x] Replace a recomputable checksum claim with HMAC/asymmetric signatures backed by independently managed keys, or rename the control accurately.
+- [x] Deliver append-only/WORM or SIEM-backed audit archival, protected database roles, legal hold, hash chaining/signature as required, and monitored outbox delivery. The application adapter, outbox, verifier, legal hold, retention guard, fail-closed enterprise key policy and production runbook are complete; real object-lock/SIEM and database-role evidence remains an acceptance dependency.
+- [x] Detect tampering, reordering, deletion, exporter-key misuse, archive failure, and recovery failure.
+- [x] Document webhook delivery-ID idempotency, duplicate/out-of-order delivery, signature tolerance, key-rotation overlap, replay behavior, and retention.
+- [x] Add independently verified audit exports and consumer compatibility tests.
 
 ### Deliverables
 
@@ -440,12 +440,12 @@ All 56 functional requirements remain regression scope. The table below gives th
 
 Use this table as the release ledger. A phase is complete only when its acceptance criteria and mapped gates are evidenced.
 
-| Phase | Implementation PRs                                                                                      | Automated evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Operational evidence                                                                                                                                                                                                                                   | Approvals | Status                                      |
-| ----- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ------------------------------------------- |
-| 1     | [PR #52 — Complete Phase 1 enterprise readiness hardening](https://github.com/hussain4real/AAC/pull/52) | [Phase 1 engineering evidence](enterprise-readiness-evidence/Phase_1_Engineering_Evidence_2026-07-15.md); [hosted PHP 8.4/8.5 enterprise gate](https://github.com/hussain4real/AAC/actions/runs/29438741125); [hosted linter](https://github.com/hussain4real/AAC/actions/runs/29438737742); [two-tenant matrix](enterprise-readiness-evidence/Phase_1_Two_Tenant_Adversarial_Matrix_2026-07-15.md); [threat/control register](enterprise-readiness-evidence/MAACC_Phase_1_Threat_Model_and_Control_Register_v1.md) | [Local tenant scan](enterprise-readiness-evidence/ER-01_Tenant_Integrity_Scan_2026-07-15.md); [local privileged SSO/session audit](enterprise-readiness-evidence/Phase_1_Privileged_SSO_Access_Audit_2026-07-15.md); real-environment evidence pending | _Pending_ | 🟨 Engineering verified; acceptance blocked |
-| 2     | _Pending_                                                                                               | _Pending_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | _Pending_                                                                                                                                                                                                                                              | _Pending_ | ⬜ Not started                              |
-| 3     | _Pending_                                                                                               | _Pending_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | _Pending_                                                                                                                                                                                                                                              | _Pending_ | ⬜ Not started                              |
-| 4     | _Pending_                                                                                               | _Pending_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | _Pending_                                                                                                                                                                                                                                              | _Pending_ | ⬜ Not started                              |
+| Phase | Implementation PRs                                                                                      | Automated evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Operational evidence                                                                                                                                                                                                                                         | Approvals                                                                                           | Status                                      |
+| ----- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| 1     | [PR #52 — Complete Phase 1 enterprise readiness hardening](https://github.com/hussain4real/AAC/pull/52) | [Phase 1 engineering evidence](enterprise-readiness-evidence/Phase_1_Engineering_Evidence_2026-07-15.md); [hosted PHP 8.4/8.5 enterprise gate](https://github.com/hussain4real/AAC/actions/runs/29438741125); [hosted linter](https://github.com/hussain4real/AAC/actions/runs/29438737742); [two-tenant matrix](enterprise-readiness-evidence/Phase_1_Two_Tenant_Adversarial_Matrix_2026-07-15.md); [threat/control register](enterprise-readiness-evidence/MAACC_Phase_1_Threat_Model_and_Control_Register_v1.md) | [Local tenant scan](enterprise-readiness-evidence/ER-01_Tenant_Integrity_Scan_2026-07-15.md); [local privileged SSO/session audit](enterprise-readiness-evidence/Phase_1_Privileged_SSO_Access_Audit_2026-07-15.md); real-environment evidence pending       | _Pending_                                                                                           | 🟨 Engineering verified; acceptance blocked |
+| 2     | [PR #53 — Complete Phase 2 enterprise readiness controls](https://github.com/hussain4real/AAC/pull/53)  | [Phase 2 engineering evidence](enterprise-readiness-evidence/Phase_2_Engineering_Evidence_2026-07-18.md); [hosted PHP 8.4/8.5 enterprise gate](https://github.com/hussain4real/AAC/actions/runs/29645624984); [hosted quality gate](https://github.com/hussain4real/AAC/actions/runs/29645625000); 1,288-test/5,877-assertion local aggregate CI and exact 100.0% application coverage; PHP/TypeScript SDK/reference compatibility and focused control suites                                                       | Clean migration/seed and production build; scheduler registration; audit pending-delivery failure, maintainer redispatch, worker delivery and final valid verification; real egress/WORM/key/database-role/gateway/cache/queue/load/restore evidence pending | Aminu Hussain approved the demo implementation baseline; independent G1/G2/G3/G6 signatures pending | 🟨 Engineering complete; acceptance blocked |
+| 3     | _Pending_                                                                                               | _Pending_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | _Pending_                                                                                                                                                                                                                                                    | _Pending_                                                                                           | ⬜ Not started                              |
+| 4     | _Pending_                                                                                               | _Pending_                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | _Pending_                                                                                                                                                                                                                                                    | _Pending_                                                                                           | ⬜ Not started                              |
 
 ## Validation for This Document
 

@@ -1,5 +1,7 @@
 # Milaha AI Agent Center (MAACC)
 
+> **Enterprise v1 reconciliation (18 July 2026):** [ADR-P2-001](MAACC_Public_API_v1_Contract_ADR.md) is authoritative for API 1.0.0, compact-schema 1.0, duplicate-key rejection, signed caller context, durable `waiting_for_client` semantics, scoped manifest behavior, execution snapshots, and governed draft tests. Older sequence/example wording in this draft is retained as history and is superseded where it conflicts.
+
 # Architecture Design Document
 
 **Version:** 1.0  

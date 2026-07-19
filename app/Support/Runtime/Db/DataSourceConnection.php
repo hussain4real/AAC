@@ -5,7 +5,7 @@ namespace App\Support\Runtime\Db;
 use App\Models\DataSource;
 use App\Support\Runtime\ToolExecutionException;
 use App\Support\Secrets\Contracts\SecretVault;
-use Illuminate\Database\ConnectionInterface;
+use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseManager;
 use Illuminate\Support\Facades\Config;
 use Throwable;
@@ -33,7 +33,7 @@ class DataSourceConnection
      *
      * @throws ToolExecutionException
      */
-    public function resolve(DataSource $source): ConnectionInterface
+    public function resolve(DataSource $source): Connection
     {
         $base = Config::get("database.connections.{$source->connection}");
 
@@ -66,7 +66,7 @@ class DataSourceConnection
      *
      * @throws ToolExecutionException
      */
-    private function established(string $name): ConnectionInterface
+    private function established(string $name): Connection
     {
         $connection = $this->manager->connection($name);
 
@@ -77,5 +77,16 @@ class DataSourceConnection
         }
 
         return $connection;
+    }
+
+    /**
+     * Purge a credential-bearing ephemeral connection after every execution.
+     */
+    public function release(DataSource $source): void
+    {
+        if ($source->vault_secret_id !== null) {
+            $this->manager->purge($source->ephemeralConnectionName());
+            Config::set("database.connections.{$source->ephemeralConnectionName()}", null);
+        }
     }
 }

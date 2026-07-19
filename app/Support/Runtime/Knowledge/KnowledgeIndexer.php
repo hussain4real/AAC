@@ -2,6 +2,7 @@
 
 namespace App\Support\Runtime\Knowledge;
 
+use App\Enums\KnowledgeDocumentStatus;
 use App\Models\KnowledgeDocument;
 use App\Models\KnowledgeSource;
 use Illuminate\Support\Facades\Date;
@@ -53,25 +54,45 @@ class KnowledgeIndexer
      */
     public function ingestStoredDocument(KnowledgeSource $source, array $data): KnowledgeDocument
     {
-        return DB::transaction(function () use ($source, $data): KnowledgeDocument {
-            $document = $source->documents()->create([
-                'title' => (string) ($data['title'] ?? 'Untitled document'),
-                'uri' => $data['uri'] ?? null,
-                'body' => '',
-                'checksum' => '',
-                'disk' => $data['disk'] ?? null,
-                'storage_path' => $data['storage_path'] ?? null,
-                'original_filename' => $data['original_filename'] ?? null,
-                'mime_type' => $data['mime_type'] ?? null,
-                'file_size' => $data['file_size'] ?? null,
-                'metadata' => $data['metadata'] ?? null,
-                'indexed_at' => null,
-            ]);
+        $document = $source->documents()->create([
+            'title' => (string) ($data['title'] ?? 'Untitled document'),
+            'uri' => $data['uri'] ?? null,
+            'body' => '',
+            'checksum' => '',
+            'disk' => $data['disk'] ?? null,
+            'storage_path' => $data['storage_path'] ?? null,
+            'original_filename' => $data['original_filename'] ?? null,
+            'mime_type' => $data['mime_type'] ?? null,
+            'file_size' => $data['file_size'] ?? null,
+            'metadata' => $data['metadata'] ?? null,
+            'indexed_at' => null,
+        ]);
 
-            $this->indexDocument($document);
-            $this->refreshCounts($source);
+        $this->indexStoredDocument($document);
 
-            return $document->refresh();
+        return $document->refresh();
+    }
+
+    /**
+     * Extract outside a transaction, then atomically replace only the derived
+     * body/chunks. Slow or hostile parser work therefore holds no DB locks.
+     */
+    public function indexStoredDocument(KnowledgeDocument $document): void
+    {
+        if ($document->storage_path === null || $document->disk === null) {
+            throw KnowledgeExtractionException::unreadable((string) $document->storage_path);
+        }
+
+        $body = $this->extractor->extract(
+            $document->disk,
+            $document->storage_path,
+            pathinfo($document->storage_path, PATHINFO_EXTENSION),
+        );
+
+        DB::transaction(function () use ($document, $body): void {
+            $document->forceFill(['body' => $body, 'checksum' => hash('sha256', $body)])->save();
+            $this->replaceChunks($document);
+            $this->refreshCounts($document->source);
         });
     }
 
@@ -80,13 +101,19 @@ class KnowledgeIndexer
      */
     public function reindex(KnowledgeSource $source): void
     {
-        DB::transaction(function () use ($source): void {
-            foreach ($source->documents()->get() as $document) {
-                $this->indexDocument($document);
+        foreach ($source->documents()->get() as $document) {
+            if ($document->ingestion_status !== KnowledgeDocumentStatus::Indexed) {
+                continue;
             }
 
-            $this->refreshCounts($source);
-        });
+            if ($document->isUploaded()) {
+                $this->indexStoredDocument($document);
+            } else {
+                DB::transaction(fn () => $this->indexDocument($document));
+            }
+        }
+
+        $this->refreshCounts($source);
     }
 
     /**
@@ -97,18 +124,26 @@ class KnowledgeIndexer
     private function indexDocument(KnowledgeDocument $document): void
     {
         if ($document->storage_path !== null && $document->disk !== null) {
-            $body = $this->extractor->extract(
-                $document->disk,
-                $document->storage_path,
-                pathinfo($document->storage_path, PATHINFO_EXTENSION),
-            );
+            $this->indexStoredDocument($document);
 
-            $document->forceFill(['body' => $body, 'checksum' => hash('sha256', $body)])->save();
+            return;
+        }
+
+        $this->replaceChunks($document);
+    }
+
+    private function replaceChunks(KnowledgeDocument $document): void
+    {
+        $chunks = $this->chunk($document->body);
+        $maxChunks = max(1, (int) config('maacc.runtime.knowledge.upload.max_chunks', 5000));
+
+        if (count($chunks) > $maxChunks) {
+            throw KnowledgeExtractionException::unsafe("The document exceeds the {$maxChunks}-chunk safety limit.");
         }
 
         $document->chunks()->delete();
 
-        foreach ($this->chunk($document->body) as $ordinal => $content) {
+        foreach ($chunks as $ordinal => $content) {
             $tokens = Tokenizer::tokenize($content);
 
             $document->chunks()->create([

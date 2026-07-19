@@ -7,6 +7,7 @@ use App\Enums\PlatformRole;
 use App\Models\AuditEvent;
 use App\Models\PlatformAccessGrant;
 use App\Models\User;
+use App\Support\Governance\AuditLedger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -309,7 +310,7 @@ class PlatformAccessManager
         $actorTeamId = $actor?->current_team_id;
         $actorName = $actor?->name;
 
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $actorTeamId ?? $grant->user->current_team_id,
             'actor_user_id' => $actor?->id,
             'actor_label' => $actorName ?? 'system',

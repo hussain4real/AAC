@@ -7,17 +7,20 @@ use App\Models\Team;
 use App\Models\ToolContractVersion;
 use App\Models\ToolImplementationEvent;
 use App\Support\Governance\AuditExporter;
+use App\Support\Governance\AuditSigner;
 use Illuminate\Support\Facades\Date;
 
 /**
  * Builds a downloadable export of a team's tool version journey: the flat
  * implementation event timeline and the contract version snapshots for its
  * client-side tools, plus a signed manifest (generated time, counts, truncation,
- * and a SHA-256 checksum) so the export's integrity can be verified. Serializes
+ * and an independently keyed HMAC signature) so authenticity can be verified. Serializes
  * to JSON or CSV, mirroring {@see AuditExporter}.
  */
 class VersionJourneyExporter
 {
+    public function __construct(private readonly AuditSigner $signer) {}
+
     /**
      * The hard cap on exported rows per history; the manifest flags truncation.
      */
@@ -54,21 +57,19 @@ class VersionJourneyExporter
             ->map(fn (ToolContractVersion $version): array => $this->versionRow($version))
             ->all();
 
-        $checksum = hash('sha256', (string) json_encode(['events' => $events, 'versions' => $versions]));
-
-        return [
-            'events' => $events,
-            'versions' => $versions,
-            'manifest' => [
-                'generated_at' => Date::now()->toIso8601String(),
-                'team' => $team->slug,
-                'event_count' => count($events),
-                'version_count' => count($versions),
-                'total_events' => $totalEvents,
-                'truncated' => $totalEvents > count($events),
-                'checksum' => $checksum,
-            ],
+        $manifest = [
+            'generated_at' => Date::now()->toIso8601String(),
+            'team' => $team->slug,
+            'event_count' => count($events),
+            'version_count' => count($versions),
+            'total_events' => $totalEvents,
+            'truncated' => $totalEvents > count($events),
+            'rows_digest' => hash('sha256', (string) json_encode(['events' => $events, 'versions' => $versions])),
+            'signature_key_id' => $this->signer->keyId('export'),
         ];
+        $manifest['signature'] = $this->signer->signExport($manifest);
+
+        return ['events' => $events, 'versions' => $versions, 'manifest' => $manifest];
     }
 
     /**
@@ -87,7 +88,7 @@ class VersionJourneyExporter
 
     /**
      * Render the implementation timeline as an RFC 4180 CSV document (the
-     * manifest checksum rides an X-header on the response).
+     * manifest signature rides an X-header on the response).
      *
      * @param  array{events: array<int, array<string, mixed>>, versions: array<int, array<string, mixed>>, manifest: array<string, mixed>}  $export
      */

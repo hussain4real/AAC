@@ -25,6 +25,7 @@ class RunPayload
             'correlation_id' => $run->correlation_id,
             'agent_slug' => $run->agent->agent_slug,
             'status' => $run->status->value,
+            'caller_context' => $run->caller_context,
             'usage' => [
                 'tokens_in' => $run->tokens_in,
                 'tokens_out' => $run->tokens_out,

@@ -26,8 +26,10 @@ use App\Models\WebhookEndpoint;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Routing\ModelRouter;
 use App\Support\Runtime\Routing\RoutingDecision;
+use App\Support\Runtime\StreamConcurrencyLimiter;
 use App\Support\Webhooks\WebhookSigner;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Laravel\Passport\Passport;
@@ -243,6 +245,63 @@ test('the run stream tails a still-running run up to its budget', function () {
     expect($content)->toContain('event: run.state')->toContain(RunStatus::Queued->value);
 });
 
+test('the run stream applies application-scoped concurrency backpressure', function () {
+    config(['maacc.runtime.stream.max_concurrent_per_application' => 1]);
+
+    $run = AgentRun::factory()->for($this->agent)->for($this->application)->for($this->project)->create([
+        'status' => RunStatus::Queued,
+        'mode' => RunMode::Async,
+        'environment' => Environment::Production,
+        'expires_at' => now()->addMinutes(5),
+    ]);
+
+    $lease = app(StreamConcurrencyLimiter::class)->acquire($this->application->id);
+    expect($lease)->not->toBeNull();
+
+    try {
+        test()->getJson("/api/v1/runs/{$run->slug}/stream")
+            ->assertTooManyRequests()
+            ->assertHeader('Retry-After', '2')
+            ->assertHeader('X-MAACC-Backpressure', 'stream-limit')
+            ->assertJsonPath('error', 'stream_concurrency_exceeded');
+    } finally {
+        $lease?->release();
+    }
+});
+
+test('the public API rejects oversized envelopes before execution', function () {
+    config(['maacc.runtime.gateway.max_body_kb' => 1]);
+
+    test()->postJson('/api/v1/agents/ops-summary/runs', ['input' => str_repeat('x', 2048)])
+        ->assertStatus(413)
+        ->assertJsonPath('error', 'request_body_too_large');
+});
+
+test('the public API rejects oversized request headers before execution', function () {
+    config(['maacc.runtime.gateway.max_header_kb' => 1]);
+
+    test()->withHeader('X-Oversized', str_repeat('x', 2048))
+        ->postJson('/api/v1/agents/ops-summary/runs', ['input' => 'Status?'])
+        ->assertStatus(431)
+        ->assertJsonPath('error', 'request_headers_too_large');
+});
+
+test('the public API applies application-scoped concurrency backpressure', function () {
+    config(['maacc.runtime.api_concurrency.run' => 1]);
+    $lease = Cache::lock("maacc:api-concurrency:{$this->application->id}:run:1", 30);
+    expect($lease->get())->toBeTrue();
+
+    try {
+        test()->postJson('/api/v1/agents/ops-summary/runs', ['input' => 'Status?'])
+            ->assertTooManyRequests()
+            ->assertHeader('Retry-After', '1')
+            ->assertHeader('X-MAACC-Backpressure', 'api-concurrency')
+            ->assertJsonPath('error', 'api_concurrency_exceeded');
+    } finally {
+        $lease->release();
+    }
+});
+
 test('an application registers, lists, and deletes a webhook endpoint', function () {
     $register = test()->postJson('/api/v1/webhook-endpoints', [
         'url' => 'https://app.example.com/hooks/maacc',
@@ -250,7 +309,8 @@ test('an application registers, lists, and deletes a webhook endpoint', function
     ])->assertStatus(201);
 
     $register->assertJsonStructure(['id', 'url', 'events', 'environment', 'status', 'secret']);
-    expect($register->json('secret'))->toStartWith('whsec_');
+    expect($register->json('secret'))->toStartWith('whsec_')
+        ->and($register->json('status'))->toBe('pending_verification');
 
     $id = $register->json('id');
 
@@ -262,6 +322,26 @@ test('an application registers, lists, and deletes a webhook endpoint', function
     test()->deleteJson("/api/v1/webhook-endpoints/{$id}")->assertNoContent();
 
     expect(WebhookEndpoint::find($id))->toBeNull();
+});
+
+test('an application activates a webhook only after a successful test delivery', function () {
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 204)]);
+
+    $id = test()->postJson('/api/v1/webhook-endpoints', [
+        'url' => 'https://app.example.com/hooks/maacc',
+    ])->assertCreated()->json('id');
+
+    test()->postJson("/api/v1/webhook-endpoints/{$id}/verify")
+        ->assertOk()
+        ->assertJsonPath('verified', true)
+        ->assertJsonPath('status', 'active');
+});
+
+test('verifying an unknown application webhook returns a controlled error', function () {
+    test()->postJson('/api/v1/webhook-endpoints/missing/verify')
+        ->assertNotFound()
+        ->assertJsonPath('error', 'webhook_endpoint_not_found');
 });
 
 test('deleting an unknown webhook endpoint returns a controlled error', function () {
@@ -361,7 +441,7 @@ test('a delivery records a connection failure', function () {
         'attempts' => (int) config('maacc.runtime.webhooks.max_attempts') - 1,
     ]);
 
-    (new DeliverWebhook($delivery))->handle();
+    app()->call([new DeliverWebhook($delivery), 'handle']);
 
     expect($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Failed)
         ->and($delivery->fresh()->error)->toBe('The webhook endpoint could not be reached.');
@@ -374,9 +454,64 @@ test('delivery is a no-op when the delivery has been removed', function () {
     $delivery->delete();
 
     // fresh() resolves to null — the job returns without attempting a delivery.
-    (new DeliverWebhook($delivery))->handle();
+    app()->call([new DeliverWebhook($delivery), 'handle']);
+    (new DeliverWebhook($delivery))->failed(new RuntimeException('worker failed'));
 
     expect(WebhookDelivery::count())->toBe(0);
+});
+
+test('delivery fails closed when the signing-key overlap has elapsed', function () {
+    Http::preventStrayRequests();
+    $endpoint = webhookEndpoint();
+    $delivery = WebhookDelivery::factory()->for($endpoint, 'endpoint')->create([
+        'secret_version' => $endpoint->secret_version,
+    ]);
+    $endpoint->rotateSecret(WebhookEndpoint::generateSecret());
+    $endpoint->update(['previous_secret' => null, 'previous_secret_expires_at' => null]);
+
+    app()->call([new DeliverWebhook($delivery), 'handle']);
+
+    expect($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Failed)
+        ->and($delivery->fresh()->error)->toContain('rotation overlap');
+    Http::assertNothingSent();
+});
+
+test('the webhook worker failure callback records the attempt and schedules recovery', function () {
+    Queue::fake();
+    $delivery = WebhookDelivery::factory()->for(webhookEndpoint(), 'endpoint')->create([
+        'processing_token' => 'claimed',
+        'processing_claimed_at' => now(),
+    ]);
+
+    (new DeliverWebhook($delivery))->failed(new RuntimeException('worker failed'));
+
+    expect($delivery->fresh()->processing_token)->toBeNull()
+        ->and($delivery->fresh()->processing_claimed_at)->toBeNull()
+        ->and($delivery->fresh()->attempts)->toBe(1)
+        ->and($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Pending)
+        ->and($delivery->fresh()->next_attempt_at)->not->toBeNull()
+        ->and($delivery->fresh()->error)->toContain('worker failed');
+
+    Queue::assertPushed(DeliverWebhook::class, fn (DeliverWebhook $job): bool => $job->delivery->is($delivery));
+});
+
+test('the webhook worker failure callback terminates an exhausted delivery', function () {
+    Queue::fake();
+    $endpoint = webhookEndpoint();
+    $delivery = WebhookDelivery::factory()->for($endpoint, 'endpoint')->create([
+        'attempts' => (int) config('maacc.runtime.webhooks.max_attempts') - 1,
+        'processing_token' => 'claimed',
+        'processing_claimed_at' => now(),
+    ]);
+
+    (new DeliverWebhook($delivery))->failed(new RuntimeException('worker failed'));
+
+    expect($delivery->fresh()->status)->toBe(WebhookDeliveryStatus::Failed)
+        ->and($delivery->fresh()->attempts)->toBe((int) config('maacc.runtime.webhooks.max_attempts'))
+        ->and($delivery->fresh()->next_attempt_at)->toBeNull()
+        ->and($endpoint->fresh()->last_failed_at)->not->toBeNull();
+
+    Queue::assertNotPushed(DeliverWebhook::class);
 });
 
 test('an application exposes its registered webhook endpoints', function () {

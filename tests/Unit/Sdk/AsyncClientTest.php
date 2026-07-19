@@ -96,7 +96,8 @@ it('drives an async run through a client tool with polling', function () {
 it('registers, lists, and deletes a webhook endpoint', function () {
     $transport = (new FakeTransport)
         ->push(200, asyncToken())
-        ->push(201, ['id' => 'wh-1', 'url' => 'https://app.test/hooks', 'events' => ['run.completed'], 'environment' => 'production', 'status' => 'active', 'secret' => 'whsec_abc'])
+        ->push(201, ['id' => 'wh-1', 'url' => 'https://app.test/hooks', 'events' => ['run.completed'], 'environment' => 'production', 'status' => 'pending_verification', 'secret' => 'whsec_abc'])
+        ->push(200, ['verified' => true, 'id' => 'wh-1', 'url' => 'https://app.test/hooks', 'events' => ['run.completed'], 'environment' => 'production', 'status' => 'active'])
         ->push(200, ['data' => [['id' => 'wh-1', 'url' => 'https://app.test/hooks', 'events' => ['*'], 'environment' => 'production', 'status' => 'active']]])
         ->push(204, []);
 
@@ -107,12 +108,16 @@ it('registers, lists, and deletes a webhook endpoint', function () {
         ->and($endpoint->secret)->toBe('whsec_abc');
     expect(json_decode((string) $transport->request(1)->body, true))->toBe(['url' => 'https://app.test/hooks', 'events' => ['run.completed']]);
 
+    $verified = $client->verifyWebhook('wh-1');
+    expect($verified->status)->toBe('active')
+        ->and($transport->request(2)->url)->toEndWith('/api/v1/webhook-endpoints/wh-1/verify');
+
     $list = $client->listWebhooks();
     expect($list)->toHaveCount(1)
         ->and($list[0]->secret)->toBeNull();
 
     $client->deleteWebhook('wh-1');
-    expect($transport->request(3)->method)->toBe('DELETE');
+    expect($transport->request(4)->method)->toBe('DELETE');
 });
 
 it('surfaces a controlled error when deleting an unknown endpoint', function () {
@@ -122,6 +127,28 @@ it('surfaces a controlled error when deleting an unknown endpoint', function () 
 
     expect(fn () => asyncSdkClient($transport)->deleteWebhook('missing'))
         ->toThrow(MaaccApiException::class);
+});
+
+it('issues and sends a signed caller context and parses it from the run', function () {
+    $claims = ['v' => 1, 'sub' => 'user:42', 'roles' => ['viewer'], 'corr' => 'corr_sdk'];
+    $transport = (new FakeTransport)
+        ->push(200, asyncToken())
+        ->push(201, ['envelope' => 'payload.signature', 'claims' => $claims])
+        ->push(201, [...runStatus('completed'), 'caller_context' => $claims]);
+    $client = asyncSdkClient($transport);
+
+    $context = $client->issueCallerContext('user:42', roles: ['viewer'], correlationId: 'corr_sdk');
+    $run = $client->startRun('ops', 'Status?', 'legacy-label', callerContext: $context);
+
+    expect($context->envelope)->toBe('payload.signature')
+        ->and($context->claims)->toBe($claims)
+        ->and($run->callerContext)->toBe($claims)
+        ->and($transport->request(2)->headers['Idempotency-Key'])->toStartWith('sdk_')
+        ->and(json_decode((string) $transport->request(2)->body, true))->toMatchArray([
+            'input' => 'Status?',
+            'caller' => 'legacy-label',
+            'caller_context' => 'payload.signature',
+        ]);
 });
 
 it('parses a run stream into events, skipping the sentinel', function () {

@@ -54,6 +54,7 @@ class ApprovalManager
                     'subject_id' => $subject->getKey(),
                     'subject_version_hash' => $subjectVersionHash,
                     'pending_key' => $pendingKey,
+                    'expires_at' => now()->addHours((int) config('maacc.governance.approval_ttl_hours', 168)),
                 ],
             ),
         );

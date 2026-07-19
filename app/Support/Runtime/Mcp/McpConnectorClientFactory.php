@@ -4,6 +4,7 @@ namespace App\Support\Runtime\Mcp;
 
 use App\Enums\RemoteAuthType;
 use App\Models\McpConnector;
+use App\Support\Outbound\OutboundHttpClient;
 use Laravel\Mcp\Client;
 use Laravel\Mcp\WebClient;
 
@@ -15,12 +16,18 @@ use Laravel\Mcp\WebClient;
  */
 class McpConnectorClientFactory
 {
+    public function __construct(private readonly OutboundHttpClient $http) {}
+
     /**
      * Build an MCP client for the connector.
      */
     public function make(McpConnector $connector): Client
     {
-        $client = Client::web($connector->server_url)
+        $client = (new WebClient(new GuardedHttpTransport(
+            $connector->server_url,
+            $this->http,
+            max(1, (int) config('maacc.outbound.connect_timeout_seconds', 3)),
+        )))
             ->withTimeout((float) max(1, $connector->timeout_seconds));
 
         return $this->authenticate($client, $connector);

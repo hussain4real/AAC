@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\KnowledgeDocumentStatus;
 use App\Enums\MaaccRole;
 use App\Http\Resources\Maacc\CredentialResource;
 use App\Http\Resources\Maacc\ToolCallResource;
@@ -54,7 +55,10 @@ test('MAACC models expose their relationships and accessors', function () {
     $agentAssignment = ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
     $projectAssignment = ToolAssignment::factory()->forProject($project)->create(['tool_contract_id' => $tool->id]);
     $implementation = ToolImplementation::factory()->for($tool)->for($app)->create();
-    $run = AgentRun::factory()->for($agent)->for($project)->for($app)->for($llm, 'llmProvider')->create();
+    $run = AgentRun::factory()->for($agent)->for($project)->for($app)->for($llm, 'llmProvider')->create([
+        'agent_version_id' => $version->id,
+        'initiated_by' => $user->id,
+    ]);
     $toolCall = ToolCall::factory()->for($run)->for($tool)->create();
     $trace = TraceEvent::factory()->for($run)->create();
     $audit = AuditEvent::factory()->for($team)->create([
@@ -112,6 +116,8 @@ test('MAACC models expose their relationships and accessors', function () {
         ->and($run->project->id)->toBe($project->id)
         ->and($run->application->id)->toBe($app->id)
         ->and($run->llmProvider->id)->toBe($llm->id)
+        ->and($run->agentVersion->id)->toBe($version->id)
+        ->and($run->initiator->id)->toBe($user->id)
         ->and($run->toolCalls)->toHaveCount(1)
         ->and($run->traceEvents)->toHaveCount(1)
         ->and($run->getRouteKeyName())->toBe('slug')
@@ -125,6 +131,12 @@ test('MAACC models expose their relationships and accessors', function () {
     $member = $project->projectMembers->first();
     expect($member->project->id)->toBe($project->id)
         ->and($member->user->id)->toBe($user->id);
+
+    expect(KnowledgeDocumentStatus::Pending->isTerminal())->toBeFalse()
+        ->and(KnowledgeDocumentStatus::Scanning->isTerminal())->toBeFalse()
+        ->and(KnowledgeDocumentStatus::Indexed->isTerminal())->toBeTrue()
+        ->and(KnowledgeDocumentStatus::Quarantined->isTerminal())->toBeTrue()
+        ->and(KnowledgeDocumentStatus::Failed->isTerminal())->toBeTrue();
 
     // Owner label falls back to "Platform" for global (application-less) tools.
     $globalTool = ToolContract::factory()->for($team)->global()->create();

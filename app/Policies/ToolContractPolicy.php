@@ -3,6 +3,8 @@
 namespace App\Policies;
 
 use App\Enums\MaaccPermission;
+use App\Models\Agent;
+use App\Models\Project;
 use App\Models\ToolContract;
 use App\Models\User;
 
@@ -18,7 +20,9 @@ class ToolContractPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->currentTeam !== null;
+        $team = $user->currentTeam;
+
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::View);
     }
 
     /**
@@ -26,7 +30,19 @@ class ToolContractPolicy
      */
     public function view(User $user, ToolContract $toolContract): bool
     {
-        return $user->belongsToTeam($toolContract->team);
+        if ($user->isMaaccPlatformAdmin($toolContract->team)) {
+            return true;
+        }
+
+        if ($toolContract->application_id !== null) {
+            return $toolContract->application->projects()->get()->contains(
+                fn (Project $project): bool => $user->hasMaaccPermission($toolContract->team, MaaccPermission::View, $project),
+            );
+        }
+
+        return $toolContract->agents()->with('project')->get()->contains(
+            fn (Agent $agent): bool => $user->hasMaaccPermission($toolContract->team, MaaccPermission::View, $agent->project),
+        );
     }
 
     /**

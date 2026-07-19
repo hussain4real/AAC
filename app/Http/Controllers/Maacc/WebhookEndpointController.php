@@ -8,6 +8,7 @@ use App\Http\Requests\Maacc\StoreWebhookEndpointRequest;
 use App\Http\Requests\Maacc\UpdateWebhookEndpointRequest;
 use App\Models\Application;
 use App\Models\WebhookEndpoint;
+use App\Support\Webhooks\WebhookEndpointVerifier;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -37,7 +38,7 @@ class WebhookEndpointController extends Controller
             'url' => $request->webhookUrl(),
             'events' => $request->events(),
             'description' => $request->description(),
-            'status' => WebhookEndpointStatus::Active,
+            'status' => WebhookEndpointStatus::PendingVerification,
             'created_by' => $request->user()?->getAuthIdentifier(),
         ]);
         $endpoint->fillSecret($secret);
@@ -55,7 +56,13 @@ class WebhookEndpointController extends Controller
     {
         Gate::authorize('update', $webhookEndpoint);
 
-        $webhookEndpoint->update($request->validated());
+        $data = $request->validated();
+
+        if (isset($data['url']) && $data['url'] !== $webhookEndpoint->url) {
+            $data['status'] = WebhookEndpointStatus::PendingVerification;
+        }
+
+        $webhookEndpoint->update($data);
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Webhook endpoint updated.']);
 
@@ -70,10 +77,29 @@ class WebhookEndpointController extends Controller
         Gate::authorize('rotate', $webhookEndpoint);
 
         $secret = WebhookEndpoint::generateSecret();
-        $webhookEndpoint->fillSecret($secret);
+        $webhookEndpoint->rotateSecret($secret);
+        $webhookEndpoint->status = WebhookEndpointStatus::PendingVerification;
         $webhookEndpoint->save();
 
         $this->flashSecret($webhookEndpoint, $secret);
+
+        return back();
+    }
+
+    /**
+     * Send a signed probe and activate only when the destination acknowledges it.
+     */
+    public function verify(string $currentTeam, WebhookEndpoint $webhookEndpoint, WebhookEndpointVerifier $verifier): RedirectResponse
+    {
+        Gate::authorize('update', $webhookEndpoint);
+
+        $verified = $verifier->verify($webhookEndpoint);
+        Inertia::flash('toast', [
+            'type' => $verified ? 'success' : 'error',
+            'message' => $verified
+                ? 'Webhook test delivered; endpoint activated.'
+                : 'Webhook test failed; endpoint remains pending verification.',
+        ]);
 
         return back();
     }

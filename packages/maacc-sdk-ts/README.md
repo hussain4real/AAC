@@ -4,7 +4,7 @@ A dependency-free TypeScript client for the MAACC SDK and runtime API: token
 exchange, manifest sync, implementation reporting, and pause/resume agent runs.
 Zero runtime dependencies — built on the global `fetch`.
 
-- **Status:** ✅ Supported · **Version:** 0.2.0 · **MAACC API contract:** v0.0.1
+- **Status:** ✅ Supported · **Version:** 1.0.0 · **MAACC API contract:** v1.0.0
 - **Requires:** Node ≥ 18 (or any runtime with global `fetch`)
 
 See the [SDK Integration Guide](../../docs/MAACC_SDK_Integration_Guide.md) for the
@@ -16,7 +16,7 @@ package setup, and [`CHANGELOG.md`](CHANGELOG.md) for release notes.
 ## Install
 
 ```bash
-npm install @qatar-navigation-milaha/sdk@^0.2
+npm install @qatar-navigation-milaha/sdk@^1.0
 ```
 
 Private pilot installs require GitHub Packages registry/auth configuration. See
@@ -43,6 +43,13 @@ await client.reportHandlers(await client.manifest(), registry);
 const run = await client.run('ops-agent', 'Summarize today', registry);
 
 console.log(isCompleted(run) ? run.response : `Run ${run.status}: ${run.error}`);
+```
+
+For trusted identity-aware tools, issue and pass a minimized caller context:
+
+```ts
+const context = await client.issueCallerContext('user:42', { department: 'operations', roles: ['viewer'] });
+const run = await client.run('ops-agent', 'Summarize today', registry, undefined, 16, context);
 ```
 
 See [`examples/simple.ts`](examples/simple.ts) and
@@ -74,3 +81,12 @@ if (!result.valid) {
   // result.errors lists exactly which input/output schema rules were violated.
 }
 ```
+
+## Receive webhooks safely
+
+`WebhookDeliveryVerifier` validates the raw-body signature, stable delivery ID,
+and endpoint sequence and reports duplicates. Its built-in set is convenient for
+one process; production consumers must persist processed IDs with a unique
+constraint, acknowledge duplicates with 2xx, and avoid repeating side effects.
+Delivery is at least once and can arrive out of order. See
+[`docs/MAACC_Webhook_Delivery_Contract_v1.md`](../../docs/MAACC_Webhook_Delivery_Contract_v1.md).

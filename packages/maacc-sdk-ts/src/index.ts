@@ -7,6 +7,7 @@ export type { ToolContext, ToolHandler } from './registry.ts';
 export { MaaccApiError, MaaccError, MissingToolHandlerError, RunNotResolvedError, TransportError } from './errors.ts';
 export { findAgent, findTool, isCompleted, isImplemented, isSdkCompatible, isSettled, isTerminal, isWaiting } from './types.ts';
 export type {
+  CallerContextEnvelope,
   ImplementationReport,
   ImplementationResult,
   ImplementationStatus,
@@ -22,13 +23,15 @@ export type {
   ToolCall,
   WebhookEndpoint,
 } from './types.ts';
-export { signWebhook, verifyWebhook } from './webhooks.ts';
+export { signWebhook, verifyWebhook, WebhookDeliveryVerifier } from './webhooks.ts';
+export type { VerifiedWebhookDelivery, WebhookDeliveryHeaders } from './webhooks.ts';
 export { SDK_LANGUAGE, SDK_VERSION } from './version.ts';
 export {
   baseType,
   compareVersions,
   evaluateCompatibility,
   isOptional,
+  SCHEMA_DIALECT,
   ToolTester,
   validateSchema,
 } from './testing.ts';

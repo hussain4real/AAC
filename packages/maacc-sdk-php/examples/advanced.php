@@ -80,7 +80,8 @@ $client->reportHandlers($manifest, $registry);
 // 4. Drive the run loop manually, servicing each pause and failing loudly on a
 //    missing handler rather than letting the run hang.
 try {
-    $run = $client->startRun('e2e-ops-agent', 'Summarize today');
+    $callerContext = $client->issueCallerContext('example:php-advanced');
+    $run = $client->startRun('e2e-ops-agent', 'Summarize today', callerContext: $callerContext);
 
     while ($run->isWaiting()) {
         $toolCall = $run->toolCall;

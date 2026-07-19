@@ -3,20 +3,24 @@
 namespace App\Support\Sso;
 
 use App\Enums\SsoFailureCode;
+use App\Exceptions\OutboundRequestBlocked;
 use App\Models\SsoConnection;
+use App\Support\Outbound\OutboundHttpClient;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 
 /**
  * Drives the OAuth 2.0 / OIDC authorization-code flow against a connection's
  * configured endpoints over the HTTP client: it builds the authorize URL, then
  * exchanges the returned code for an access token and fetches the userinfo
  * claims, normalizing them into an {@see SsoIdentityPayload}. Every outbound call
- * goes through Laravel's HTTP client, so the whole flow is `Http::fake`-able.
+ * goes through the unified outbound client, so the whole flow is fakeable in tests.
  */
 class SsoAuthenticator
 {
-    public function __construct(private readonly OidcTokenValidator $tokenValidator) {}
+    public function __construct(
+        private readonly OidcTokenValidator $tokenValidator,
+        private readonly OutboundHttpClient $http,
+    ) {}
 
     /**
      * Build the provider authorize URL the user is redirected to.
@@ -45,22 +49,25 @@ class SsoAuthenticator
         $timeout = (int) config('maacc.sso.http_timeout_seconds');
 
         try {
-            $token = Http::asForm()
-                ->connectTimeout((int) config('maacc.sso.connect_timeout_seconds', 3))
-                ->timeout($timeout)
-                ->post($connection->token_url, [
+            $token = $this->http->send('sso', 'POST', $connection->token_url, [
+                'headers' => ['Accept' => 'application/json'],
+                'form' => [
                     'grant_type' => 'authorization_code',
                     'code' => $code,
                     'redirect_uri' => $this->redirectUri($connection),
                     'client_id' => $connection->client_id,
                     'client_secret' => (string) $connection->client_secret,
                     'code_verifier' => $codeVerifier,
-                ]);
-        } catch (ConnectionException) {
+                ],
+                'connect_timeout' => (int) config('maacc.sso.connect_timeout_seconds', 3),
+                'timeout' => $timeout,
+                'max_redirects' => 0,
+            ]);
+        } catch (ConnectionException|OutboundRequestBlocked) {
             throw new SsoException('the identity provider could not be reached', SsoFailureCode::IdpUnavailable);
         }
 
-        if ($token->failed()) {
+        if (! $token->successful()) {
             throw new SsoException('the token exchange was rejected by the provider', SsoFailureCode::TokenExchangeRejected);
         }
 
@@ -74,15 +81,20 @@ class SsoAuthenticator
         $idTokenClaims = $this->tokenValidator->validate($connection, $idToken, $expectedNonce);
 
         try {
-            $userinfo = Http::withToken($accessToken)
-                ->connectTimeout((int) config('maacc.sso.connect_timeout_seconds', 3))
-                ->timeout($timeout)
-                ->get($connection->userinfo_url);
-        } catch (ConnectionException) {
+            $userinfo = $this->http->send('sso', 'GET', $connection->userinfo_url, [
+                'headers' => [
+                    'Accept' => 'application/json',
+                    'Authorization' => "Bearer {$accessToken}",
+                ],
+                'connect_timeout' => (int) config('maacc.sso.connect_timeout_seconds', 3),
+                'timeout' => $timeout,
+                'max_redirects' => 0,
+            ]);
+        } catch (ConnectionException|OutboundRequestBlocked) {
             throw new SsoException('the identity provider user profile could not be reached', SsoFailureCode::IdpUnavailable);
         }
 
-        if ($userinfo->failed()) {
+        if (! $userinfo->successful()) {
             throw new SsoException('the user profile could not be retrieved', SsoFailureCode::UserinfoRejected);
         }
 

@@ -18,7 +18,9 @@ class ProjectPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->currentTeam !== null;
+        $team = $user->currentTeam;
+
+        return $team !== null && $user->hasMaaccPermissionOnAnyProject($team, MaaccPermission::View);
     }
 
     /**
@@ -26,7 +28,7 @@ class ProjectPolicy
      */
     public function view(User $user, Project $project): bool
     {
-        return $user->belongsToTeam($project->application->team);
+        return $user->hasMaaccPermission($project->application->team, MaaccPermission::View, $project);
     }
 
     /**
@@ -53,6 +55,14 @@ class ProjectPolicy
      * Determine whether the user can delete the project.
      */
     public function delete(User $user, Project $project): bool
+    {
+        return $user->hasMaaccPermission($project->application->team, MaaccPermission::ManageProject, $project);
+    }
+
+    /**
+     * Determine whether the user can administer project membership.
+     */
+    public function manageMembers(User $user, Project $project): bool
     {
         return $user->hasMaaccPermission($project->application->team, MaaccPermission::ManageProject, $project);
     }

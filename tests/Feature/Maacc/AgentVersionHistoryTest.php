@@ -41,16 +41,12 @@ test('the agent detail page surfaces the real version history newest first', fun
         );
 });
 
-test('the agent detail page renders null history for an unknown agent', function () {
+test('the agent detail page returns not found for an unknown agent', function () {
     [$owner, $team] = ownerAndTeam();
 
     $this->actingAs($owner)
         ->get("/{$team->slug}/agents/does-not-exist")
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('maacc/agents/show')
-            ->where('history', null)
-        );
+        ->assertNotFound();
 });
 
 test('the agent version history is scoped to the team', function () {
@@ -62,9 +58,5 @@ test('the agent version history is scoped to the team', function () {
 
     $this->actingAs($owner)
         ->get("/{$team->slug}/agents/{$agent->slug}")
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('maacc/agents/show')
-            ->where('history', null)
-        );
+        ->assertNotFound();
 });

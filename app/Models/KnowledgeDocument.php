@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\KnowledgeDocumentStatus;
 use Database\Factories\KnowledgeDocumentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Collection;
@@ -29,6 +30,12 @@ use Illuminate\Support\Carbon;
  * @property string|null $original_filename
  * @property string|null $mime_type
  * @property int|null $file_size
+ * @property KnowledgeDocumentStatus $ingestion_status
+ * @property string|null $quarantine_reason
+ * @property int $processing_attempts
+ * @property int|null $initiated_by
+ * @property string|null $correlation_id
+ * @property Carbon|null $processed_at
  * @property array<string, mixed>|null $metadata
  * @property Carbon|null $indexed_at
  * @property Carbon|null $created_at
@@ -36,7 +43,7 @@ use Illuminate\Support\Carbon;
  * @property-read KnowledgeSource $source
  * @property-read Collection<int, KnowledgeChunk> $chunks
  */
-#[Fillable(['knowledge_source_id', 'title', 'uri', 'body', 'checksum', 'disk', 'storage_path', 'original_filename', 'mime_type', 'file_size', 'metadata', 'indexed_at'])]
+#[Fillable(['knowledge_source_id', 'title', 'uri', 'body', 'checksum', 'disk', 'storage_path', 'original_filename', 'mime_type', 'file_size', 'ingestion_status', 'quarantine_reason', 'processing_attempts', 'initiated_by', 'correlation_id', 'processed_at', 'metadata', 'indexed_at'])]
 class KnowledgeDocument extends Model
 {
     /** @use HasFactory<KnowledgeDocumentFactory> */
@@ -81,8 +88,11 @@ class KnowledgeDocument extends Model
     {
         return [
             'file_size' => 'integer',
+            'ingestion_status' => KnowledgeDocumentStatus::class,
+            'processing_attempts' => 'integer',
             'metadata' => 'array',
             'indexed_at' => 'datetime',
+            'processed_at' => 'datetime',
         ];
     }
 }

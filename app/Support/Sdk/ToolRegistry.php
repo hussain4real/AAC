@@ -7,6 +7,7 @@ use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
 use App\Enums\SdkLanguage;
+use App\Enums\ToolScope;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\ToolContract;
@@ -41,9 +42,14 @@ class ToolRegistry
     {
         return ToolContract::query()
             ->where('team_id', $application->team_id)
-            ->where('application_id', $application->id)
             ->where('execution_mode', ExecMode::Client)
-            ->where('status', 'Active')
+            ->where(function ($query) use ($application): void {
+                $query->where('application_id', $application->id)
+                    ->orWhere(function ($global): void {
+                        $global->whereNull('application_id')
+                            ->where('scope', ToolScope::Global);
+                    });
+            })
             ->with([
                 'agents' => fn ($query) => $query
                     ->whereHas('project', fn ($projectQuery) => $projectQuery->where('application_id', $application->id))
@@ -150,10 +156,11 @@ class ToolRegistry
             'max_payload_kb' => $tool->max_payload_kb,
             'input_schema' => $tool->input_schema,
             'output_schema' => $tool->output_schema,
+            'schema_dialect' => ToolSchema::DIALECT,
             'schema_fingerprint' => $tool->schemaFingerprint(),
             'permission' => $this->stubs->permission($tool),
             'used_by_agents' => $tool->agents->pluck('agent_slug')->values()->all(),
-            'implementation' => $this->implementationEntry($implementation),
+            'implementation' => $this->implementationEntry($tool, $implementation),
             'stubs' => $this->stubs->forContract($tool),
         ];
     }
@@ -164,8 +171,26 @@ class ToolRegistry
      *
      * @return array<string, mixed>
      */
-    private function implementationEntry(?ToolImplementation $implementation): array
+    private function implementationEntry(ToolContract $tool, ?ToolImplementation $implementation): array
     {
+        if ($tool->status !== 'Active') {
+            return [
+                'status' => 'disabled',
+                'handler_name' => null,
+                'implemented_version' => null,
+                'last_validated_at' => null,
+            ];
+        }
+
+        if ($tool->scope !== ToolScope::Global && $tool->agents->isEmpty()) {
+            return [
+                'status' => 'not_required',
+                'handler_name' => null,
+                'implemented_version' => null,
+                'last_validated_at' => null,
+            ];
+        }
+
         if ($implementation === null) {
             return [
                 'status' => ImplStatus::Required->value,

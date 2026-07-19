@@ -4,13 +4,12 @@ namespace App\Support\Runtime\Remote;
 
 use App\Enums\HttpMethod;
 use App\Enums\RemoteAuthType;
+use App\Exceptions\OutboundRequestBlocked;
 use App\Models\ToolContract;
+use App\Support\Outbound\OutboundHttpClient;
 use App\Support\Runtime\ToolExecutionException;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
 
 /**
  * Executes a remote HTTP tool: it enforces the egress allowlist, applies the
@@ -21,6 +20,8 @@ use Illuminate\Support\Str;
  */
 class RemoteHttpToolExecutor
 {
+    public function __construct(private readonly OutboundHttpClient $http) {}
+
     /**
      * Execute the tool against the model-supplied arguments.
      *
@@ -28,6 +29,7 @@ class RemoteHttpToolExecutor
      * @return array<string, mixed>
      *
      * @throws ToolExecutionException
+     * @throws OutboundRequestBlocked
      */
     public function execute(ToolContract $tool, array $arguments): array
     {
@@ -35,32 +37,10 @@ class RemoteHttpToolExecutor
         $endpoint = is_string($config['endpoint'] ?? null) ? $config['endpoint'] : '';
         $method = HttpMethod::tryFrom((string) ($config['method'] ?? '')) ?? HttpMethod::Post;
 
-        $this->guardEgress($endpoint);
-
-        return $this->parse($this->sendWithRetry($tool, $config, $method, $endpoint, $arguments));
-    }
-
-    /**
-     * Verify the endpoint is a valid HTTP(S) URL whose host is not denied and is
-     * present on the configured egress allowlist.
-     *
-     * @throws ToolExecutionException
-     */
-    private function guardEgress(string $endpoint): void
-    {
-        $host = Str::lower((string) parse_url($endpoint, PHP_URL_HOST));
-        $scheme = Str::lower((string) parse_url($endpoint, PHP_URL_SCHEME));
-
-        if ($host === '' || ! in_array($scheme, ['http', 'https'], true)) {
-            throw ToolExecutionException::httpBlocked('The remote HTTP tool endpoint is not a valid HTTP(S) URL.');
-        }
-
-        if ($this->matchesAny($host, $this->blockedHosts())) {
-            throw ToolExecutionException::httpBlocked("The remote HTTP tool endpoint host [{$host}] is blocked.");
-        }
-
-        if (! $this->matchesAny($host, $this->allowedHosts())) {
-            throw ToolExecutionException::httpBlocked("The remote HTTP tool endpoint host [{$host}] is not on the egress allowlist.");
+        try {
+            return $this->parse($this->sendWithRetry($tool, $config, $method, $endpoint, $arguments));
+        } catch (OutboundRequestBlocked $exception) {
+            throw ToolExecutionException::httpBlocked($exception->reason);
         }
     }
 
@@ -73,6 +53,7 @@ class RemoteHttpToolExecutor
      * @param  array<string, mixed>  $arguments
      *
      * @throws ToolExecutionException
+     * @throws OutboundRequestBlocked
      */
     private function sendWithRetry(ToolContract $tool, array $config, HttpMethod $method, string $endpoint, array $arguments): Response
     {
@@ -120,43 +101,42 @@ class RemoteHttpToolExecutor
      * @param  array<string, mixed>  $arguments
      *
      * @throws ConnectionException
+     * @throws OutboundRequestBlocked
      */
     private function dispatch(ToolContract $tool, array $config, HttpMethod $method, string $endpoint, array $arguments): Response
     {
-        $request = $this->authenticate(
-            Http::acceptJson()
-                ->asJson()
-                ->timeout($tool->timeout_seconds)
-                ->connectTimeout($this->connectTimeout()),
-            is_array($config['auth'] ?? null) ? $config['auth'] : [],
-        );
+        $options = [
+            'headers' => [
+                'Accept' => 'application/json',
+                'Content-Type' => 'application/json',
+                ...$this->authHeaders(is_array($config['auth'] ?? null) ? $config['auth'] : []),
+            ],
+            'timeout' => $tool->timeout_seconds,
+            'connect_timeout' => $this->connectTimeout(),
+            'allowed_hosts' => $this->allowedHosts(),
+            'max_redirects' => 2,
+        ];
+        $options[$method === HttpMethod::Get ? 'query' : 'json'] = $arguments;
 
-        return match ($method) {
-            HttpMethod::Get => $request->get($endpoint, $arguments),
-            HttpMethod::Post => $request->post($endpoint, $arguments),
-            HttpMethod::Put => $request->put($endpoint, $arguments),
-            HttpMethod::Patch => $request->patch($endpoint, $arguments),
-            HttpMethod::Delete => $request->delete($endpoint, $arguments),
-        };
+        return $this->http->send('remote_http', $method->value, $endpoint, $options);
     }
 
     /**
      * Apply the configured authentication scheme to the pending request.
      *
      * @param  array<string, mixed>  $auth
+     * @return array<string, string>
      */
-    private function authenticate(PendingRequest $request, array $auth): PendingRequest
+    private function authHeaders(array $auth): array
     {
         $type = RemoteAuthType::tryFrom((string) ($auth['type'] ?? 'none')) ?? RemoteAuthType::None;
         $credential = (string) ($auth['credential'] ?? '');
         $header = (string) ($auth['header'] ?? '');
 
         return match ($type) {
-            RemoteAuthType::None => $request,
-            RemoteAuthType::Bearer => $request->withToken($credential),
-            RemoteAuthType::Header => $request->withHeaders([
-                ($header !== '' ? $header : 'Authorization') => $credential,
-            ]),
+            RemoteAuthType::None => [],
+            RemoteAuthType::Bearer => ['Authorization' => "Bearer {$credential}"],
+            RemoteAuthType::Header => [($header !== '' ? $header : 'Authorization') => $credential],
         };
     }
 
@@ -179,36 +159,6 @@ class RemoteHttpToolExecutor
     }
 
     /**
-     * Determine whether the host matches any pattern (exact or `*.` wildcard).
-     *
-     * @param  array<int, string>  $patterns
-     */
-    private function matchesAny(string $host, array $patterns): bool
-    {
-        foreach ($patterns as $pattern) {
-            $pattern = Str::lower(trim($pattern));
-
-            if ($pattern === '') {
-                continue;
-            }
-
-            if (Str::startsWith($pattern, '*.')) {
-                if (Str::endsWith($host, Str::substr($pattern, 1))) {
-                    return true;
-                }
-
-                continue;
-            }
-
-            if ($host === $pattern) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * The egress allowlist of permitted endpoint hosts.
      *
      * @return array<int, string>
@@ -216,16 +166,6 @@ class RemoteHttpToolExecutor
     private function allowedHosts(): array
     {
         return (array) config('maacc.runtime.remote_http.allowed_hosts', []);
-    }
-
-    /**
-     * The egress denylist (loopback/link-local/metadata) that overrides allow.
-     *
-     * @return array<int, string>
-     */
-    private function blockedHosts(): array
-    {
-        return (array) config('maacc.runtime.remote_http.blocked_hosts', []);
     }
 
     /**

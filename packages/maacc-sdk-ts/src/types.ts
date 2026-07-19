@@ -42,6 +42,12 @@ export interface Run {
   response: string | null;
   toolCall: ToolCall | null;
   error: string | null;
+  callerContext: Record<string, unknown>;
+}
+
+export interface CallerContextEnvelope {
+  envelope: string;
+  claims: Record<string, unknown>;
 }
 
 export interface ManifestServerTool {
@@ -69,6 +75,7 @@ export interface ManifestToolImplementation {
 export interface ManifestTool {
   name: string;
   version: string;
+  schemaDialect: string;
   schemaFingerprint: string;
   inputSchema: Record<string, unknown>;
   outputSchema: Record<string, unknown>;

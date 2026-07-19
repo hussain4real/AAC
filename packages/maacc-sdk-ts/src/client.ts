@@ -4,6 +4,7 @@ import { fetchTransport } from './transport.ts';
 import type { HttpRequest, HttpResponse, Transport } from './transport.ts';
 import { findTool, isSettled, isWaiting } from './types.ts';
 import type {
+  CallerContextEnvelope,
   ImplementationReport,
   ImplementationResult,
   Manifest,
@@ -23,6 +24,7 @@ export interface AsyncRunOptions {
   maxIterations?: number;
   maxAttempts?: number;
   intervalMs?: number;
+  callerContext?: CallerContextEnvelope;
 }
 
 const sleep = (ms: number): Promise<void> =>
@@ -143,21 +145,65 @@ export class MaaccClient {
    * run for a worker (driven via polling, streaming, or webhooks) instead of
    * blocking the request.
    */
-  async startRun(agentSlug: string, input: string, caller?: string, mode: RunMode = 'sync'): Promise<Run> {
+  async startRun(
+    agentSlug: string,
+    input: string,
+    caller?: string,
+    mode: RunMode = 'sync',
+    callerContext?: CallerContextEnvelope,
+    idempotencyKey?: string,
+  ): Promise<Run> {
     const payload: Record<string, unknown> = { input, mode };
 
     if (caller !== undefined) {
       payload.caller = caller;
     }
 
+    if (callerContext !== undefined) {
+      payload.caller_context = callerContext.envelope;
+    }
+
     const response = await this.request({
       method: 'POST',
       url: this.url(`/api/v1/agents/${encodeURIComponent(agentSlug)}/runs`),
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Idempotency-Key': idempotencyKey ?? `sdk_${globalThis.crypto.randomUUID()}`,
+      },
       body: JSON.stringify(payload),
     });
 
     return parseRun(this.decode(response));
+  }
+
+  /** Ask MAACC to issue a short-lived signed caller-context envelope. */
+  async issueCallerContext(
+    subject: string,
+    options: {
+      department?: string;
+      roles?: string[];
+      nonce?: string;
+      correlationId?: string;
+      expiresIn?: number;
+    } = {},
+  ): Promise<CallerContextEnvelope> {
+    const response = await this.request({
+      method: 'POST',
+      url: this.url('/api/v1/caller-contexts'),
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        subject,
+        department: options.department,
+        roles: options.roles ?? [],
+        nonce: options.nonce,
+        correlation_id: options.correlationId,
+        expires_in: options.expiresIn ?? 300,
+      }),
+    });
+    const data = this.decode(response);
+
+    return { envelope: asString(data.envelope), claims: asObject(data.claims) };
   }
 
   /** Read the current status of a run. */
@@ -193,8 +239,9 @@ export class MaaccClient {
     registry: ToolHandlerRegistry,
     caller?: string,
     maxIterations = 16,
+    callerContext?: CallerContextEnvelope,
   ): Promise<Run> {
-    let run = await this.startRun(agentSlug, input, caller);
+    let run = await this.startRun(agentSlug, input, caller, 'sync', callerContext);
 
     for (let iteration = 0; isWaiting(run); iteration++) {
       if (iteration >= maxIterations) {
@@ -213,7 +260,7 @@ export class MaaccClient {
         throw new MissingToolHandlerError(toolCall.tool);
       }
 
-      const result = await handler(toolCall.arguments, { run, toolCall });
+      const result = await handler(toolCall.arguments, { run, toolCall, callerContext: run.callerContext });
       run = await this.submitToolResult(run.runId, toolCall.id, result);
     }
 
@@ -256,7 +303,7 @@ export class MaaccClient {
     const maxAttempts = options.maxAttempts ?? 60;
     const intervalMs = options.intervalMs ?? 1000;
 
-    const started = await this.startRun(agentSlug, input, caller, 'async');
+    const started = await this.startRun(agentSlug, input, caller, 'async', options.callerContext);
     let run = await this.pollRun(started.runId, maxAttempts, intervalMs);
 
     for (let iteration = 0; isWaiting(run); iteration++) {
@@ -276,7 +323,7 @@ export class MaaccClient {
         throw new MissingToolHandlerError(toolCall.tool);
       }
 
-      const result = await handler(toolCall.arguments, { run, toolCall });
+      const result = await handler(toolCall.arguments, { run, toolCall, callerContext: run.callerContext });
       await this.submitToolResult(run.runId, toolCall.id, result);
       run = await this.pollRun(run.runId, maxAttempts, intervalMs);
     }
@@ -321,6 +368,18 @@ export class MaaccClient {
           .filter((row): row is Record<string, unknown> => row !== null && typeof row === 'object')
           .map(parseWebhookEndpoint)
       : [];
+  }
+
+  /** Send a signed test delivery and activate the endpoint when acknowledged. */
+  async verifyWebhook(id: string): Promise<WebhookEndpoint> {
+    const response = await this.request({
+      method: 'POST',
+      url: this.url(`/api/v1/webhook-endpoints/${encodeURIComponent(id)}/verify`),
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: '{}',
+    });
+
+    return parseWebhookEndpoint(this.decode(response));
   }
 
   /** Delete a registered webhook endpoint. */
@@ -526,6 +585,7 @@ function parseRun(data: Record<string, unknown>): Run {
       ? parseToolCall(data.tool_call as Record<string, unknown>)
       : null,
     error: typeof data.error === 'string' ? data.error : null,
+    callerContext: asObject(data.caller_context),
   };
 }
 
@@ -555,6 +615,7 @@ function parseTool(data: Record<string, unknown>): ManifestTool {
   return {
     name: asString(data.name),
     version: asString(data.version),
+    schemaDialect: asString(data.schema_dialect),
     schemaFingerprint: asString(data.schema_fingerprint),
     inputSchema: asObject(data.input_schema),
     outputSchema: asObject(data.output_schema),

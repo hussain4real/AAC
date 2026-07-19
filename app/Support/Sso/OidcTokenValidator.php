@@ -3,15 +3,18 @@
 namespace App\Support\Sso;
 
 use App\Enums\SsoFailureCode;
+use App\Exceptions\OutboundRequestBlocked;
 use App\Models\SsoConnection;
+use App\Support\Outbound\OutboundHttpClient;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class OidcTokenValidator
 {
+    public function __construct(private readonly OutboundHttpClient $http) {}
+
     /**
      * Validate a signed OIDC ID token against the connection's pinned trust
      * configuration and return its claims.
@@ -38,12 +41,17 @@ class OidcTokenValidator
         try {
             $timeout = (int) config('maacc.sso.http_timeout_seconds', 10);
             $connectTimeout = (int) config('maacc.sso.connect_timeout_seconds', 3);
-            $response = Http::acceptJson()->connectTimeout($connectTimeout)->timeout($timeout)->get($jwksUrl);
-        } catch (ConnectionException) {
+            $response = $this->http->send('sso', 'GET', $jwksUrl, [
+                'headers' => ['Accept' => 'application/json'],
+                'connect_timeout' => $connectTimeout,
+                'timeout' => $timeout,
+                'max_redirects' => 2,
+            ]);
+        } catch (ConnectionException|OutboundRequestBlocked) {
             throw new SsoException('the provider signing keys could not be retrieved', SsoFailureCode::JwksUnavailable);
         }
 
-        if ($response->failed()) {
+        if (! $response->successful()) {
             throw new SsoException('the provider signing keys could not be retrieved', SsoFailureCode::JwksUnavailable);
         }
 
@@ -77,17 +85,19 @@ class OidcTokenValidator
         }
 
         try {
-            $response = Http::acceptJson()
-                ->connectTimeout((int) config('maacc.sso.connect_timeout_seconds', 3))
-                ->timeout((int) config('maacc.sso.http_timeout_seconds', 10))
-                ->get($jwksUrl);
-        } catch (ConnectionException) {
+            $response = $this->http->send('sso', 'GET', $jwksUrl, [
+                'headers' => ['Accept' => 'application/json'],
+                'connect_timeout' => (int) config('maacc.sso.connect_timeout_seconds', 3),
+                'timeout' => (int) config('maacc.sso.http_timeout_seconds', 10),
+                'max_redirects' => 2,
+            ]);
+        } catch (ConnectionException|OutboundRequestBlocked) {
             throw new SsoException('the provider signing keys could not be retrieved', SsoFailureCode::JwksUnavailable);
         }
 
         $keys = $response->json('keys');
 
-        if ($response->failed() || ! is_array($keys) || $keys === []) {
+        if (! $response->successful() || ! is_array($keys) || $keys === []) {
             throw new SsoException('the provider returned no usable signing keys', SsoFailureCode::InvalidSigningKeys);
         }
     }
