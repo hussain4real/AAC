@@ -295,7 +295,8 @@ class RunMetrics
 
         if ($projectIds !== null) {
             $query->where(function (Builder $builder) use ($projectIds): void {
-                $builder->whereHas('assignments', fn (Builder $assignment) => $assignment->whereIn('tool_assignments.project_id', $projectIds))
+                $builder->whereHas('application.projects', fn (Builder $project) => $project->whereIn('projects.id', $projectIds))
+                    ->orWhereHas('assignments', fn (Builder $assignment) => $assignment->whereIn('tool_assignments.project_id', $projectIds))
                     ->orWhereHas('agents', fn (Builder $agent) => $agent->whereIn('agents.project_id', $projectIds));
             });
         }

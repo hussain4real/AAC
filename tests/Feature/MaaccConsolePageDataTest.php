@@ -106,6 +106,8 @@ test('project actors receive only project-scoped dashboard aggregates', function
     $hiddenProject->llmProviders()->attach($provider);
     $allowedAgent = Agent::factory()->for($allowedProject)->for($provider)->create(['name' => 'Allowed agent']);
     $hiddenAgent = Agent::factory()->for($hiddenProject)->for($provider)->create(['name' => 'Hidden agent']);
+    $allowedTool = ToolContract::factory()->for($team)->for($allowedApplication)->create(['name' => 'Allowed application tool']);
+    $hiddenTool = ToolContract::factory()->for($team)->for($hiddenApplication)->create(['name' => 'Hidden application tool']);
     maaccRun($allowedAgent, [
         'status' => RunStatus::Completed,
         'tokens_in' => 20,
@@ -129,6 +131,9 @@ test('project actors receive only project-scoped dashboard aggregates', function
     ]);
     $viewer = projectRoleUser($team, $allowedProject, MaaccRole::Viewer);
 
+    expect($viewer->can('view', $allowedTool))->toBeTrue()
+        ->and($viewer->can('view', $hiddenTool))->toBeFalse();
+
     $this->actingAs($owner)
         ->get(route('dashboard', ['current_team' => $team->slug]))
         ->assertInertia(fn (Assert $page) => $page
@@ -141,6 +146,7 @@ test('project actors receive only project-scoped dashboard aggregates', function
             ->where('maacc.dashboard.stats.apps', 1)
             ->where('maacc.dashboard.stats.projects', 1)
             ->where('maacc.dashboard.stats.agents', 1)
+            ->where('maacc.dashboard.stats.tools', 1)
             ->where('maacc.dashboard.stats.runsToday', 1)
             ->where('maacc.dashboard.stats.success', 1)
             ->where('maacc.dashboard.stats.failed', 0)
@@ -161,6 +167,8 @@ test('project actors receive only project-scoped dashboard aggregates', function
             ->where('maacc.operational.failedRuns', 0)
             ->where('maacc.operational.avgLatencyMs', 1_000)
             ->has('maacc.dashboard.alerts', 0)
+            ->has('maacc.tools', 1)
+            ->where('maacc.tools.0.id', $allowedTool->slug)
             ->where('maacc.runs', fn ($runs): bool => $runs->every(
                 fn (array $run): bool => $run['projectId'] === $allowedProject->slug
             )));
