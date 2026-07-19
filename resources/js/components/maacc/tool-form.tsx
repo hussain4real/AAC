@@ -33,15 +33,24 @@ import {
 } from '@/maacc/forms';
 import { useMaaccData } from '@/maacc/use-data';
 
-type SchemaRow = { key: string; type: string };
+type SchemaRow = { id: number; key: string; type: string };
+let nextSchemaRowId = 1;
+
+const newSchemaRow = (key = '', type = 'string'): SchemaRow => ({
+    id: nextSchemaRowId++,
+    key,
+    type,
+});
 
 /** Sentinel select value for "no owning application" (Radix disallows ''). */
 const NO_APP = 'none';
 
 function objToRows(obj: Record<string, string>): SchemaRow[] {
-    const rows = Object.entries(obj).map(([key, type]) => ({ key, type }));
+    const rows = Object.entries(obj).map(([key, type]) =>
+        newSchemaRow(key, type),
+    );
 
-    return rows.length ? rows : [{ key: '', type: 'string' }];
+    return rows.length ? rows : [newSchemaRow()];
 }
 
 function rowsToObj(rows: SchemaRow[]): Record<string, string> {
@@ -68,9 +77,11 @@ const parsePayloadKb = (value: string): number => {
 function SchemaEditor({
     rows,
     onChange,
+    errors,
 }: {
     rows: SchemaRow[];
     onChange: (rows: SchemaRow[]) => void;
+    errors: Record<number, string>;
 }) {
     const update = (index: number, patch: Partial<SchemaRow>) =>
         onChange(
@@ -80,37 +91,56 @@ function SchemaEditor({
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {rows.map((row, index) => (
-                <div key={index} style={{ display: 'flex', gap: 8 }}>
-                    <Input
-                        value={row.key}
-                        onChange={(e) => update(index, { key: e.target.value })}
-                        placeholder="field_name"
-                        style={{ fontFamily: 'var(--mono)' }}
-                    />
-                    <Input
-                        value={row.type}
-                        onChange={(e) =>
-                            update(index, { type: e.target.value })
-                        }
-                        placeholder="string"
-                        style={{ fontFamily: 'var(--mono)', width: 170 }}
-                    />
-                    <Btn
-                        variant="ghost"
-                        size="icon"
-                        icon="trash"
-                        style={{ height: 36, width: 36, flexShrink: 0 }}
-                        onClick={() =>
-                            onChange(rows.filter((_, i) => i !== index))
-                        }
-                    />
+                <div key={row.id}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <Input
+                            value={row.key}
+                            onChange={(e) =>
+                                update(index, { key: e.target.value })
+                            }
+                            placeholder="field_name"
+                            style={{ fontFamily: 'var(--mono)' }}
+                        />
+                        <Input
+                            value={row.type}
+                            onChange={(e) =>
+                                update(index, { type: e.target.value })
+                            }
+                            placeholder="string"
+                            style={{ fontFamily: 'var(--mono)', width: 170 }}
+                        />
+                        <Btn
+                            variant="ghost"
+                            size="icon"
+                            icon="trash"
+                            ariaLabel={`Remove schema row ${index + 1}`}
+                            style={{ height: 36, width: 36, flexShrink: 0 }}
+                            onClick={() =>
+                                onChange(
+                                    rows.filter((item) => item.id !== row.id),
+                                )
+                            }
+                        />
+                    </div>
+                    {errors[row.id] && (
+                        <div
+                            role="alert"
+                            style={{
+                                marginTop: 4,
+                                color: 'var(--red-600)',
+                                fontSize: 11.5,
+                            }}
+                        >
+                            Row {index + 1}: {errors[row.id]}
+                        </div>
+                    )}
                 </div>
             ))}
             <Btn
                 variant="soft"
                 size="sm"
                 icon="plus"
-                onClick={() => onChange([...rows, { key: '', type: 'string' }])}
+                onClick={() => onChange([...rows, newSchemaRow()])}
             >
                 Add field
             </Btn>
@@ -131,11 +161,15 @@ export function ToolFormModal({
     const MAACC = useMaaccData();
     const isEdit = !!tool;
     const [inputRows, setInputRows] = useState<SchemaRow[]>(
-        tool ? objToRows(tool.input) : [{ key: '', type: 'string' }],
+        tool ? objToRows(tool.input) : [newSchemaRow()],
     );
     const [outputRows, setOutputRows] = useState<SchemaRow[]>(
-        tool ? objToRows(tool.output) : [{ key: '', type: 'string' }],
+        tool ? objToRows(tool.output) : [newSchemaRow()],
     );
+    const [schemaErrors, setSchemaErrors] = useState<{
+        input: Record<number, string>;
+        output: Record<number, string>;
+    }>({ input: {}, output: {} });
 
     const connectorUuid = tool?.connector
         ? (MAACC.connectors.find((c) => c.id === tool.connector)?.uuid ?? '')
@@ -224,6 +258,39 @@ export function ToolFormModal({
 
     const submit = () => {
         if (!team) {
+            return;
+        }
+
+        const validateRows = (rows: SchemaRow[]): Record<number, string> => {
+            const counts = rows.reduce<Record<string, number>>((all, row) => {
+                const key = row.key.trim();
+                all[key] = (all[key] ?? 0) + 1;
+
+                return all;
+            }, {});
+
+            return rows.reduce<Record<number, string>>((all, row) => {
+                const key = row.key.trim();
+
+                if (!key) {
+                    all[row.id] = 'Enter a field name.';
+                } else if (counts[key] > 1) {
+                    all[row.id] = `The field name "${key}" is duplicated.`;
+                }
+
+                return all;
+            }, {});
+        };
+        const nextSchemaErrors = {
+            input: validateRows(inputRows),
+            output: validateRows(outputRows),
+        };
+        setSchemaErrors(nextSchemaErrors);
+
+        if (
+            Object.keys(nextSchemaErrors.input).length > 0 ||
+            Object.keys(nextSchemaErrors.output).length > 0
+        ) {
             return;
         }
 
@@ -976,11 +1043,31 @@ export function ToolFormModal({
                     required
                     hint="Field → type. Base types: string, number, integer, boolean, object, array. Add ? for optional, ·format for a format (e.g. string·date)."
                 >
-                    <SchemaEditor rows={inputRows} onChange={setInputRows} />
+                    <SchemaEditor
+                        rows={inputRows}
+                        onChange={(rows) => {
+                            setInputRows(rows);
+                            setSchemaErrors((errors) => ({
+                                ...errors,
+                                input: {},
+                            }));
+                        }}
+                        errors={schemaErrors.input}
+                    />
                     <FieldError error={form.errors.input_schema} />
                 </Field>
                 <Field label="Output schema" required>
-                    <SchemaEditor rows={outputRows} onChange={setOutputRows} />
+                    <SchemaEditor
+                        rows={outputRows}
+                        onChange={(rows) => {
+                            setOutputRows(rows);
+                            setSchemaErrors((errors) => ({
+                                ...errors,
+                                output: {},
+                            }));
+                        }}
+                        errors={schemaErrors.output}
+                    />
                     <FieldError error={form.errors.output_schema} />
                 </Field>
             </div>

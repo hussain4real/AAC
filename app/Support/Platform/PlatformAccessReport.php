@@ -7,6 +7,8 @@ use App\Enums\PlatformRole;
 use App\Models\AuditEvent;
 use App\Models\PlatformAccessGrant;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Collection;
 
 /**
@@ -24,14 +26,22 @@ class PlatformAccessReport
      *
      * @return array<string, mixed>
      */
-    public function forConsole(): array
+    public function forConsole(?Request $request = null): array
     {
+        $request ??= request();
+        [$admins, $adminPagination] = $this->admins($request);
+        [$audit, $auditPagination] = $this->auditTrail($request);
+
         return [
             'roles' => $this->roleCatalogue(),
             'permissionGroups' => $this->permissionGroups(),
-            'admins' => $this->admins(),
+            'admins' => $admins,
             'review' => $this->review(),
-            'audit' => $this->auditTrail(),
+            'audit' => $audit,
+            'pagination' => [
+                'admins' => $adminPagination,
+                'audit' => $auditPagination,
+            ],
         ];
     }
 
@@ -40,17 +50,41 @@ class PlatformAccessReport
      *
      * @return array<int, array{id: int, name: string, email: string}>
      */
-    public function directory(): array
+    public function directory(?Request $request = null): array
     {
-        return User::query()
+        return $this->directoryPage($request)['items'];
+    }
+
+    /**
+     * A bounded, searchable directory page for role assignment.
+     *
+     * @return array{items: array<int, array{id: int, name: string, email: string}>, pagination: array<string, mixed>}
+     */
+    public function directoryPage(?Request $request = null): array
+    {
+        $request ??= request();
+        $search = mb_substr($request->string('directory_q')->trim()->value(), 0, 100);
+        $query = User::query()
+            ->when($search !== '', function ($query) use ($search): void {
+                $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search);
+                $query->where(fn ($builder) => $builder
+                    ->where('name', 'like', "%{$escaped}%")
+                    ->orWhere('email', 'like', "%{$escaped}%"));
+            })
             ->orderBy('name')
-            ->get(['id', 'name', 'email'])
-            ->map(static fn (User $user): array => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-            ])
-            ->all();
+            ->orderBy('id')
+            ->cursorPaginate($this->pageSize($request), ['id', 'name', 'email'], 'directory_cursor');
+
+        return [
+            'items' => collect($query->items())
+                ->map(static fn (User $user): array => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ])
+                ->all(),
+            'pagination' => $this->pagination($query, $request, ['directory_q']),
+        ];
     }
 
     /**
@@ -108,17 +142,25 @@ class PlatformAccessReport
      * Every platform administrator (a user holding at least one platform role)
      * with their roles and active grants.
      *
-     * @return array<int, array<string, mixed>>
+     * @return array{0: array<int, array<string, mixed>>, 1: array<string, mixed>}
      */
-    private function admins(): array
+    private function admins(Request $request): array
     {
-        $grants = PlatformAccessGrant::query()->active()->with('grantedBy')->get()->groupBy('user_id');
-
-        return User::query()
+        $paginator = User::query()
             ->has('roles')
             ->with('roles')
             ->orderBy('name')
+            ->orderBy('id')
+            ->cursorPaginate($this->pageSize($request), cursorName: 'admins_cursor');
+        $admins = collect($paginator->items());
+        $grants = PlatformAccessGrant::query()
+            ->active()
+            ->whereIn('user_id', $admins->pluck('id'))
+            ->with(['grantedBy', 'user'])
             ->get()
+            ->groupBy('user_id');
+
+        return [$admins
             ->map(fn (User $user): array => [
                 'id' => $user->id,
                 'name' => $user->name,
@@ -131,7 +173,7 @@ class PlatformAccessReport
                     ->all(),
             ])
             ->values()
-            ->all();
+            ->all(), $this->pagination($paginator, $request)];
     }
 
     /**
@@ -143,24 +185,26 @@ class PlatformAccessReport
     private function review(): array
     {
         return [
-            'dueForExpiry' => $this->access->dueForExpiry()->map(fn (PlatformAccessGrant $g): array => $this->grantRow($g))->all(),
-            'needingCertification' => $this->access->needingCertification()->map(fn (PlatformAccessGrant $g): array => $this->grantRow($g))->all(),
-            'stale' => $this->access->staleGrants()->map(fn (PlatformAccessGrant $g): array => $this->grantRow($g))->all(),
+            'dueForExpiry' => $this->access->dueForExpiry(100)->map(fn (PlatformAccessGrant $g): array => $this->grantRow($g))->all(),
+            'needingCertification' => $this->access->needingCertification(100)->map(fn (PlatformAccessGrant $g): array => $this->grantRow($g))->all(),
+            'stale' => $this->access->staleGrants(100)->map(fn (PlatformAccessGrant $g): array => $this->grantRow($g))->all(),
         ];
     }
 
     /**
      * The most recent platform-access audit events.
      *
-     * @return array<int, array<string, mixed>>
+     * @return array{0: array<int, array<string, mixed>>, 1: array<string, mixed>}
      */
-    private function auditTrail(): array
+    private function auditTrail(Request $request): array
     {
-        return AuditEvent::query()
+        $paginator = AuditEvent::query()
             ->where('action', 'like', 'platform_access.%')
             ->latest()
-            ->limit(50)
-            ->get()
+            ->orderByDesc('id')
+            ->cursorPaginate($this->pageSize($request), cursorName: 'access_audit_cursor');
+
+        return [collect($paginator->items())
             ->map(static fn (AuditEvent $event): array => [
                 'id' => $event->id,
                 'action' => $event->action,
@@ -168,7 +212,32 @@ class PlatformAccessReport
                 'metadata' => $event->metadata,
                 'at' => $event->created_at?->toIso8601String(),
             ])
-            ->all();
+            ->all(), $this->pagination($paginator, $request)];
+    }
+
+    private function pageSize(Request $request): int
+    {
+        return min(100, max(10, $request->integer('per_page', 25)));
+    }
+
+    /**
+     * @template TKey of array-key
+     * @template TValue
+     *
+     * @param  CursorPaginator<TKey, TValue>  $paginator
+     * @param  array<int, string>  $filters
+     * @return array<string, mixed>
+     */
+    private function pagination(CursorPaginator $paginator, Request $request, array $filters = []): array
+    {
+        return [
+            'count' => $paginator->count(),
+            'perPage' => $paginator->perPage(),
+            'hasMore' => $paginator->hasMorePages(),
+            'nextCursor' => $paginator->nextCursor()?->encode(),
+            'previousCursor' => $paginator->previousCursor()?->encode(),
+            'filters' => $request->only($filters),
+        ];
     }
 
     /**

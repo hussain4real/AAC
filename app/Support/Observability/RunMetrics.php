@@ -10,6 +10,7 @@ use App\Models\Team;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Number;
 
@@ -41,17 +42,37 @@ class RunMetrics
      *     runStatus: array<int, array{label: string, value: int, color: string}>,
      *     runsOverTime: array<int, int>,
      *     topAgents: array<int, array{id: string, name: string, runs: int, app: string|null}>,
+     *     usageByUser: array<int, array{key: string, runs: int, tokens: int, cost: float}>,
+     *     usageByDepartment: array<int, array{key: string, runs: int, tokens: int, cost: float}>,
+     *     reporting: array<string, mixed>,
      * }
      */
     public function forTeam(Team $team): array
     {
-        $today = $this->todayRuns($team);
+        $measuredAt = Date::now();
+        $today = $this->todayRuns($team, $measuredAt);
 
         return [
             'stats' => $this->stats($team, $today),
             'runStatus' => $this->runStatus($today),
-            'runsOverTime' => $this->runsOverTime($team),
+            'runsOverTime' => $this->runsOverTime($team, $measuredAt),
             'topAgents' => $this->topAgents($team),
+            'usageByUser' => $this->usageBreakdown($team, 'caller_subject', $measuredAt),
+            'usageByDepartment' => $this->usageBreakdown($team, 'caller_department', $measuredAt),
+            'reporting' => [
+                'source' => 'agent_runs',
+                'measuredAt' => $measuredAt->toIso8601String(),
+                'timezone' => config('app.timezone'),
+                'window' => 'today and trailing 24 hours; caller breakdown trailing 7 days',
+                'cost' => [
+                    'estimated' => true,
+                    'currency' => config('maacc.pricing.currency', 'USD'),
+                    'unit' => config('maacc.pricing.unit', 'per_million_tokens'),
+                    'source' => config('maacc.pricing.source'),
+                    'version' => config('maacc.pricing.version'),
+                    'effectiveAt' => config('maacc.pricing.effective_at'),
+                ],
+            ],
         ];
     }
 
@@ -60,11 +81,11 @@ class RunMetrics
      *
      * @return Collection<int, AgentRun>
      */
-    private function todayRuns(Team $team): Collection
+    private function todayRuns(Team $team, CarbonInterface $measuredAt): Collection
     {
         return $this->scopedRuns($team)
-            ->where('started_at', '>=', Date::now()->startOfDay())
-            ->get(['id', 'status', 'tokens_in', 'tokens_out', 'cost', 'started_at']);
+            ->where('started_at', '>=', $measuredAt->toImmutable()->startOfDay())
+            ->get(['id', 'status', 'tokens_in', 'tokens_out', 'cost', 'cost_currency', 'started_at']);
     }
 
     /**
@@ -77,6 +98,8 @@ class RunMetrics
     {
         $tokens = (int) $today->sum(fn (AgentRun $run): int => $run->tokens_in + $run->tokens_out);
         $cost = (float) $today->sum('cost');
+        $currencies = $today->pluck('cost_currency')->filter()->unique();
+        $currency = $currencies->count() === 1 ? $currencies->first() : (string) config('maacc.pricing.currency', 'USD');
 
         return [
             'apps' => $team->applications()->count(),
@@ -88,7 +111,8 @@ class RunMetrics
             'success' => $today->where('status', RunStatus::Completed)->count(),
             'failed' => $today->where('status', RunStatus::Failed)->count(),
             'tokens' => Number::abbreviate($tokens, maxPrecision: 2),
-            'cost' => 'QAR '.Number::format($cost, maxPrecision: 2),
+            'cost' => $currency.' '.Number::format($cost, maxPrecision: 2),
+            'costEstimated' => true,
         ];
     }
 
@@ -120,9 +144,9 @@ class RunMetrics
      *
      * @return array<int, int>
      */
-    private function runsOverTime(Team $team): array
+    private function runsOverTime(Team $team, CarbonInterface $measuredAt): array
     {
-        $since = Date::now()->subHours(23)->startOfHour();
+        $since = $measuredAt->toImmutable()->subHours(23)->startOfHour();
         $buckets = array_fill(0, 24, 0);
 
         $this->scopedRuns($team)
@@ -137,6 +161,37 @@ class RunMetrics
             });
 
         return $buckets;
+    }
+
+    /**
+     * Aggregate trusted, normalized caller context without exposing raw PII.
+     *
+     * @return array<int, array{key: string, runs: int, tokens: int, cost: float}>
+     */
+    private function usageBreakdown(Team $team, string $column, CarbonInterface $measuredAt): array
+    {
+        $selection = match ($column) {
+            'caller_subject' => 'caller_subject as key, count(*) as runs, sum(tokens_in + tokens_out) as tokens, sum(cost) as cost',
+            'caller_department' => 'caller_department as key, count(*) as runs, sum(tokens_in + tokens_out) as tokens, sum(cost) as cost',
+            default => throw new \InvalidArgumentException('Unsupported caller reporting dimension.'),
+        };
+
+        /** @var SupportCollection<int, object{key: string, runs: int, tokens: int, cost: float}> $rows */
+        $rows = $this->scopedRuns($team)
+            ->where('created_at', '>=', $measuredAt->toImmutable()->subDays(7))
+            ->whereNotNull($column)
+            ->selectRaw($selection)
+            ->groupBy($column)
+            ->orderByDesc('runs')
+            ->limit(10)
+            ->get();
+
+        return $rows->map(fn (object $row): array => [
+            'key' => hash('sha256', $team->id.'|'.$column.'|'.$row->key),
+            'runs' => (int) $row->runs,
+            'tokens' => (int) $row->tokens,
+            'cost' => round((float) $row->cost, 6),
+        ])->all();
     }
 
     /**

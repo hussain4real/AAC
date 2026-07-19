@@ -13,6 +13,7 @@ import type { CredentialSecretFlash } from '@/types/ui';
 
 export function CredentialSecretGate() {
     const [secret, setSecret] = useState<CredentialSecretFlash | null>(null);
+    const [acknowledged, setAcknowledged] = useState(false);
 
     useEffect(() => {
         return router.on('flash', (event) => {
@@ -22,6 +23,7 @@ export function CredentialSecretGate() {
 
             if (data) {
                 setSecret(data);
+                setAcknowledged(false);
             }
         });
     }, []);
@@ -33,7 +35,7 @@ export function CredentialSecretGate() {
     return (
         <Modal
             open
-            onClose={() => setSecret(null)}
+            onClose={() => undefined}
             title="Credential secret"
             sub="Copy this secret now — for security it is never shown again."
             icon="key"
@@ -42,6 +44,7 @@ export function CredentialSecretGate() {
                 <Btn
                     variant="primary"
                     icon="check"
+                    disabled={!acknowledged}
                     onClick={() => setSecret(null)}
                 >
                     I've stored it safely
@@ -72,6 +75,24 @@ export function CredentialSecretGate() {
                     keeps only a hashed copy and cannot recover the secret
                     later.
                 </div>
+                <label
+                    style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 9,
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        checked={acknowledged}
+                        onChange={(event) =>
+                            setAcknowledged(event.target.checked)
+                        }
+                    />
+                    I confirm that I stored the client ID and secret safely.
+                </label>
             </div>
         </Modal>
     );

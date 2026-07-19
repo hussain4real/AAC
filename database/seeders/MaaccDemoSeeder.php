@@ -79,6 +79,7 @@ class MaaccDemoSeeder extends Seeder
 
         /** @var Team $team */
         $team = $user->currentTeam ?? $user->personalTeam();
+        $team->forceFill(['name' => 'Milaha Demo Workspace'])->save();
 
         $llms = $this->seedLlmProviders($team);
         $apps = $this->seedApplications($team, $user);

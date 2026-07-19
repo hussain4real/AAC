@@ -126,12 +126,12 @@ test('forgetting a secret unbinds the models that used it', function () {
         ->and($provider->fresh()->vault_secret_id)->toBeNull();
 });
 
-test('the console vault dataset exposes secrets without the plaintext', function () {
+test('the vault page exposes secrets without the plaintext', function () {
     [$owner, $team] = ownerAndTeam();
     VaultSecret::factory()->for($team)->withValue('super-secret-value')->create(['name' => 'Ops token']);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('vault', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.vaultSecrets', 1)

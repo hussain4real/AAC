@@ -31,6 +31,13 @@ class RunPayload
                 'tokens_out' => $run->tokens_out,
             ],
             'cost' => $run->cost,
+            'currency' => $run->cost_currency,
+            'cost_estimated' => true,
+            'pricing' => [
+                'source' => $run->pricing_source,
+                'version' => $run->pricing_version,
+                'effective_at' => $run->pricing_effective_at?->toIso8601String(),
+            ],
         ];
 
         return match ($run->status) {

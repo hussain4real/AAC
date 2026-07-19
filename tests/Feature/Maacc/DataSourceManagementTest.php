@@ -186,12 +186,12 @@ test('approving a data source access request activates the source', function () 
         ->and($request->fresh()->status->value)->toBe('approved');
 });
 
-test('the shared maacc prop exposes data sources without any secret material', function () {
+test('the data sources page exposes data sources without any secret material', function () {
     [$owner, $team] = ownerAndTeam();
     DataSource::factory()->for($team)->create(['name' => 'Reporting Replica', 'connection' => 'maacc_reporting']);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('data-sources', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.dataSources', 1)

@@ -57,6 +57,8 @@ import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
 import type { RouteName } from '@/maacc/nav';
 import { useMaaccData } from '@/maacc/use-data';
+import { store as startApiRun } from '@/routes/api/v1/runs';
+import { store as submitApiToolResult } from '@/routes/api/v1/runs/tool-results';
 
 /* ---------- SafetyToggle (local) ---------- */
 function SafetyToggle({ initial }: { initial: boolean }) {
@@ -285,11 +287,7 @@ function AgentOverview({
                         >
                             POST
                         </span>{' '}
-                        /api/maacc/agents/
-                        <span style={{ color: 'var(--primary)' }}>
-                            {agent.slug}
-                        </span>
-                        /runs
+                        {startApiRun.url(agent.slug)}
                     </div>
                     <Btn
                         variant="soft"
@@ -707,7 +705,7 @@ function AgentAPI({ agent }: { agent: Agent }) {
                         <Badge tone="teal" soft style={{ marginRight: 8 }}>
                             POST
                         </Badge>
-                        /api/maacc/agents/{agent.slug}/runs
+                        {startApiRun.url(agent.slug)}
                     </div>
                     <SectionHeader
                         title="Headers"
@@ -776,7 +774,7 @@ function AgentAPI({ agent }: { agent: Agent }) {
                         The application's SDK runs the matching local handler,
                         then POSTs the result to{' '}
                         <span className="mono">
-                            /agent-runs/run_8fa31c/tool-results
+                            {submitApiToolResult.url('run_8fa31c')}
                         </span>
                         .
                     </div>

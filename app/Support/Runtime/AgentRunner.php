@@ -105,6 +105,7 @@ class AgentRunner
         $this->ensureReady($agent, $application, $environment, $candidateEvaluation || $testRun);
 
         $provider = $agent->llmProvider;
+        $pricingQuote = $this->pricing->quoteFor($provider);
         $snapshot = $this->readiness->executionSnapshot($agent);
 
         $run = AgentRun::create([
@@ -123,6 +124,8 @@ class AgentRunner
             'execution_snapshot' => $snapshot,
             'caller' => null,
             'caller_context' => $callerContext,
+            'caller_subject' => is_string($callerContext['sub'] ?? null) ? $callerContext['sub'] : null,
+            'caller_department' => is_string($callerContext['department'] ?? null) ? $callerContext['department'] : null,
             'mode' => $mode,
             'environment' => $environment,
             'sensitivity' => $this->resolveSensitivity($agent),
@@ -131,6 +134,10 @@ class AgentRunner
             'tokens_out' => 0,
             'reserved_tokens' => $agent->max_tokens * $this->maxSteps(),
             'cost' => 0,
+            'cost_currency' => $pricingQuote['currency'],
+            'pricing_source' => $pricingQuote['source'],
+            'pricing_version' => $pricingQuote['version'],
+            'pricing_effective_at' => $pricingQuote['effectiveAt'],
             'tools' => [],
             'input' => null,
             'state' => null,

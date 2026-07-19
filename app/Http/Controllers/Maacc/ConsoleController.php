@@ -11,9 +11,11 @@ use App\Models\Application;
 use App\Models\Membership;
 use App\Models\Project;
 use App\Models\ToolContract;
+use App\Support\MaaccConsolePageData;
 use App\Support\Platform\PlatformAccessReport;
 use App\Support\Sdk\VersionJourney;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -28,11 +30,15 @@ use Inertia\Response;
  */
 class ConsoleController extends Controller
 {
-    public function applications(): Response
+    public function __construct(private readonly MaaccConsolePageData $pageData) {}
+
+    public function applications(Request $request): Response
     {
         Gate::authorize('viewAny', Application::class);
 
-        return Inertia::render('maacc/applications/index');
+        return Inertia::render('maacc/applications/index', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'applications'),
+        ]);
     }
 
     public function application(Request $request): Response
@@ -41,28 +47,37 @@ class ConsoleController extends Controller
         $application = $team->applications()->where('slug', (string) $request->route('application'))->firstOrFail();
         Gate::authorize('view', $application);
 
-        return Inertia::render('maacc/applications/show', ['id' => $application->slug]);
+        return Inertia::render('maacc/applications/show', [
+            'id' => $application->slug,
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'application', $application->slug),
+        ]);
     }
 
-    public function projects(): Response
+    public function projects(Request $request): Response
     {
         Gate::authorize('viewAny', Project::class);
 
-        return Inertia::render('maacc/projects/index');
+        return Inertia::render('maacc/projects/index', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'projects'),
+        ]);
     }
 
-    public function agents(): Response
+    public function agents(Request $request): Response
     {
         Gate::authorize('viewAny', Agent::class);
 
-        return Inertia::render('maacc/agents/index');
+        return Inertia::render('maacc/agents/index', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'agents'),
+        ]);
     }
 
-    public function createAgent(): Response
+    public function createAgent(Request $request): Response
     {
         Gate::authorize('create', Agent::class);
 
-        return Inertia::render('maacc/agents/create');
+        return Inertia::render('maacc/agents/create', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'agent-create'),
+        ]);
     }
 
     public function agent(Request $request): Response
@@ -78,6 +93,7 @@ class ConsoleController extends Controller
 
         return Inertia::render('maacc/agents/show', [
             'id' => $slug,
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'agent', $slug),
             // The agent's real published version history (from agent_versions),
             // newest first, for the Versions tab.
             'history' => fn (): array => $agent->versions->map(fn (AgentVersion $version): array => [
@@ -92,11 +108,13 @@ class ConsoleController extends Controller
         ]);
     }
 
-    public function tools(): Response
+    public function tools(Request $request): Response
     {
         Gate::authorize('viewAny', ToolContract::class);
 
-        return Inertia::render('maacc/tools/index');
+        return Inertia::render('maacc/tools/index', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'tools'),
+        ]);
     }
 
     public function tool(Request $request, VersionJourney $journey): Response
@@ -108,20 +126,25 @@ class ConsoleController extends Controller
 
         return Inertia::render('maacc/tools/show', [
             'id' => $slug,
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'tool', $slug),
             // The tool's real lifecycle — contract version snapshots + SDK
             // implementation transitions — for the Audit history timeline.
             'history' => fn (): array => $journey->toolReport($contract),
         ]);
     }
 
-    public function sdk(): Response
+    public function sdk(Request $request): Response
     {
-        return Inertia::render('maacc/sdk');
+        return Inertia::render('maacc/sdk', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'sdk'),
+        ]);
     }
 
-    public function sdkDocs(): Response
+    public function sdkDocs(Request $request): Response
     {
-        return Inertia::render('maacc/sdk-docs');
+        return Inertia::render('maacc/sdk-docs', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'sdk-docs'),
+        ]);
     }
 
     /**
@@ -135,19 +158,24 @@ class ConsoleController extends Controller
 
         return Inertia::render('maacc/journey', [
             'journey' => fn (): array => $journey->teamReport($team),
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'sdk'),
         ]);
     }
 
-    public function playground(): Response
+    public function playground(Request $request): Response
     {
-        return Inertia::render('maacc/playground');
+        return Inertia::render('maacc/playground', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'playground'),
+        ]);
     }
 
-    public function runs(): Response
+    public function runs(Request $request): Response
     {
         Gate::authorize('viewAny', Agent::class);
 
-        return Inertia::render('maacc/runs/index');
+        return Inertia::render('maacc/runs/index', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'runs'),
+        ]);
     }
 
     public function run(Request $request): Response
@@ -162,69 +190,91 @@ class ConsoleController extends Controller
 
         return Inertia::render('maacc/runs/show', [
             'id' => $slug,
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'run', $slug),
             // The run's real observability trace — the ordered lifecycle events
             // recorded by the runtime — for the Execution timeline.
             'trace' => fn (): array => TraceEventResource::collection($run->traceEvents()->orderBy('sequence')->get())->resolve(),
         ]);
     }
 
-    public function llmProviders(): Response
+    public function llmProviders(Request $request): Response
     {
-        return Inertia::render('maacc/llm-providers');
+        return Inertia::render('maacc/llm-providers', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'llm-providers'),
+        ]);
     }
 
-    public function connectors(): Response
+    public function connectors(Request $request): Response
     {
-        return Inertia::render('maacc/connectors');
+        return Inertia::render('maacc/connectors', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'connectors'),
+        ]);
     }
 
-    public function knowledge(): Response
+    public function knowledge(Request $request): Response
     {
-        return Inertia::render('maacc/knowledge');
+        return Inertia::render('maacc/knowledge', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'knowledge'),
+        ]);
     }
 
-    public function dataSources(): Response
+    public function dataSources(Request $request): Response
     {
         return Inertia::render('maacc/data-sources', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'data-sources'),
             // The approved, ops-provisioned read-only connection names a data
             // source may reference (config allowlist) — never MAACC's own DB.
             'connections' => array_values((array) config('maacc.runtime.db.allowed_connections', [])),
         ]);
     }
 
-    public function evaluations(): Response
+    public function evaluations(Request $request): Response
     {
-        return Inertia::render('maacc/evaluations');
+        return Inertia::render('maacc/evaluations', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'evaluations'),
+        ]);
     }
 
-    public function governance(): Response
+    public function governance(Request $request): Response
     {
-        return Inertia::render('maacc/governance');
+        return Inertia::render('maacc/governance', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'governance'),
+        ]);
     }
 
-    public function webhooks(): Response
+    public function webhooks(Request $request): Response
     {
-        return Inertia::render('maacc/webhooks');
+        return Inertia::render('maacc/webhooks', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'webhooks'),
+        ]);
     }
 
-    public function vault(): Response
+    public function vault(Request $request): Response
     {
-        return Inertia::render('maacc/vault');
+        return Inertia::render('maacc/vault', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'vault'),
+        ]);
     }
 
-    public function routing(): Response
+    public function routing(Request $request): Response
     {
-        return Inertia::render('maacc/routing');
+        return Inertia::render('maacc/routing', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'routing'),
+        ]);
     }
 
-    public function identity(): Response
+    public function identity(Request $request): Response
     {
-        return Inertia::render('maacc/identity');
+        return Inertia::render('maacc/identity', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'identity'),
+        ]);
     }
 
-    public function incidents(): Response
+    public function incidents(Request $request): Response
     {
-        return Inertia::render('maacc/incidents');
+        return Inertia::render('maacc/incidents', [
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'incidents'),
+        ]);
     }
 
     /**
@@ -237,8 +287,9 @@ class ConsoleController extends Controller
     public function accessControl(Request $request, PlatformAccessReport $report): Response
     {
         return Inertia::render('maacc/access-control', [
-            'access' => fn (): array => $report->forConsole(),
-            'directory' => fn (): array => $report->directory(),
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'settings'),
+            'access' => Inertia::defer(fn (): array => $report->forConsole($request), 'access-control', rescue: true),
+            'directory' => Inertia::defer(fn (): array => $report->directoryPage($request), 'access-control', rescue: true),
             'capabilities' => fn (): array => $report->capabilities($request->user()),
         ]);
     }
@@ -248,18 +299,43 @@ class ConsoleController extends Controller
         $team = $request->user()->currentTeam()->firstOrFail();
 
         return Inertia::render('maacc/settings', [
-            // The team's real members and their team role for the Members tab.
-            'members' => $team->memberships()
-                ->with('user')
-                ->get()
-                ->map(fn (Membership $membership): array => [
-                    'name' => $membership->user->name,
-                    'email' => $membership->user->email,
-                    'role' => $membership->role->label(),
-                ])
-                ->sortBy('name')
-                ->values()
-                ->all(),
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'settings'),
+            'members' => Inertia::defer(function () use ($request, $team): array {
+                $paginator = $team->memberships()
+                    ->with('user')
+                    ->orderBy('id')
+                    ->cursorPaginate(
+                        perPage: min(100, max(10, $request->integer('per_page', 25))),
+                        cursorName: 'members_cursor',
+                    );
+
+                return [
+                    'items' => collect($paginator->items())->map(fn (Membership $membership): array => [
+                        'name' => $membership->user->name,
+                        'email' => $membership->user->email,
+                        'role' => $membership->role->label(),
+                    ])->all(),
+                    'pagination' => $this->pagination($paginator),
+                ];
+            }, 'members', rescue: true),
         ]);
+    }
+
+    /**
+     * @template TKey of array-key
+     * @template TValue
+     *
+     * @param  CursorPaginator<TKey, TValue>  $paginator
+     * @return array<string, int|string|bool|null>
+     */
+    private function pagination(CursorPaginator $paginator): array
+    {
+        return [
+            'count' => $paginator->count(),
+            'perPage' => $paginator->perPage(),
+            'hasMore' => $paginator->hasMorePages(),
+            'nextCursor' => $paginator->nextCursor()?->encode(),
+            'previousCursor' => $paginator->previousCursor()?->encode(),
+        ];
     }
 }

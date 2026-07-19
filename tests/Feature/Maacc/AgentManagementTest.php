@@ -41,6 +41,8 @@ test('a platform admin can create a draft agent with an initial version', functi
             'system_prompt' => 'You are the Operations Summary Agent.',
             'temperature' => 0.3,
             'max_tokens' => 1500,
+            'sensitivity' => 'confidential',
+            'requires_runtime_approval' => true,
             'tool_ids' => [$tool->id],
         ])
         ->assertSessionHasNoErrors()
@@ -51,6 +53,8 @@ test('a platform admin can create a draft agent with an initial version', functi
     expect($agent)->not->toBeNull()
         ->and($agent->status)->toBe(AgentStatus::Draft)
         ->and($agent->current_version_id)->not->toBeNull()
+        ->and($agent->sensitivity->value)->toBe('confidential')
+        ->and($agent->requires_runtime_approval)->toBeTrue()
         ->and($agent->versions()->count())->toBe(1)
         ->and($agent->tools()->pluck('tool_contracts.id')->all())->toBe([$tool->id]);
 });

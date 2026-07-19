@@ -39,3 +39,7 @@ yarn-error.log
 
 # Compiled TypeScript SDK output — build artifact, rebuilt from src via `npm run build`.
 /packages/maacc-sdk-ts/dist
+
+# Pest Browser failure screenshots are local diagnostics; visual baselines live
+# in Pest's tracked snapshot directory.
+/tests/Browser/Screenshots

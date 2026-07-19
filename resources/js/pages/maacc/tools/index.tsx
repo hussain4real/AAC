@@ -1,9 +1,11 @@
 /* ============================================================
    MAACC — Tool Registry (list)
    ============================================================ */
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { StatCard } from '@/components/maacc/charts';
+import { CursorPagination } from '@/components/maacc/common';
 import { ToolFormModal } from '@/components/maacc/tool-form';
 import {
     Badge,
@@ -23,13 +25,21 @@ import { effectiveImpl } from '@/maacc/data';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
 import { useMaaccData } from '@/maacc/use-data';
+import { tools as toolsRoute } from '@/routes';
 
 export default function Tools() {
     const { go, scope } = useMaaccNav();
     const MAACC = useMaaccData();
-    const [q, setQ] = useState('');
-    const [scopeF, setScopeF] = useState('All');
-    const [mode, setMode] = useState('All');
+    const { currentTeam } = usePage().props;
+    const filters = MAACC.pagination.tools?.filters ?? {};
+    const [q, setQ] = useState(String(filters.q ?? ''));
+    const initialScope = String(filters.scope ?? 'All');
+    const [scopeF, setScopeF] = useState(
+        initialScope === 'All'
+            ? 'All'
+            : initialScope.charAt(0).toUpperCase() + initialScope.slice(1),
+    );
+    const [mode, setMode] = useState(String(filters.mode ?? 'All'));
     const [showCreate, setShowCreate] = useState(false);
 
     const list = scope.tools.filter(
@@ -47,6 +57,30 @@ export default function Tools() {
             ['required', 'outdated', 'incompatible'].includes(effectiveImpl(t)),
         ).length,
         approval: scope.tools.filter((t) => t.approval).length,
+    };
+
+    const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!currentTeam) {
+            return;
+        }
+
+        router.get(
+            toolsRoute.url(currentTeam.slug),
+            {
+                ...(q.trim() ? { q: q.trim() } : {}),
+                ...(scopeF !== 'All' ? { scope: scopeF.toLowerCase() } : {}),
+                ...(mode !== 'All' ? { mode } : {}),
+                per_page: MAACC.pagination.tools?.perPage ?? 25,
+            },
+            {
+                only: ['maacc'],
+                preserveScroll: true,
+                preserveState: true,
+                replace: true,
+            },
+        );
     };
 
     return (
@@ -77,9 +111,9 @@ export default function Tools() {
                 />
 
                 <div
+                    className="maacc-stat-grid"
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(4,1fr)',
                         gap: 12,
                         marginBottom: 16,
                     }}
@@ -111,7 +145,9 @@ export default function Tools() {
                     />
                 </div>
 
-                <div
+                <form
+                    aria-label="Tool filters"
+                    onSubmit={applyFilters}
                     style={{
                         display: 'flex',
                         gap: 9,
@@ -133,6 +169,7 @@ export default function Tools() {
                             }}
                         />
                         <input
+                            aria-label="Search tools"
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
                             placeholder="Search tools…"
@@ -151,6 +188,9 @@ export default function Tools() {
                         ]}
                         style={{ width: 150 }}
                     />
+                    <Btn type="submit" variant="primary" icon="filter">
+                        Apply filters
+                    </Btn>
                     <Select
                         value={mode}
                         onChange={setMode}
@@ -167,7 +207,7 @@ export default function Tools() {
                     <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
                         {list.length} tools
                     </span>
-                </div>
+                </form>
 
                 <Table
                     columns={[
@@ -252,6 +292,12 @@ export default function Tools() {
                         </Tr>
                     ))}
                 </Table>
+
+                <CursorPagination
+                    pageKey="tools"
+                    cursorName="tools_cursor"
+                    label="Tools"
+                />
 
                 <ToolFormModal
                     open={showCreate}

@@ -2,7 +2,7 @@
    MAACC — Create Agent Wizard
    ============================================================ */
 import { Head, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { store as storeAgent } from '@/actions/App/Http/Controllers/Maacc/AgentController';
 import {
     Badge,
@@ -46,9 +46,8 @@ interface AgentDraft {
     tools: string[];
     temp: number;
     maxTokens: number;
-    guardrails: boolean;
+    sensitivity: 'public' | 'internal' | 'confidential' | 'restricted';
     approval: boolean;
-    masking: boolean;
 }
 
 /* ── Shared step prop types ────────────────────────────────── */
@@ -93,6 +92,14 @@ function StepBasic({ data, set, errors }: StepProps) {
         if (allowed.length > 0 && !allowed.includes(data.llm)) {
             set('llm', allowed[0]);
         }
+    };
+
+    const chooseApplication = (applicationSlug: string) => {
+        const project = MAACC.projectsByApp(applicationSlug)[0];
+        set('app', applicationSlug);
+        set('project', project?.id ?? '');
+        set('llm', project?.llms[0] ?? '');
+        set('tools', []);
     };
 
     return (
@@ -151,7 +158,7 @@ function StepBasic({ data, set, errors }: StepProps) {
                     <Field label="Application" required>
                         <Select
                             value={data.app}
-                            onChange={(v) => set('app', v)}
+                            onChange={chooseApplication}
                             options={apps.map((a) => ({
                                 value: a.id,
                                 label: a.name,
@@ -588,28 +595,6 @@ function StepTools({ data, set }: StepProps) {
 
 /* ── StepRuntime ───────────────────────────────────────────── */
 function StepRuntime({ data, set }: StepProps) {
-    const guards: {
-        k: 'guardrails' | 'approval' | 'masking';
-        label: string;
-        desc: string;
-    }[] = [
-        {
-            k: 'guardrails',
-            label: 'Prompt & tool-call guardrails',
-            desc: 'Screen prompts and tool arguments for policy violations.',
-        },
-        {
-            k: 'approval',
-            label: 'Require approval before production',
-            desc: 'Owner must approve before this agent runs in Production.',
-        },
-        {
-            k: 'masking',
-            label: 'Mask sensitive tool results in logs',
-            desc: 'Restricted & Confidential outputs are masked in run logs.',
-        },
-    ];
-
     return (
         <div>
             <StepHeader
@@ -649,35 +634,56 @@ function StepRuntime({ data, set }: StepProps) {
                     />
                 </Field>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {guards.map((g, i) => (
-                    <div
-                        key={g.k}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 14,
-                            padding: '13px 0',
-                            borderTop: i ? '1px solid var(--border)' : 'none',
-                        }}
-                    >
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>
-                                {g.label}
-                            </div>
-                            <div
-                                style={{
-                                    fontSize: 12,
-                                    color: 'var(--text-3)',
-                                    marginTop: 2,
-                                }}
-                            >
-                                {g.desc}
-                            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <Field
+                    label="Data sensitivity"
+                    hint="Controls provider clearance, masking, and retention policy."
+                >
+                    <Select
+                        value={data.sensitivity}
+                        onChange={(value) =>
+                            set(
+                                'sensitivity',
+                                value as AgentDraft['sensitivity'],
+                            )
+                        }
+                        options={[
+                            { value: 'public', label: 'Public' },
+                            { value: 'internal', label: 'Internal' },
+                            { value: 'confidential', label: 'Confidential' },
+                            { value: 'restricted', label: 'Restricted' },
+                        ]}
+                    />
+                </Field>
+                <div
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 14,
+                        padding: '13px 0',
+                    }}
+                >
+                    <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>
+                            Require approval before each production run
                         </div>
-                        <Toggle on={data[g.k]} onChange={(v) => set(g.k, v)} />
+                        <div
+                            style={{
+                                fontSize: 12,
+                                color: 'var(--text-3)',
+                                marginTop: 2,
+                            }}
+                        >
+                            An authorized reviewer must approve sensitive
+                            runtime execution.
+                        </div>
                     </div>
-                ))}
+                    <Toggle
+                        on={data.approval}
+                        ariaLabel="Require approval before each production run"
+                        onChange={(value) => set('approval', value)}
+                    />
+                </div>
             </div>
         </div>
     );
@@ -832,10 +838,11 @@ function StepReview({ data, go }: StepReviewProps) {
                             lineHeight: 1.5,
                         }}
                     >
-                        Guardrails {data.guardrails ? 'enabled' : 'disabled'} ·
-                        Production approval{' '}
-                        {data.approval ? 'required' : 'skipped'} · Sensitive
-                        logging {data.masking ? 'masked' : 'stored'}.
+                        Classified as {data.sensitivity}. Production runtime
+                        approval{' '}
+                        {data.approval ? 'is required' : 'is not required'}.
+                        Prompt, tool, and logging controls follow the team's
+                        authoritative governance policy.
                     </div>
                 </div>
             </div>
@@ -848,6 +855,11 @@ export default function CreateAgent() {
     const { go, back } = useMaaccNav();
     const MAACC = useMaaccData();
     const team = useCurrentTeam();
+    const initialApplication = MAACC.apps[0];
+    const initialProject = initialApplication
+        ? MAACC.projectsByApp(initialApplication.id)[0]
+        : undefined;
+    const initialModel = initialProject?.llms[0] ?? '';
     const [step, setStep] = useState(0);
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [processing, setProcessing] = useState(false);
@@ -855,17 +867,42 @@ export default function CreateAgent() {
         name: '',
         agentSlug: '',
         desc: '',
-        app: 'MOP',
-        project: 'prj_mop_ops',
+        app: initialApplication?.id ?? '',
+        project: initialProject?.id ?? '',
         prompt: 'You are a helpful AI agent for Milaha. Ground every statement in the data returned by your tools. Be concise, factual, and flag anything that requires human attention.',
-        llm: 'gpt-4o',
-        tools: ['searchPolicyDocuments'],
+        llm: initialModel,
+        tools: [],
         temp: 0.3,
         maxTokens: 1500,
-        guardrails: true,
+        sensitivity: 'internal',
         approval: true,
-        masking: true,
     });
+    const submitting = useRef(false);
+    const dirty = data.name.trim() !== '' || data.agentSlug.trim() !== '';
+
+    useEffect(() => {
+        const beforeUnload = (event: BeforeUnloadEvent) => {
+            if (dirty && !submitting.current) {
+                event.preventDefault();
+            }
+        };
+        const removeBeforeVisit = router.on('before', (event) => {
+            if (
+                dirty &&
+                !submitting.current &&
+                !window.confirm('Discard your unsaved agent changes?')
+            ) {
+                event.preventDefault();
+            }
+        });
+
+        window.addEventListener('beforeunload', beforeUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', beforeUnload);
+            removeBeforeVisit();
+        };
+    }, [dirty]);
     const set: SetFn = (k, v) => setData((d) => ({ ...d, [k]: v }));
 
     const submit = () => {
@@ -898,15 +935,22 @@ export default function CreateAgent() {
                 temperature: data.temp,
                 max_tokens: data.maxTokens,
                 description: data.desc,
-                status: 'draft',
+                sensitivity: data.sensitivity,
+                requires_runtime_approval: data.approval,
                 tool_ids: data.tools
                     .map((slug) => MAACC.toolById(slug)?.uuid)
                     .filter((id): id is string => Boolean(id)),
             },
             {
                 preserveScroll: true,
-                onStart: () => setProcessing(true),
-                onFinish: () => setProcessing(false),
+                onStart: () => {
+                    submitting.current = true;
+                    setProcessing(true);
+                },
+                onFinish: () => {
+                    submitting.current = false;
+                    setProcessing(false);
+                },
                 onError: (formErrors) => setErrors(formErrors),
                 onSuccess: () => go('agents'),
             },

@@ -26,6 +26,7 @@ import {
 } from '@/components/maacc/ui';
 import PendingInvitationsModal from '@/components/pending-invitations-modal';
 import { effectiveImpl } from '@/maacc/data';
+import { formatCurrency } from '@/maacc/format';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
 import type { RouteName } from '@/maacc/nav';
@@ -65,6 +66,8 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
         0,
     );
     const scopedCost = scope.runs.reduce((sum, r) => sum + r.cost, 0);
+    const scopedCurrency =
+        scope.runs.map((run) => run.currency).find(Boolean) ?? 'USD';
     const compact = (n: number): string =>
         Intl.NumberFormat('en', {
             notation: 'compact',
@@ -88,7 +91,8 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                   ['failed', 'expired'].includes(r.status),
               ).length,
               tokens: compact(scopedTokens),
-              cost: 'QAR ' + compact(scopedCost),
+              cost: scopedCurrency + ' ' + compact(scopedCost),
+              costEstimated: true,
           };
 
     const runStatus = isAll
@@ -272,25 +276,44 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                               : `Agents and tools in the ${scope.projects.length} project${scope.projects.length === 1 ? '' : 's'} you're a member of.`
                     }
                     actions={
-                        <>
-                            <Btn variant="default" icon="download" size="md">
-                                Export
-                            </Btn>
-                            <Btn
-                                variant="primary"
-                                icon="plus"
-                                size="md"
-                                onClick={() => go('createAgent')}
-                            >
-                                New Agent
-                            </Btn>
-                        </>
+                        <Btn
+                            variant="primary"
+                            icon="plus"
+                            size="md"
+                            onClick={() => go('createAgent')}
+                        >
+                            New Agent
+                        </Btn>
                     }
                 />
 
                 <ScopeBanner scope={scope} />
+                <div
+                    role="status"
+                    style={{
+                        marginBottom: 12,
+                        color: 'var(--text-2)',
+                        fontSize: 11.5,
+                    }}
+                >
+                    {MAACC.meta ? (
+                        <>
+                            Application metrics source: {MAACC.meta.source} ·
+                            Refreshed{' '}
+                            {new Date(MAACC.meta.freshAt).toLocaleString()} ·{' '}
+                            {MAACC.meta.cacheSeconds > 0
+                                ? `${MAACC.meta.cacheSeconds}s aggregate cache`
+                                : 'live facts'}
+                            . Platform readiness is monitored separately through
+                            the database and promoted-asset health probe.
+                        </>
+                    ) : (
+                        'Application metric provenance is unavailable for this view.'
+                    )}
+                </div>
 
                 <div
+                    className="maacc-stat-grid"
                     style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(4, 1fr)',
@@ -315,6 +338,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                     ))}
                 </div>
                 <div
+                    className="maacc-stat-grid"
                     style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(4, 1fr)',
@@ -337,6 +361,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                 </div>
 
                 <div
+                    className="maacc-responsive-grid"
                     style={{
                         display: 'grid',
                         gridTemplateColumns: '1.6fr 1fr',
@@ -433,6 +458,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                 </div>
 
                 <div
+                    className="maacc-responsive-grid"
                     style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr 1.3fr',
@@ -541,6 +567,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                 </div>
 
                 <div
+                    className="maacc-responsive-grid"
                     style={{
                         display: 'grid',
                         gridTemplateColumns: '1.5fr 1fr',
@@ -629,7 +656,10 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                                                 {r.latency}
                                             </Td>
                                             <Td align="right" mono>
-                                                ${r.cost.toFixed(4)}
+                                                {formatCurrency(
+                                                    r.cost,
+                                                    r.currency,
+                                                )}
                                             </Td>
                                         </Tr>
                                     );
@@ -699,6 +729,7 @@ export default function Dashboard({ pendingInvitations = [] }: Props) {
                 </div>
 
                 <div
+                    className="maacc-responsive-grid"
                     style={{
                         display: 'grid',
                         gridTemplateColumns: '1.5fr 1fr',

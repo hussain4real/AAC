@@ -34,9 +34,20 @@ use App\Http\Controllers\SsoController;
 use App\Http\Controllers\Teams\TeamInvitationController;
 use App\Http\Middleware\EnsureCurrentTeamResourceOwnership;
 use App\Http\Middleware\EnsureTeamMembership;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', function (Request $request) {
+    if (! $request->user()) {
+        return redirect()->route('login');
+    }
+
+    $team = $request->user()->currentTeam;
+
+    return $team
+        ? redirect()->route('dashboard', ['current_team' => $team->slug])
+        : redirect()->route('teams.index');
+})->name('home');
 
 // Enterprise SSO login (guest-accessible auth entry points).
 Route::get('sso/{ssoConnection}/redirect', [SsoController::class, 'redirect'])->middleware('throttle:sso')->name('sso.redirect');
@@ -47,7 +58,7 @@ Route::prefix('{current_team}')
     ->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
-        // MAACC console (Phase 1 — mock-backed)
+        // MAACC console read routes backed by authorized page-scoped resources.
         Route::get('applications', [ConsoleController::class, 'applications'])->name('applications');
         Route::get('applications/{application}', [ConsoleController::class, 'application'])->name('applications.show');
         Route::get('projects', [ConsoleController::class, 'projects'])->name('projects');

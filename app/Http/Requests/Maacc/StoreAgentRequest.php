@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Maacc;
 
+use App\Enums\Sensitivity;
 use App\Models\Project;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -30,6 +31,8 @@ class StoreAgentRequest extends FormRequest
             'temperature' => ['required', 'numeric', 'between:0,2'],
             'max_tokens' => ['required', 'integer', 'min:1', 'max:200000'],
             'description' => ['nullable', 'string'],
+            'sensitivity' => ['sometimes', Rule::enum(Sensitivity::class)],
+            'requires_runtime_approval' => ['sometimes', 'boolean'],
             'status' => ['prohibited'],
             'tool_ids' => ['sometimes', 'array'],
             'tool_ids.*' => ['string', Rule::exists('tool_contracts', 'id')->where('team_id', $teamId)->where('status', 'Active')],

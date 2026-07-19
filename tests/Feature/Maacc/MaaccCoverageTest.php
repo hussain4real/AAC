@@ -23,7 +23,7 @@ use App\Support\Slug;
 use Database\Seeders\MaaccDemoSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('the console serializes the full seeded dataset through the shared prop', function () {
+test('the applications page serializes only its bounded page contract', function () {
     $this->seed(MaaccDemoSeeder::class);
     $user = User::firstWhere('email', 'demo@milaha.com');
     $team = $user->currentTeam;
@@ -33,11 +33,11 @@ test('the console serializes the full seeded dataset through the shared prop', f
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.apps', 5)
-            ->has('maacc.projects', 8)
-            ->has('maacc.agents', 9)
-            ->has('maacc.tools', 11)
-            ->has('maacc.runs', 12)
-            ->has('maacc.llms', 7));
+            ->has('maacc.projects', 0)
+            ->has('maacc.agents', 0)
+            ->has('maacc.tools', 0)
+            ->has('maacc.runs', 0)
+            ->has('maacc.llms', 0));
 });
 
 test('MAACC models expose their relationships and accessors', function () {

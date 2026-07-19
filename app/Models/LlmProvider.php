@@ -29,6 +29,11 @@ use Illuminate\Support\Carbon;
  * @property string $context_window
  * @property float $input_cost
  * @property float $output_cost
+ * @property string $pricing_currency
+ * @property string $pricing_unit
+ * @property string $pricing_source
+ * @property string $pricing_version
+ * @property Carbon|null $pricing_effective_at
  * @property Sensitivity $sensitivity
  * @property array<int, string> $environments
  * @property LlmStatus $status
@@ -48,7 +53,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, Project> $projects
  * @property-read Collection<int, Agent> $agents
  */
-#[Fillable(['team_id', 'slug', 'name', 'code', 'provider', 'context_window', 'input_cost', 'output_cost', 'sensitivity', 'environments', 'status', 'vault_secret_id', 'platform_owned', 'usage_pct', 'runs_count', 'note'])]
+#[Fillable(['team_id', 'slug', 'name', 'code', 'provider', 'context_window', 'input_cost', 'output_cost', 'pricing_currency', 'pricing_unit', 'pricing_source', 'pricing_version', 'pricing_effective_at', 'sensitivity', 'environments', 'status', 'vault_secret_id', 'platform_owned', 'usage_pct', 'runs_count', 'note'])]
 class LlmProvider extends Model
 {
     /** @use HasFactory<LlmProviderFactory> */
@@ -218,6 +223,7 @@ class LlmProvider extends Model
             'environments' => 'array',
             'input_cost' => 'float',
             'output_cost' => 'float',
+            'pricing_effective_at' => 'datetime',
             'usage_pct' => 'integer',
             'runs_count' => 'integer',
             'platform_owned' => 'boolean',

@@ -15,7 +15,7 @@ import {
     store as storeQuota,
     update as updateQuota,
 } from '@/actions/App/Http/Controllers/Maacc/QuotaLimitController';
-import { ScopeBanner } from '@/components/maacc/common';
+import { CursorPagination, ScopeBanner } from '@/components/maacc/common';
 import {
     Avatar,
     Badge,
@@ -1735,16 +1735,32 @@ export default function Governance() {
                     tabs={<Tabs tabs={tabs} active={tab} onChange={setTab} />}
                 />
                 {!isAdmin && <ScopeBanner scope={scope} />}
-                {tab === 'approvals' && <ApprovalQueues A={A} />}
+                {tab === 'approvals' && (
+                    <>
+                        <ApprovalQueues A={A} />
+                        <CursorPagination
+                            pageKey="approvals"
+                            cursorName="approvals_cursor"
+                            label="Approvals"
+                        />
+                    </>
+                )}
                 {tab === 'roles' && <RolesPerms />}
                 {tab === 'policies' && <SecurityPolicies />}
                 {tab === 'quotas' && <Quotas />}
                 {tab === 'sensitivity' && <DataSensitivity />}
                 {tab === 'audit' && (
-                    <AuditLog
-                        events={MAACC.auditEvents}
-                        operational={MAACC.operational}
-                    />
+                    <>
+                        <AuditLog
+                            events={MAACC.auditEvents}
+                            operational={MAACC.operational}
+                        />
+                        <CursorPagination
+                            pageKey="audits"
+                            cursorName="audits_cursor"
+                            label="Audit events"
+                        />
+                    </>
                 )}
             </div>
         </>

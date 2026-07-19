@@ -18,6 +18,7 @@ return [
     */
 
     'readiness' => [
+        'asset_manifest' => env('MAACC_ASSET_MANIFEST', public_path('build/manifest.json')),
         'status' => env('MAACC_ENTERPRISE_STATUS', 'non_enterprise'),
         'message' => env(
             'MAACC_ENTERPRISE_STATUS_MESSAGE',
@@ -235,6 +236,16 @@ return [
     */
 
     'pricing' => [
+        'currency' => 'USD',
+
+        'unit' => 'per_million_tokens',
+
+        'source' => 'MAACC governed catalog',
+
+        'version' => '2026-07-19',
+
+        'effective_at' => '2026-07-19T00:00:00Z',
+
         'models' => [
             'gpt-5.4' => ['input' => 1.25, 'output' => 10.0],
         ],
