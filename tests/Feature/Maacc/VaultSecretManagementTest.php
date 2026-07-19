@@ -97,6 +97,18 @@ test('a plain member cannot manage the vault', function () {
         ->assertForbidden();
 });
 
+test('a plain member cannot view the vault inventory', function () {
+    [, $team] = ownerAndTeam();
+    $member = teamMember($team);
+    VaultSecret::factory()->for($team)->withValue('sensitive-value')->create([
+        'name' => 'Restricted inventory item',
+    ]);
+
+    $this->actingAs($member)
+        ->get(route('vault', ['current_team' => $team->slug]))
+        ->assertForbidden();
+});
+
 test('a platform admin can rotate a secret', function () {
     [$owner, $team] = ownerAndTeam();
     $secret = VaultSecret::factory()->for($team)->withValue('old-value')->create();
