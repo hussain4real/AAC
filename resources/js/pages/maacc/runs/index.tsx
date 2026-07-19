@@ -1,8 +1,9 @@
 /* ============================================================
    MAACC — Runs & Audit Logs (list)
    ============================================================ */
-import { Head } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { StatCard } from '@/components/maacc/charts';
 import { ScopeBanner } from '@/components/maacc/common';
 import {
@@ -15,25 +16,65 @@ import {
     Tr,
     inputStyle,
 } from '@/components/maacc/ui';
+import { formatCurrency } from '@/maacc/format';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
 import { useMaaccData } from '@/maacc/use-data';
+import { runs as runsRoute } from '@/routes';
 
 export default function Runs() {
     const { go, scope } = useMaaccNav();
     const MAACC = useMaaccData();
-    const [q, setQ] = useState('');
-    const [f, setF] = useState({ app: 'All', status: 'All', agent: 'All' });
+    const { currentTeam } = usePage().props;
+    const filters = MAACC.pagination.runs?.filters ?? {};
+    const [q, setQ] = useState(String(filters.q ?? ''));
+    const [f, setF] = useState({
+        application: String(filters.application ?? 'All'),
+        status: String(filters.status ?? 'All'),
+        agent: String(filters.agent ?? 'All'),
+    });
 
     const all = scope.runs;
-    const list = all.filter(
-        (r) =>
-            (f.app === 'All' || r.appId === f.app) &&
-            (f.status === 'All' || r.status === f.status) &&
-            (f.agent === 'All' || r.agentId === f.agent) &&
-            (r.id.includes(q.toLowerCase()) ||
-                r.input.toLowerCase().includes(q.toLowerCase())),
-    );
+    const list = all;
+    const pagination = MAACC.pagination.runs;
+
+    const query = () => ({
+        ...(q.trim() ? { q: q.trim() } : {}),
+        ...(f.application !== 'All' ? { application: f.application } : {}),
+        ...(f.agent !== 'All' ? { agent: f.agent } : {}),
+        ...(f.status !== 'All' ? { status: f.status } : {}),
+        per_page: pagination?.perPage ?? 25,
+    });
+
+    const visit = (data: Record<string, string | number>) => {
+        if (!currentTeam) {
+            return;
+        }
+
+        router.get(runsRoute.url(currentTeam.slug), data, {
+            only: ['maacc'],
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    const applyFilters = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        visit(query());
+    };
+
+    const clearFilters = () => {
+        setQ('');
+        setF({ application: 'All', status: 'All', agent: 'All' });
+        visit({ per_page: pagination?.perPage ?? 25 });
+    };
+
+    const visitCursor = (cursor: string | null | undefined) => {
+        if (cursor) {
+            visit({ ...query(), runs_cursor: cursor });
+        }
+    };
 
     const cards = scope.isAll
         ? {
@@ -61,24 +102,14 @@ export default function Runs() {
                 <PageHeader
                     title="Runs & Audit Logs"
                     sub="Every agent run is logged with model, tokens, tool calls, latency, and cost — traceable for developers and security reviewers."
-                    actions={
-                        <>
-                            <Btn variant="default" icon="filter">
-                                Date range
-                            </Btn>
-                            <Btn variant="default" icon="download">
-                                Export logs
-                            </Btn>
-                        </>
-                    }
                 />
 
                 <ScopeBanner scope={scope} />
 
                 <div
+                    className="maacc-stat-grid"
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(4,1fr)',
                         gap: 12,
                         marginBottom: 16,
                     }}
@@ -109,7 +140,9 @@ export default function Runs() {
                     />
                 </div>
 
-                <div
+                <form
+                    onSubmit={applyFilters}
+                    aria-label="Run filters"
                     style={{
                         display: 'flex',
                         gap: 9,
@@ -131,6 +164,7 @@ export default function Runs() {
                             }}
                         />
                         <input
+                            aria-label="Search runs"
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
                             placeholder="Search run ID or input…"
@@ -139,8 +173,9 @@ export default function Runs() {
                         />
                     </div>
                     <Select
-                        value={f.app}
-                        onChange={(v) => setF({ ...f, app: v })}
+                        ariaLabel="Filter runs by application"
+                        value={f.application}
+                        onChange={(v) => setF({ ...f, application: v })}
                         options={[
                             { value: 'All', label: 'All applications' },
                             ...scope.apps.map((a) => ({
@@ -151,6 +186,7 @@ export default function Runs() {
                         style={{ width: 190 }}
                     />
                     <Select
+                        ariaLabel="Filter runs by agent"
                         value={f.agent}
                         onChange={(v) => setF({ ...f, agent: v })}
                         options={[
@@ -163,6 +199,7 @@ export default function Runs() {
                         style={{ width: 190 }}
                     />
                     <Select
+                        ariaLabel="Filter runs by status"
                         value={f.status}
                         onChange={(v) => setF({ ...f, status: v })}
                         options={[
@@ -179,11 +216,17 @@ export default function Runs() {
                         ]}
                         style={{ width: 170 }}
                     />
+                    <Btn type="submit" variant="primary" icon="filter">
+                        Apply filters
+                    </Btn>
+                    <Btn type="button" variant="ghost" onClick={clearFilters}>
+                        Clear
+                    </Btn>
                     <div style={{ flex: 1 }} />
                     <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-                        {list.length} runs
+                        {pagination?.count ?? list.length} runs on this page
                     </span>
-                </div>
+                </form>
 
                 <Table
                     columns={[
@@ -246,7 +289,7 @@ export default function Runs() {
                                     ).toLocaleString()}
                                 </Td>
                                 <Td align="right" mono>
-                                    ${r.cost.toFixed(4)}
+                                    {formatCurrency(r.cost, r.currency)}
                                 </Td>
                                 <Td align="right" mono>
                                     {r.latency}
@@ -264,6 +307,70 @@ export default function Runs() {
                         );
                     })}
                 </Table>
+
+                {list.length === 0 && (
+                    <div
+                        role="status"
+                        style={{
+                            padding: '32px 16px',
+                            textAlign: 'center',
+                            color: 'var(--text-3)',
+                        }}
+                    >
+                        No runs match the selected filters.
+                    </div>
+                )}
+
+                {pagination && (
+                    <nav
+                        aria-label="Run pages"
+                        style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 12,
+                            marginTop: 16,
+                        }}
+                    >
+                        <Btn
+                            variant="default"
+                            disabled={!pagination.previousCursor}
+                            onClick={() =>
+                                visitCursor(pagination.previousCursor)
+                            }
+                        >
+                            Previous
+                        </Btn>
+                        <span
+                            aria-live="polite"
+                            style={{ fontSize: 12, color: 'var(--text-3)' }}
+                        >
+                            Showing {pagination.count} of up to{' '}
+                            {pagination.perPage} per page
+                        </span>
+                        <Btn
+                            variant="default"
+                            disabled={!pagination.nextCursor}
+                            onClick={() => visitCursor(pagination.nextCursor)}
+                        >
+                            Next
+                        </Btn>
+                    </nav>
+                )}
+
+                {MAACC.meta && (
+                    <p
+                        style={{
+                            marginTop: 12,
+                            fontSize: 11,
+                            color: 'var(--text-3)',
+                        }}
+                    >
+                        Source: {MAACC.meta.source} · Refreshed{' '}
+                        {new Date(MAACC.meta.freshAt).toLocaleString()} ·{' '}
+                        {MAACC.meta.timezone}
+                    </p>
+                )}
             </div>
         </>
     );

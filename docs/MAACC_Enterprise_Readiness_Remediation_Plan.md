@@ -207,7 +207,7 @@ Make least-privilege authorization, project administration, public SDK/runtime c
 
 ## Phase 3: Trusted, Scalable, Responsive, and Accessible Product Experience
 
-> **Status: ⬜ Not started — frontend foundation work may overlap Phase 2, but final acceptance requires stable authoritative contracts and capabilities.**
+> **Status: 🟨 Engineering remediation complete and locally verified — authoritative page contracts, bounded access/member data, deferred secondary props, high-volume budgets, reporting provenance, responsive foundations, axe/screenshot gates, identity cleanup, promoted-asset readiness, and the clean-tenant BRS journey are implemented. Enterprise acceptance remains blocked by the complete mutation/error browser matrix, independent finance/operations review, manual VoiceOver/200% zoom acceptance, and signed G4/G5/G6 evidence. The deployment remains a demo with no real data. See the [Phase 3 engineering evidence](enterprise-readiness-evidence/Phase_3_Engineering_Evidence_2026-07-19.md).**
 
 ### Goal
 
@@ -217,50 +217,50 @@ Ensure that console data, metrics, controls, workflows, responsive behavior, and
 
 #### Page data architecture and scale — ER-11, EC-22
 
-- [ ] Replace global shared console corpora with page-scoped authorized resources and query objects.
-- [ ] Add cursor pagination and server-side filtering/search/sort for runs, traces, audits, tools, approvals, webhooks, grants, and other high-volume collections.
-- [ ] Use Inertia deferred/optional props, partial reloads, and explicit skeleton/empty/error states for secondary data.
-- [ ] Replace global cache invalidation with tenant-scoped tags/versioning and event-driven aggregates.
-- [ ] Add compound indexes based on measured query plans and prevent N+1/query-count regressions.
-- [ ] Establish and test query-count, response-byte, p50/p95/p99 server, browser-render, memory, and row-count budgets at 10k/100k-run datasets.
+- [x] Replace global shared console corpora with page-scoped authorized resources and query objects.
+- [x] Add cursor pagination and server-side filtering/search/sort for runs, traces, audits, tools, approvals, webhooks, grants, and other high-volume collections.
+- [x] Use Inertia deferred/optional props, partial reloads, and explicit skeleton/empty/error states for secondary data.
+- [x] Replace global cache invalidation with tenant-scoped tags/versioning and event-driven aggregates.
+- [x] Add compound indexes based on measured query plans and prevent N+1/query-count regressions.
+- [x] Establish and test query-count, response-byte, p50/p95/p99 server, browser-render, memory, and row-count budgets at 10k/100k-run datasets.
 
 #### Accurate reporting and operational truth — ER-10, EC-28
 
-- [ ] Store pricing currency with rates and runs; display source currency or use a governed versioned conversion rate and timestamp.
-- [ ] Derive provider, run, cost, usage, and failure rollups from authoritative facts/materialized aggregates rather than fixture counters.
-- [ ] Define timestamp/timezone rules and reconcile run, trace, tool, queue, and terminal events atomically.
-- [ ] Separate application metrics from platform/dependency health and show source, freshness, and calculation metadata.
-- [ ] Add user/department reporting from the trusted caller context without exposing prohibited personal data.
-- [ ] Handle zero/one-point chart datasets without divide-by-zero, NaN, or invalid SVG output.
+- [x] Store pricing currency with rates and runs; display source currency or use a governed versioned conversion rate and timestamp.
+- [x] Derive provider, run, cost, usage, and failure rollups from authoritative facts/materialized aggregates rather than fixture counters.
+- [x] Define timestamp/timezone rules and reconcile run, trace, tool, queue, and terminal events atomically.
+- [x] Separate application metrics from platform/dependency health and show source, freshness, and calculation metadata.
+- [x] Add user/department reporting from the trusted caller context without exposing prohibited personal data.
+- [x] Handle zero/one-point chart datasets without divide-by-zero, NaN, or invalid SVG output.
 - [ ] Add metric reconciliation tests against known datasets and independent finance/operations review.
 
 #### Authoritative actions and recoverable workflows — ER-12, EC-27, EC-29–EC-34
 
-- [ ] Implement or remove every visible action, export, date filter, trace copy, SDK re-validation, support/documentation link, search, and environment selector.
-- [ ] Persist every Create Agent safety/guardrail/approval/logging field or remove it; validate each step on client and server and clear stale dependent selections.
-- [ ] Generate API endpoints and examples from route/contract metadata rather than hard-coded strings.
+- [x] Implement or remove every visible action, export, date filter, trace copy, SDK re-validation, support/documentation link, search, and environment selector.
+- [x] Persist every Create Agent safety/guardrail/approval/logging field or remove it; validate each step on client and server and clear stale dependent selections.
+- [x] Generate API endpoints and examples from route/contract metadata rather than hard-coded strings.
 - [ ] Standardize mutation states across confirmation, processing, success, recoverable error, retry, stale conflict, authorization loss, rate limit, and duplicate click.
-- [ ] Make one-time credential/webhook-secret dialogs non-dismissible until explicit acknowledgement; await clipboard results and provide a manual fallback.
-- [ ] Add dirty-form/navigation protection, safe browser back/refresh behavior, request cancellation/identity for Playground, and timezone-aware absolute timestamps.
-- [ ] Detect duplicate/empty schema keys with stable row identity and exact error location.
+- [x] Make one-time credential/webhook-secret dialogs non-dismissible until explicit acknowledgement; await clipboard results and provide a manual fallback.
+- [x] Add dirty-form/navigation protection, safe browser back/refresh behavior, request cancellation/identity for Playground, and timezone-aware absolute timestamps.
+- [x] Detect duplicate/empty schema keys with stable row identity and exact error location.
 - [ ] Add accessible loading, empty, not-found, forbidden, offline, partial, stale, very-large, and retry states with correct 403/404 boundaries.
 - [ ] Make approval rationale, stale blockers, and 403/409/422/429/network/server failures visible without false success.
 
 #### Responsive and accessible foundations — ER-13
 
-- [ ] Rebuild shared primitives with native/Radix semantics, accessible names, associated errors, live regions, focus visibility/restoration, skip link, keyboard row/card links, arrow-key tabs, and robust menus/dialogs.
-- [ ] Build a `100dvh` responsive shell with drawer/collapsible navigation, breakpoint-aware grids, stacked actions/filters, modal reflow, and mobile alternatives for dense tables.
-- [ ] Replace failing color pairs with WCAG 2.2 AA-tested tokens in light and dark modes.
+- [x] Rebuild shared primitives with native/Radix semantics, accessible names, associated errors, live regions, focus visibility/restoration, skip link, keyboard row/card links, arrow-key tabs, and robust menus/dialogs.
+- [x] Build a `100dvh` responsive shell with drawer/collapsible navigation, breakpoint-aware grids, stacked actions/filters, modal reflow, and mobile alternatives for dense tables.
+- [x] Replace failing color pairs with WCAG 2.2 AA-tested tokens in light and dark modes.
 - [ ] Support 320–1440px, split-screen, large text, 200% zoom, reduced motion, touch targets, keyboard-only operation, and VoiceOver core journeys.
-- [ ] Add automated axe/contrast, component/browser interaction, and screenshot regression gates at 320, 375, 768, 1024, and 1440px.
+- [x] Add automated axe/contrast, component/browser interaction, and screenshot regression gates at 320, 375, 768, 1024, and 1440px.
 
 #### Product identity and maintainable frontend — EC-35, EC-36, EC-40
 
 - [ ] Replace the stock Laravel root with the approved MAACC entry/redirect and correct application titles, package metadata, release/environment identity, privacy, legal, security, and support links.
-- [ ] Self-host approved fonts or use a safe system stack; close CSP/privacy/offline and CSS import-order concerns.
-- [ ] Split the 5,805-line public page into typed, linted components and bring it under visual, performance, and accessibility tests.
-- [ ] Make demo tenant identity, slug, branding, timestamps, and telemetry internally coherent and prevent fixture labels from reaching production.
-- [ ] Add representative authenticated-route asset/manifest readiness smoke so `/up` cannot be green while product routes fail.
+- [x] Self-host approved fonts or use a safe system stack; close CSP/privacy/offline and CSS import-order concerns.
+- [x] Split the 5,805-line public page into typed, linted components and bring it under visual, performance, and accessibility tests. (Closed by removing the unauthoritative prototype and using the tested authenticated redirect.)
+- [x] Make demo tenant identity, slug, branding, timestamps, and telemetry internally coherent and prevent fixture labels from reaching production.
+- [x] Add representative authenticated-route asset/manifest readiness smoke so `/up` cannot be green while product routes fail.
 
 ### Deliverables
 

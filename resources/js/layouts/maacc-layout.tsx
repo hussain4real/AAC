@@ -5,6 +5,7 @@
    so Milaha tokens (and shadcn atoms within) take effect here
    without touching the rest of the starter-kit app.
    ============================================================ */
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { EnterpriseReadinessBanner } from '@/components/enterprise-readiness-banner';
 import { CredentialSecretGate } from '@/components/maacc/credential-secret-gate';
@@ -14,24 +15,51 @@ import { WebhookSecretGate } from '@/components/maacc/webhook-secret-gate';
 import { MaaccNavProvider } from '@/maacc/nav';
 
 export default function MaaccLayout({ children }: { children: ReactNode }) {
+    const [navigationOpen, setNavigationOpen] = useState(false);
+
+    useEffect(() => {
+        if (!navigationOpen) {
+            return;
+        }
+
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setNavigationOpen(false);
+            }
+        };
+
+        document.addEventListener('keydown', closeOnEscape);
+
+        return () => document.removeEventListener('keydown', closeOnEscape);
+    }, [navigationOpen]);
+
     return (
         <MaaccNavProvider>
-            <div
-                className="maacc-theme"
-                style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}
-            >
-                <Sidebar />
-                <div
-                    style={{
-                        flex: 1,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        minWidth: 0,
-                    }}
-                >
-                    <Topbar />
+            <div className="maacc-theme maacc-shell">
+                <a className="maacc-skip-link" href="#maacc-main-content">
+                    Skip to main content
+                </a>
+                <Sidebar className="maacc-sidebar-desktop" />
+                {navigationOpen && (
+                    <div className="maacc-navigation-layer">
+                        <button
+                            type="button"
+                            className="maacc-navigation-backdrop"
+                            aria-label="Close navigation"
+                            onClick={() => setNavigationOpen(false)}
+                        />
+                        <Sidebar
+                            className="maacc-sidebar-mobile"
+                            onNavigate={() => setNavigationOpen(false)}
+                        />
+                    </div>
+                )}
+                <div className="maacc-shell-content">
+                    <Topbar onOpenNavigation={() => setNavigationOpen(true)} />
                     <EnterpriseReadinessBanner />
                     <main
+                        id="maacc-main-content"
+                        tabIndex={-1}
                         className="maacc-scroll"
                         {...{ 'scroll-region': '' }}
                         style={{
@@ -40,15 +68,7 @@ export default function MaaccLayout({ children }: { children: ReactNode }) {
                             background: 'var(--bg)',
                         }}
                     >
-                        <div
-                            style={{
-                                maxWidth: 1320,
-                                margin: '0 auto',
-                                padding: '22px 26px 60px',
-                            }}
-                        >
-                            {children}
-                        </div>
+                        <div className="maacc-page-content">{children}</div>
                     </main>
                 </div>
                 <CredentialSecretGate />

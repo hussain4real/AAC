@@ -8,7 +8,7 @@ import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
 import { useMaaccData } from '@/maacc/use-data';
 import { logout } from '@/routes';
-import { Avatar, Badge, inputStyle, Select } from './ui';
+import { Avatar, Badge } from './ui';
 
 function NotifMenu({
     onClose,
@@ -237,8 +237,8 @@ function ProfileMenu({ onClose }: { onClose: () => void }) {
     );
 }
 
-export function Topbar() {
-    const { go, persona, env, setEnv, theme, setTheme } = useMaaccNav();
+export function Topbar({ onOpenNavigation }: { onOpenNavigation: () => void }) {
+    const { go, persona, theme, setTheme } = useMaaccNav();
     const MAACC = useMaaccData();
     const user = usePage().props.auth.user;
     const [notifOpen, setNotifOpen] = useState(false);
@@ -260,51 +260,19 @@ export function Topbar() {
                 zIndex: 30,
             }}
         >
-            <div style={{ position: 'relative', flex: 1, maxWidth: 420 }}>
-                <Icon
-                    name="search"
-                    size={15}
-                    style={{
-                        position: 'absolute',
-                        left: 11,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: 'var(--text-3)',
-                    }}
-                />
-                <input
-                    placeholder="Search agents, tools, applications, runs…"
-                    className="maacc-input"
-                    style={{
-                        ...inputStyle,
-                        height: 36,
-                        paddingLeft: 34,
-                        background: 'var(--surface-2)',
-                        border: '1px solid var(--border)',
-                    }}
-                />
-                <span
-                    style={{
-                        position: 'absolute',
-                        right: 9,
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        fontSize: 11,
-                        fontWeight: 600,
-                        color: 'var(--text-3)',
-                        border: '1px solid var(--border-2)',
-                        borderRadius: 5,
-                        padding: '1px 6px',
-                        fontFamily: 'var(--mono)',
-                    }}
-                >
-                    ⌘K
-                </span>
-            </div>
+            <button
+                type="button"
+                className="maacc-mobile-menu maacc-iconbtn"
+                aria-label="Open navigation"
+                onClick={onOpenNavigation}
+            >
+                <Icon name="menu" size={20} />
+            </button>
+            <div className="maacc-topbar-identity">MAACC Console</div>
             <div style={{ flex: 1 }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span
-                    className="maacc-tip"
+                    className="maacc-tip maacc-persona-pill"
                     data-tip={persona.blurb}
                     style={{
                         display: 'inline-flex',
@@ -331,16 +299,6 @@ export function Topbar() {
                     />
                     {persona.view}
                 </span>
-                <Select
-                    value={env}
-                    onChange={(v) => setEnv(v as typeof env)}
-                    options={[
-                        { value: 'Production', label: '⬤ Production' },
-                        { value: 'Staging', label: '⬤ Staging' },
-                        { value: 'Development', label: '⬤ Development' },
-                    ]}
-                    style={{ width: 150 }}
-                />
                 <button
                     onClick={() =>
                         setTheme(theme === 'light' ? 'dark' : 'light')
@@ -359,6 +317,7 @@ export function Topbar() {
                         justifyContent: 'center',
                     }}
                     title="Toggle theme"
+                    aria-label="Toggle color theme"
                 >
                     <Icon name={theme === 'light' ? 'moon' : 'sun'} size={17} />
                 </button>
@@ -370,6 +329,8 @@ export function Topbar() {
                             setProfileOpen(false);
                         }}
                         className="maacc-iconbtn"
+                        aria-label={`Notifications (${alertCount} unread)`}
+                        aria-expanded={notifOpen}
                         style={{
                             width: 36,
                             height: 36,
@@ -416,6 +377,8 @@ export function Topbar() {
                         }}
                         className="maacc-iconbtn"
                         title={user.name}
+                        aria-label={`Open profile menu for ${user.name}`}
+                        aria-expanded={profileOpen}
                         style={{
                             width: 36,
                             height: 36,

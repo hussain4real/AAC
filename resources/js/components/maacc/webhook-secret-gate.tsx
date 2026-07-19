@@ -13,6 +13,7 @@ import type { WebhookSecretFlash } from '@/types/ui';
 
 export function WebhookSecretGate() {
     const [secret, setSecret] = useState<WebhookSecretFlash | null>(null);
+    const [acknowledged, setAcknowledged] = useState(false);
 
     useEffect(() => {
         return router.on('flash', (event) => {
@@ -21,6 +22,7 @@ export function WebhookSecretGate() {
 
             if (data) {
                 setSecret(data);
+                setAcknowledged(false);
             }
         });
     }, []);
@@ -32,7 +34,7 @@ export function WebhookSecretGate() {
     return (
         <Modal
             open
-            onClose={() => setSecret(null)}
+            onClose={() => undefined}
             title="Webhook signing secret"
             sub="Copy this secret now — for security it is never shown again."
             icon="key"
@@ -41,6 +43,7 @@ export function WebhookSecretGate() {
                 <Btn
                     variant="primary"
                     icon="check"
+                    disabled={!acknowledged}
                     onClick={() => setSecret(null)}
                 >
                     I've stored it safely
@@ -71,6 +74,25 @@ export function WebhookSecretGate() {
                     header with this secret. MAACC keeps an encrypted copy to
                     sign deliveries but never displays it again.
                 </div>
+                <label
+                    style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 9,
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                    }}
+                >
+                    <input
+                        type="checkbox"
+                        checked={acknowledged}
+                        onChange={(event) =>
+                            setAcknowledged(event.target.checked)
+                        }
+                    />
+                    I confirm that I stored the endpoint and signing secret
+                    safely.
+                </label>
             </div>
         </Modal>
     );

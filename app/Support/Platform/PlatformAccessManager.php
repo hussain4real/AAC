@@ -4,7 +4,6 @@ namespace App\Support\Platform;
 
 use App\Enums\PlatformAccessKind;
 use App\Enums\PlatformRole;
-use App\Models\AuditEvent;
 use App\Models\PlatformAccessGrant;
 use App\Models\User;
 use App\Support\Governance\AuditLedger;
@@ -210,9 +209,13 @@ class PlatformAccessManager
      *
      * @return Collection<int, PlatformAccessGrant>
      */
-    public function dueForExpiry(): Collection
+    public function dueForExpiry(?int $limit = null): Collection
     {
-        return PlatformAccessGrant::query()->dueForExpiry()->with('user')->get();
+        return PlatformAccessGrant::query()
+            ->dueForExpiry()
+            ->with('user')
+            ->when($limit !== null, fn ($query) => $query->limit($limit))
+            ->get();
     }
 
     /**
@@ -221,7 +224,7 @@ class PlatformAccessManager
      *
      * @return Collection<int, PlatformAccessGrant>
      */
-    public function needingCertification(): Collection
+    public function needingCertification(?int $limit = null): Collection
     {
         $threshold = now()->subDays($this->certificationDays());
 
@@ -230,6 +233,7 @@ class PlatformAccessManager
             ->where('kind', PlatformAccessKind::Standard->value)
             ->where(fn ($query) => $query->whereNull('certified_at')->orWhere('certified_at', '<', $threshold))
             ->with('user')
+            ->when($limit !== null, fn ($query) => $query->limit($limit))
             ->get();
     }
 
@@ -239,24 +243,21 @@ class PlatformAccessManager
      *
      * @return Collection<int, PlatformAccessGrant>
      */
-    public function staleGrants(): Collection
+    public function staleGrants(?int $limit = null): Collection
     {
         $threshold = now()->subDays($this->staleDays());
 
         return PlatformAccessGrant::query()
             ->active()
             ->where('created_at', '<', $threshold)
+            ->whereNotExists(fn ($query) => $query
+                ->selectRaw('1')
+                ->from('audit_events')
+                ->whereColumn('audit_events.actor_user_id', 'platform_access_grants.user_id')
+                ->where('audit_events.created_at', '>=', $threshold))
             ->with('user')
-            ->get()
-            ->filter(function (PlatformAccessGrant $grant) use ($threshold): bool {
-                $recentlyActive = AuditEvent::query()
-                    ->where('actor_user_id', $grant->user_id)
-                    ->where('created_at', '>=', $threshold)
-                    ->exists();
-
-                return ! $recentlyActive;
-            })
-            ->values();
+            ->when($limit !== null, fn ($query) => $query->limit($limit))
+            ->get();
     }
 
     /**

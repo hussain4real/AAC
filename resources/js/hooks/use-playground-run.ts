@@ -1,6 +1,6 @@
 import type { FormDataConvertible } from '@inertiajs/core';
 import { useHttp, usePage } from '@inertiajs/react';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
     store,
     toolResult,
@@ -39,6 +39,8 @@ export interface PlaygroundRunResult {
     status: string;
     usage: { tokens_in: number; tokens_out: number };
     cost: number;
+    currency: string;
+    cost_estimated: boolean;
     model: string;
     latency_ms: number | null;
     trace: PlaygroundTraceEntry[];
@@ -95,6 +97,7 @@ export function usePlaygroundRun(): UsePlaygroundRunReturn {
 
     const [run, setRun] = useState<PlaygroundRunResult | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const requestIdentity = useRef(0);
 
     const start = useCallback(
         async (
@@ -108,6 +111,8 @@ export function usePlaygroundRun(): UsePlaygroundRunReturn {
 
             setError(null);
             setRun(null);
+            runHttp.cancel();
+            const identity = ++requestIdentity.current;
 
             try {
                 runHttp.transform(() => ({ input, environment }));
@@ -115,11 +120,16 @@ export function usePlaygroundRun(): UsePlaygroundRunReturn {
                     store({ current_team: currentTeam.slug, agent: agentId }),
                     { headers: JSON_HEADERS },
                 );
-                setRun(result);
+
+                if (identity === requestIdentity.current) {
+                    setRun(result);
+                }
             } catch {
-                setError(
-                    'The run could not be completed. Check the agent is published and its model is configured.',
-                );
+                if (identity === requestIdentity.current) {
+                    setError(
+                        'The run could not be completed. Check the agent is published and its model is configured.',
+                    );
+                }
             }
         },
         [currentTeam, runHttp],
@@ -155,9 +165,12 @@ export function usePlaygroundRun(): UsePlaygroundRunReturn {
     );
 
     const reset = useCallback((): void => {
+        requestIdentity.current++;
+        runHttp.cancel();
+        toolHttp.cancel();
         setRun(null);
         setError(null);
-    }, []);
+    }, [runHttp, toolHttp]);
 
     return {
         run,

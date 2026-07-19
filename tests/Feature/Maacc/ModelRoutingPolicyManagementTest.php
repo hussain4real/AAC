@@ -119,13 +119,13 @@ test('a platform admin can update and delete a routing policy', function () {
     expect(ModelRoutingPolicy::find($policy->id))->toBeNull();
 });
 
-test('the console dataset exposes routing policies and provider health', function () {
+test('the routing page exposes policies and provider health', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = maaccAgent($team);
     ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create(['name' => 'Cheap first']);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('routing', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.routingPolicies', 1)

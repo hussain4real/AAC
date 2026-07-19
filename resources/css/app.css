@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
-
 @import 'tailwindcss';
 
 @import 'tw-animate-css';
@@ -166,19 +164,19 @@
     --navy-800: #0a1f3f;
     --navy-700: #152a4d;
     --navy-600: #23375e;
-    --orange-600: #ff5200;
+    --orange-600: #a93600;
     --orange-500: #ff6a21;
     --orange-400: #ff8547;
     --orange-100: #ffe7da;
-    --teal-600: #0f9b80;
+    --teal-600: #087260;
     --teal-500: #159d83;
     --teal-400: #3cbfae;
     --teal-300: #7fd3c5;
     --teal-100: #d9f2ec;
-    --red-600: #cf2f2f;
+    --red-600: #b42318;
     --red-500: #e0463f;
     --red-100: #fbe2e0;
-    --amber-500: #d98a0b;
+    --amber-500: #855300;
     --amber-100: #fcefcf;
     --blue-500: #2563c9;
     --blue-100: #dbe7fb;
@@ -197,8 +195,8 @@
     --sh-pop: 0 8px 28px -6px rgba(11, 22, 40, 0.28);
 
     /* fonts */
-    --font: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --font: 'Instrument Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
     --sidebar-w: 248px;
 
@@ -211,7 +209,7 @@
     --border-2: #d2d8e4;
     --text: #141b2b;
     --text-2: #586275;
-    --text-3: #8b94a7;
+    --text-3: #626b7d;
     --primary: #6a18a0;
     --primary-strong: #5c0f8c;
     --primary-contrast: #ffffff;
@@ -254,7 +252,7 @@
     --border-2: #27395a;
     --text: #e7ecf5;
     --text-2: #94a3bd;
-    --text-3: #65748f;
+    --text-3: #a6b1c3;
     --primary: #b07cd8;
     --primary-strong: #c79ae6;
     --primary-contrast: #1a0830;
@@ -283,6 +281,7 @@
     --blue-100: #15243f;
 
     --teal-600: #4fd0bd;
+    --orange-600: #ff9a6b;
     --amber-500: #ecb44e;
     --red-600: #f1736b;
     --blue-500: #6ea6ec;
@@ -421,6 +420,127 @@
 }
 .maacc-theme .route-anim {
     animation: maaccRouteIn 0.25s ease;
+}
+.maacc-theme .maacc-stat-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+.maacc-shell {
+    display: flex;
+    height: 100dvh;
+    min-height: 100vh;
+    overflow: hidden;
+}
+.maacc-shell-content {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-direction: column;
+}
+.maacc-page-content {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 22px 26px 60px;
+}
+.maacc-mobile-menu,
+.maacc-topbar-identity,
+.maacc-navigation-layer {
+    display: none;
+}
+.maacc-skip-link {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 200;
+    transform: translateY(-150%);
+    border-radius: var(--r-sm);
+    background: var(--primary);
+    color: var(--primary-contrast);
+    padding: 9px 12px;
+    font-weight: 700;
+}
+.maacc-skip-link:focus {
+    transform: none;
+}
+.maacc-theme :focus-visible {
+    outline: 3px solid var(--primary);
+    outline-offset: 2px;
+}
+@media (max-width: 767px) {
+    .maacc-sidebar-desktop {
+        display: none !important;
+    }
+    .maacc-mobile-menu,
+    .maacc-topbar-identity {
+        display: inline-flex;
+    }
+    .maacc-mobile-menu {
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        background: var(--surface-2);
+        color: var(--text);
+    }
+    .maacc-topbar-identity {
+        align-items: center;
+        flex: 1;
+        font-size: 14px;
+        font-weight: 700;
+    }
+    .maacc-navigation-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: flex;
+    }
+    .maacc-navigation-backdrop {
+        position: absolute;
+        inset: 0;
+        border: 0;
+        background: rgba(2, 8, 23, 0.58);
+    }
+    .maacc-sidebar-mobile {
+        width: min(86vw, 300px) !important;
+        height: 100dvh;
+        z-index: 1 !important;
+        box-shadow: var(--sh-lg);
+    }
+    .maacc-page-content {
+        padding: 18px 14px 44px;
+    }
+    .maacc-persona-pill {
+        display: none !important;
+    }
+    .maacc-theme header {
+        gap: 8px !important;
+        padding: 0 10px !important;
+    }
+    .maacc-theme header [role='combobox'] {
+        max-width: 118px;
+    }
+    .maacc-theme [style*='grid-template-columns: repeat('] {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    .maacc-theme [style*='justify-content: space-between'] {
+        flex-wrap: wrap;
+    }
+}
+@media (max-width: 900px) {
+    .maacc-theme .maacc-stat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+@media (max-width: 1100px) {
+    .maacc-theme .maacc-responsive-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+}
+@media (max-width: 560px) {
+    .maacc-theme .maacc-stat-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
 }
 @media (prefers-reduced-motion: reduce) {
     .maacc-theme * {

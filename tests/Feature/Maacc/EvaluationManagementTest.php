@@ -5,6 +5,7 @@ use App\Enums\EvaluationStatus;
 use App\Models\Evaluation;
 use App\Models\EvaluationCase;
 use App\Models\EvaluationDataset;
+use App\Models\EvaluationResult;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('the evaluation lab page renders', function () {
@@ -135,20 +136,25 @@ test('an evaluation can be deleted', function () {
     expect(Evaluation::find($evaluation->id))->toBeNull();
 });
 
-test('the shared maacc prop exposes datasets and evaluations', function () {
+test('the evaluations page exposes datasets and evaluations', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = maaccAgent($team);
     $dataset = EvaluationDataset::factory()->for($team)->create(['name' => 'Gate']);
     EvaluationCase::factory()->for($dataset, 'dataset')->create();
-    Evaluation::factory()->passed()->create([
+    $evaluation = Evaluation::factory()->passed()->create([
         'team_id' => $team->id,
         'agent_id' => $agent->id,
         'evaluation_dataset_id' => $dataset->id,
         'label' => 'Gate run',
     ]);
+    EvaluationResult::factory()->create([
+        'evaluation_id' => $evaluation->id,
+        'citations' => null,
+        'agent_run_id' => null,
+    ]);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('evaluations', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.evaluationDatasets', 1)

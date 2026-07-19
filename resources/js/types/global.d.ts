@@ -32,6 +32,7 @@ export interface MaaccDashboardStats {
     failed: number;
     tokens: string;
     cost: string;
+    costEstimated?: boolean;
 }
 
 export interface MaaccAlert {
@@ -48,6 +49,32 @@ export interface MaaccDashboard {
     runsOverTime: number[];
     topAgents: { id: string; name: string; runs: number; app: string }[];
     alerts: MaaccAlert[];
+    usageByUser?: Array<{
+        key: string;
+        runs: number;
+        tokens: number;
+        cost: number;
+    }>;
+    usageByDepartment?: Array<{
+        key: string;
+        runs: number;
+        tokens: number;
+        cost: number;
+    }>;
+    reporting?: {
+        source: string;
+        measuredAt: string;
+        timezone: string;
+        window: string;
+        cost: {
+            estimated: boolean;
+            currency: string;
+            unit: string;
+            source: string | null;
+            version: string | null;
+            effectiveAt: string | null;
+        };
+    };
 }
 
 export interface EnterpriseReadinessState {
@@ -536,6 +563,23 @@ export interface MaaccProp {
     incidents: MaaccIncident[];
     ssoConnections: MaaccSsoConnection[];
     memberDirectory: Array<{ id: number; name: string; email: string }>;
+    pagination: Record<
+        string,
+        {
+            count: number;
+            perPage: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+            previousCursor: string | null;
+            filters: Record<string, string | number | null>;
+        }
+    >;
+    meta: {
+        source: string;
+        freshAt: string;
+        cacheSeconds: number;
+        timezone: string;
+    } | null;
 }
 
 declare module '@inertiajs/core' {

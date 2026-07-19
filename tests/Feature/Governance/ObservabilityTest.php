@@ -32,7 +32,7 @@ test('run metrics aggregate today\'s runs, status, trend, and top agents', funct
         ->and($metrics['stats']['waitingClient'])->toBe(1)
         ->and($metrics['stats']['agents'])->toBe(1)
         ->and($metrics['stats']['apps'])->toBe(1)
-        ->and($metrics['stats']['cost'])->toContain('QAR')
+        ->and($metrics['stats']['cost'])->toContain('USD')
         ->and($metrics['runStatus'])->toHaveCount(6)
         ->and(collect($metrics['runStatus'])->firstWhere('label', 'Completed')['value'])->toBe(1)
         ->and($metrics['runsOverTime'])->toHaveCount(24)

@@ -135,7 +135,7 @@ test('incident controls validate the action and require a reason', function () {
         ->assertSessionHasErrors(['action', 'target', 'reason']);
 });
 
-test('the console dataset exposes the incident timeline', function () {
+test('the incident response page exposes the incident timeline', function () {
     [$owner, $team] = ownerAndTeam();
     IncidentAction::factory()->for($team)->create([
         'type' => 'disable_model',
@@ -145,7 +145,7 @@ test('the console dataset exposes the incident timeline', function () {
     ]);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('incidents', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.incidents', 1)

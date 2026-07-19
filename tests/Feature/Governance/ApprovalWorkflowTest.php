@@ -17,6 +17,7 @@ use App\Models\Project;
 use App\Models\Team;
 use App\Models\ToolContract;
 use App\Models\User;
+use App\Support\Governance\ApprovalGate;
 use App\Support\Governance\ApprovalManager;
 use Illuminate\Support\Facades\Hash;
 
@@ -131,6 +132,23 @@ test('a model change invalidates its pending promotion approval', function () {
 
     expect($request->fresh()->status)->toBe(ApprovalStatus::Pending)
         ->and($model->fresh()->environments)->toBe(['development']);
+});
+
+test('model promotion reports lost verification and credential prerequisites', function () {
+    [$owner, $team] = ownerAndTeam();
+    $model = LlmProvider::factory()->for($team)->create([
+        'platform_owned' => false,
+        'vault_secret_id' => null,
+        'verification_status' => null,
+        'verified_at' => null,
+    ]);
+    $request = app(ApprovalManager::class)->requestModelAccess($model, $owner, Environment::Production);
+
+    expect(app(ApprovalGate::class)->blockers($request->load('subject')))
+        ->toContain(
+            'The model no longer has a successful verification.',
+            'The model has no approved credential source.',
+        );
 });
 
 test('a requester cannot approve their own change', function () {

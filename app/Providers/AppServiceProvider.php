@@ -6,9 +6,10 @@ use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
 use App\Support\Governance\Contracts\AuditArchive;
-use App\Support\MaaccConsoleData;
+use App\Support\MaaccConsoleCache;
 use App\Support\Outbound\DnsResolver;
 use App\Support\Outbound\SystemDnsResolver;
+use App\Support\ProductReadinessProbe;
 use App\Support\Sdk\SdkContext;
 use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Secrets\DatabaseSecretVault;
@@ -17,6 +18,7 @@ use Carbon\CarbonInterval;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +61,13 @@ class AppServiceProvider extends ServiceProvider
         $this->configurePlatformAuthorization();
         $this->configureConsoleCacheInvalidation();
         $this->configureSdkRateLimits();
+
+        Event::listen(
+            DiagnosingHealth::class,
+            function (): void {
+                app(ProductReadinessProbe::class)->assertReady();
+            },
+        );
     }
 
     /**
@@ -85,12 +94,9 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * Invalidate the shared console dataset cache ({@see MaaccConsoleData}) on any
-     * write to a console-scoped model. The dataset is a shared Inertia prop built
-     * on every authenticated request, so it is cached and only rebuilt when the
-     * underlying data actually changes. Team membership and auth models are
-     * ignored because they do not appear in the console payload and would
-     * otherwise bust the cache on routine writes (e.g. login).
+     * Invalidate only the changed tenant's versioned console aggregate cache.
+     * Authentication models are ignored so routine login writes do not evict
+     * unrelated reporting snapshots.
      */
     protected function configureConsoleCacheInvalidation(): void
     {
@@ -107,7 +113,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            MaaccConsoleData::invalidate();
+            app(MaaccConsoleCache::class)->invalidateForModel($model);
         });
     }
 

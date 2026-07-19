@@ -492,6 +492,7 @@ export default function Applications() {
                             }}
                         />
                         <input
+                            aria-label="Search applications"
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
                             placeholder="Search applications…"
@@ -500,6 +501,7 @@ export default function Applications() {
                         />
                     </div>
                     <Select
+                        ariaLabel="Filter applications by department"
                         value={dept}
                         onChange={setDept}
                         options={depts}

@@ -1,6 +1,7 @@
 /* ============================================================
    MAACC — Cross-screen shared helpers
    ============================================================ */
+import { router, usePage } from '@inertiajs/react';
 import type { CSSProperties, ReactNode } from 'react';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
@@ -18,6 +19,76 @@ import {
     Td,
     Tr,
 } from './ui';
+
+/** Cursor navigation shared by bounded high-volume console collections. */
+export function CursorPagination({
+    pageKey,
+    cursorName,
+    label,
+}: {
+    pageKey: string;
+    cursorName: string;
+    label: string;
+}) {
+    const MAACC = useMaaccData();
+    const page = usePage();
+    const pagination = MAACC.pagination[pageKey];
+
+    if (!pagination) {
+        return null;
+    }
+
+    const visit = (cursor: string | null) => {
+        if (!cursor) {
+            return;
+        }
+
+        const [path, search = ''] = page.url.split('?');
+        const params = new URLSearchParams(search);
+        params.set(cursorName, cursor);
+
+        router.get(path, Object.fromEntries(params), {
+            only: ['maacc'],
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+        });
+    };
+
+    return (
+        <nav
+            aria-label={`${label} pages`}
+            style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
+                marginTop: 16,
+            }}
+        >
+            <Btn
+                variant="default"
+                disabled={!pagination.previousCursor}
+                onClick={() => visit(pagination.previousCursor)}
+            >
+                Previous
+            </Btn>
+            <span
+                aria-live="polite"
+                style={{ fontSize: 12, color: 'var(--text-3)' }}
+            >
+                {pagination.count} {label.toLowerCase()} on this page
+            </span>
+            <Btn
+                variant="default"
+                disabled={!pagination.nextCursor}
+                onClick={() => visit(pagination.nextCursor)}
+            >
+                Next
+            </Btn>
+        </nav>
+    );
+}
 
 /** Small uppercase section label (shared by SDK + Playground panels). */
 export function Lbl({

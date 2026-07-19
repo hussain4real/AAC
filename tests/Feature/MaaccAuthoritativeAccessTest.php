@@ -1,16 +1,20 @@
 <?php
 
 use App\Enums\MaaccRole;
+use App\Enums\PlatformRole;
 use App\Models\Agent;
 use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ProjectMember;
+use App\Models\SsoConnection;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
 use App\Support\MaaccAccess;
+use App\Support\MaaccConsoleCache;
 use App\Support\MaaccConsoleData;
+use Database\Seeders\PlatformRbacSeeder;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -21,6 +25,24 @@ test('platform administrators receive every platform navigation entry', function
 
     expect(app(MaaccAccess::class)->forUser($owner, $team)['navigation'])
         ->toContain('identity', 'accessControl');
+});
+
+test('platform administrators receive the full console projection and enterprise identity data', function () {
+    $this->seed(PlatformRbacSeeder::class);
+    [$owner, $team] = ownerAndTeam();
+    $owner->assignRole(PlatformRole::SuperAdmin->value);
+    SsoConnection::factory()->for($team)->create();
+
+    Cache::clear();
+    $this->actingAs($owner);
+    request()->setUserResolver(static fn () => $owner);
+    $data = MaaccConsoleData::forUser($owner, $team);
+
+    expect($data['ssoConnections'])->toHaveCount(1)
+        ->and($data['apps'])->toBeArray();
+
+    app(MaaccConsoleCache::class)->invalidateForModel($team);
+    expect((int) Cache::get("maacc:console:team:{$team->id}:version"))->toBeGreaterThan(1);
 });
 
 test('server issued capabilities derive from active memberships and expire fail closed', function () {

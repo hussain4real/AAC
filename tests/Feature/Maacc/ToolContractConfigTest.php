@@ -64,6 +64,35 @@ test('a remote HTTP tool persists its execution config', function () {
         ->and($view['redaction'])->toBe(['ssn']);
 });
 
+test('knowledge and database tool resources expose safe execution settings', function () {
+    [, $team] = ownerAndTeam();
+    $knowledge = ToolContract::factory()->for($team)->create([
+        'execution_mode' => ExecMode::Knowledge,
+        'knowledge_config' => ['top_k' => 8, 'min_score' => 0.35],
+        'max_payload_kb' => 1024,
+    ]);
+    $database = ToolContract::factory()->for($team)->db(config: [
+        'query' => 'select metric from reporting_metrics',
+        'bindings' => ['team_id', 42],
+        'columns' => ['metric', 42],
+        'row_limit' => 25,
+        'max_age_minutes' => 60,
+    ])->create();
+
+    $knowledgeView = (new ToolContractResource($knowledge))->toArray(request());
+    $databaseView = (new ToolContractResource($database))->toArray(request());
+
+    expect($knowledgeView['knowledgeConfig'])->toBe(['topK' => 8, 'minScore' => 0.35])
+        ->and($knowledgeView['maxPayload'])->toBe('1 MB')
+        ->and($databaseView['dbConfig'])->toMatchArray([
+            'query' => 'select metric from reporting_metrics',
+            'bindings' => ['team_id'],
+            'columns' => ['metric'],
+            'rowLimit' => 25,
+            'maxAgeMinutes' => 60,
+        ]);
+});
+
 test('a remote HTTP tool requiring approval starts as draft and opens an approval', function () {
     [$owner, $team] = ownerAndTeam();
 

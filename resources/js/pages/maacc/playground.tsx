@@ -39,6 +39,7 @@ import type {
     Environment as ConsoleEnvironment,
     Llm,
 } from '@/maacc/data';
+import { formatCurrency } from '@/maacc/format';
 import { Icon } from '@/maacc/icons';
 import type { IconName } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
@@ -404,7 +405,7 @@ function RunStats({ run }: RunStatsProps) {
                 className="mono"
                 title="Estimated: token usage × the model's per-1M price catalog. Providers return usage, not cost, via their API."
             >
-                ~${run.cost.toFixed(4)} est.
+                ~{formatCurrency(run.cost, run.currency)} est.
             </span>
             {run.latency_ms !== null && (
                 <span className="mono">
@@ -522,7 +523,7 @@ function hasEligibleRoutingProvider(
 }
 
 export default function Playground() {
-    const { go, scope, env } = useMaaccNav();
+    const { go, scope, env, setEnv } = useMaaccNav();
     const MAACC = useMaaccData();
     const { run, error, processing, start, submitToolResult, reset } =
         usePlaygroundRun();
@@ -712,9 +713,28 @@ export default function Playground() {
                                     gap: 13,
                                 }}
                             >
+                                <Field
+                                    label="Playground environment"
+                                    hint="Applies only to this governed test run."
+                                >
+                                    <Select
+                                        ariaLabel="Playground environment"
+                                        value={env}
+                                        onChange={(value) => {
+                                            reset();
+                                            setEnv(value as typeof env);
+                                        }}
+                                        options={[
+                                            'Production',
+                                            'Staging',
+                                            'Development',
+                                        ]}
+                                    />
+                                </Field>
                                 <Field label="Application">
                                     {environmentApps.length > 0 ? (
                                         <Select
+                                            ariaLabel="Playground application"
                                             value={appId}
                                             onChange={(value) => {
                                                 const nextProject =
@@ -770,6 +790,7 @@ export default function Playground() {
                                 <Field label="Project">
                                     {projectOptions.length > 0 ? (
                                         <Select
+                                            ariaLabel="Playground project"
                                             value={projectId}
                                             onChange={(value) => {
                                                 const nextAgent =
@@ -808,6 +829,7 @@ export default function Playground() {
                                 <Field label="Agent">
                                     {agentOptions.length > 0 ? (
                                         <Select
+                                            ariaLabel="Playground agent"
                                             value={agentId}
                                             onChange={onAgentChange}
                                             options={agentOptions.map(

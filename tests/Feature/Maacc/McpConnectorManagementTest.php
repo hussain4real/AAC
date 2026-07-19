@@ -162,16 +162,14 @@ test('a connector can be deleted', function () {
     expect($connector->fresh()->trashed())->toBeTrue();
 });
 
-test('the console connectors dataset exposes connectors without credential material', function () {
+test('the connectors page exposes connectors without credential material', function () {
     [$owner, $team] = ownerAndTeam();
     McpConnector::factory()->for($team)->withBearer('top-secret')->withCapabilities([
         ['name' => 'lookup', 'title' => 'Lookup', 'description' => 'Look up', 'input_schema' => []],
     ])->create(['name' => 'Ops MCP']);
 
-    // The connectors dataset rides the shared `maacc` prop served on every console
-    // page, so it is asserted from an existing page to avoid a Vite build here.
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('connectors', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.connectors', 1)

@@ -259,12 +259,12 @@ test('a connection can be disabled and deleted', function () {
     expect($connection->fresh()->trashed())->toBeTrue();
 });
 
-test('the console dataset exposes connections without the client secret', function () {
+test('the identity page exposes connections without the client secret', function () {
     [$owner, $team] = identityManagerAndTeam();
     SsoConnection::factory()->for($team)->create(['name' => 'Corp IdP', 'client_secret' => 'hidden']);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('identity', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.ssoConnections', 1)

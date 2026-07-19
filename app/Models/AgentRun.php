@@ -35,6 +35,8 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $execution_snapshot
  * @property string|null $caller
  * @property array<string, mixed>|null $caller_context
+ * @property string|null $caller_subject
+ * @property string|null $caller_department
  * @property RunMode $mode
  * @property Environment|null $environment
  * @property Sensitivity $sensitivity
@@ -48,6 +50,10 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $processing_claimed_at
  * @property bool $terminal_event_emitted
  * @property float $cost
+ * @property string $cost_currency
+ * @property string|null $pricing_source
+ * @property string|null $pricing_version
+ * @property Carbon|null $pricing_effective_at
  * @property int|null $latency_ms
  * @property array<int, string>|null $tools
  * @property string|null $input
@@ -71,7 +77,7 @@ use Illuminate\Support\Carbon;
  * @property-read Collection<int, ToolCall> $toolCalls
  * @property-read Collection<int, TraceEvent> $traceEvents
  */
-#[Fillable(['agent_id', 'agent_version_id', 'evaluation_id', 'project_id', 'application_id', 'initiated_by', 'llm_provider_id', 'slug', 'correlation_id', 'idempotency_key', 'request_hash', 'policy_version', 'is_test', 'execution_snapshot', 'caller', 'caller_context', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'reserved_tokens', 'next_trace_sequence', 'next_tool_sequence', 'processing_token', 'processing_claimed_at', 'terminal_event_emitted', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
+#[Fillable(['agent_id', 'agent_version_id', 'evaluation_id', 'project_id', 'application_id', 'initiated_by', 'llm_provider_id', 'slug', 'correlation_id', 'idempotency_key', 'request_hash', 'policy_version', 'is_test', 'execution_snapshot', 'caller', 'caller_context', 'caller_subject', 'caller_department', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'reserved_tokens', 'next_trace_sequence', 'next_tool_sequence', 'processing_token', 'processing_claimed_at', 'terminal_event_emitted', 'cost', 'cost_currency', 'pricing_source', 'pricing_version', 'pricing_effective_at', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
 class AgentRun extends Model
 {
     /** @use HasFactory<AgentRunFactory> */
@@ -252,6 +258,7 @@ class AgentRun extends Model
             'processing_claimed_at' => 'datetime',
             'terminal_event_emitted' => 'boolean',
             'cost' => 'float',
+            'pricing_effective_at' => 'datetime',
             'latency_ms' => 'integer',
             'tools' => 'array',
             'caller_context' => 'array',

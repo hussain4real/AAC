@@ -5,6 +5,7 @@
    prop — it mirrors the live-trace rendering used by the Agent Playground.
    ============================================================ */
 import { Head } from '@inertiajs/react';
+import { useState } from 'react';
 import { NoAccess } from '@/components/maacc/common';
 import {
     Badge,
@@ -16,6 +17,7 @@ import {
     RunBadge,
     SectionHeader,
 } from '@/components/maacc/ui';
+import { formatCurrency } from '@/maacc/format';
 import { Icon } from '@/maacc/icons';
 import type { IconName } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
@@ -255,6 +257,9 @@ export default function Show({
     const { go, scope } = useMaaccNav();
     const MAACC = useMaaccData();
     const run = MAACC.byId(MAACC.runs, id) || MAACC.runs[0];
+    const [copyState, setCopyState] = useState<'idle' | 'copied' | 'manual'>(
+        'idle',
+    );
 
     if (!scope.has.run(run.id)) {
         return <NoAccess kind="run" />;
@@ -263,6 +268,20 @@ export default function Show({
     const ag = MAACC.agentById(run.agentId);
     const llm = MAACC.llmById(run.llm);
     const failed = ['failed', 'expired'].includes(run.status);
+    const traceText = JSON.stringify(
+        { runId: run.id, status: run.status, trace: trace ?? [] },
+        null,
+        2,
+    );
+
+    const copyTrace = async () => {
+        try {
+            await navigator.clipboard.writeText(traceText);
+            setCopyState('copied');
+        } catch {
+            setCopyState('manual');
+        }
+    };
 
     const finalOutput: string | null =
         run.status === 'completed' ? (run.output ?? null) : null;
@@ -293,8 +312,14 @@ export default function Show({
                     }
                     actions={
                         <>
-                            <Btn variant="default" icon="copy">
-                                Copy trace
+                            <Btn
+                                variant="default"
+                                icon="copy"
+                                onClick={() => void copyTrace()}
+                            >
+                                {copyState === 'copied'
+                                    ? 'Trace copied'
+                                    : 'Copy trace'}
                             </Btn>
                             <Btn
                                 variant="default"
@@ -307,7 +332,33 @@ export default function Show({
                     }
                 />
 
+                <div aria-live="polite" className="sr-only">
+                    {copyState === 'copied' ? 'Run trace copied.' : ''}
+                </div>
+                {copyState === 'manual' && (
+                    <Card style={{ marginBottom: 16 }}>
+                        <SectionHeader
+                            title="Copy unavailable"
+                            sub="Select and copy the trace manually."
+                            icon="copy"
+                        />
+                        <textarea
+                            readOnly
+                            value={traceText}
+                            aria-label="Run trace for manual copy"
+                            onFocus={(event) => event.currentTarget.select()}
+                            style={{
+                                width: '100%',
+                                minHeight: 160,
+                                fontFamily: 'var(--mono)',
+                                fontSize: 12,
+                            }}
+                        />
+                    </Card>
+                )}
+
                 <div
+                    className="maacc-responsive-grid"
                     style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(6,1fr)',
@@ -332,7 +383,7 @@ export default function Show({
                     />
                     <MetricBox
                         label="Cost"
-                        value={`$${run.cost.toFixed(4)}`}
+                        value={formatCurrency(run.cost, run.currency)}
                         mono
                     />
                     <MetricBox label="Latency" value={run.latency} mono />

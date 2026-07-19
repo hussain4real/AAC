@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Layla Hassan',
             'email' => 'demo@milaha.com',
         ]);
+        $demo->currentTeam?->forceFill(['name' => 'Milaha Demo Workspace'])->save();
 
         // MAACC platform administration RBAC (Phase 8B): the platform roles +
         // permission catalogue. The demo operator is a Super Admin so the demo

@@ -7,14 +7,16 @@ import AuthLayout from '@/layouts/auth-layout';
 import MaaccLayout from '@/layouts/maacc-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+const configuredAppName = import.meta.env.VITE_APP_NAME;
+const appName =
+    configuredAppName && configuredAppName !== 'Laravel'
+        ? configuredAppName
+        : 'MAACC';
 
 createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
-            case name === 'welcome':
-                return null;
             case name.startsWith('auth/'):
                 return AuthLayout;
             case name === 'dashboard':

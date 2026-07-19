@@ -5,6 +5,7 @@
 import { usePage } from '@inertiajs/react';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
+import type { RouteName } from '@/maacc/nav';
 import { NAV_GROUPS, SCREEN_OF } from '@/maacc/personas';
 import { useMaaccData } from '@/maacc/use-data';
 import { Avatar } from './ui';
@@ -74,7 +75,13 @@ function Logo({ compact = false }: { compact?: boolean }) {
     );
 }
 
-export function Sidebar() {
+export function Sidebar({
+    className = '',
+    onNavigate,
+}: {
+    className?: string;
+    onNavigate?: () => void;
+}) {
     const { go, persona, activeScreen } = useMaaccNav();
     const MAACC = useMaaccData();
     // System status reflects real governance/observability alerts: a high-
@@ -97,8 +104,15 @@ export function Sidebar() {
         ),
     })).filter((g) => g.items.length);
 
+    const navigate = (screen: RouteName) => {
+        go(screen);
+        onNavigate?.();
+    };
+
     return (
         <aside
+            className={className}
+            aria-label="Primary navigation"
             style={{
                 width: 'var(--sidebar-w)',
                 flexShrink: 0,
@@ -176,7 +190,7 @@ export function Sidebar() {
             {canCreateAgent && (
                 <div style={{ padding: '0 12px 8px' }}>
                     <button
-                        onClick={() => go('createAgent')}
+                        onClick={() => navigate('createAgent')}
                         className="maacc-navitem"
                         style={{
                             width: '100%',
@@ -202,6 +216,7 @@ export function Sidebar() {
             )}
 
             <nav
+                aria-label="MAACC console"
                 className="maacc-scroll"
                 style={{ flex: 1, overflowY: 'auto', padding: '6px 12px 14px' }}
             >
@@ -236,7 +251,8 @@ export function Sidebar() {
                                 return (
                                     <button
                                         key={it.id}
-                                        onClick={() => go(it.id)}
+                                        onClick={() => navigate(it.id)}
+                                        aria-current={on ? 'page' : undefined}
                                         className="maacc-navitem"
                                         style={{
                                             display: 'flex',
@@ -327,8 +343,8 @@ export function Sidebar() {
                         }}
                     >
                         {degraded
-                            ? 'Service degraded'
-                            : 'All systems operational'}
+                            ? 'Governance attention required'
+                            : 'No governance alerts'}
                     </div>
                     <div>MAACC v1.1 · Doha DC</div>
                 </div>

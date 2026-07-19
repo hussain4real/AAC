@@ -368,7 +368,8 @@ export function AreaSpark({
     const min = Math.min(...values, 0);
     const range = max - min || 1;
     const pts = values.map((v, i) => {
-        const x = (i / (values.length - 1)) * width;
+        const x =
+            values.length === 1 ? width / 2 : (i / (values.length - 1)) * width;
         const y = height - ((v - min) / range) * (height - 12) - 6;
 
         return [x, y] as const;
@@ -379,7 +380,8 @@ export function AreaSpark({
                 `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`,
         )
         .join(' ');
-    const area = `${line} L${width} ${height} L0 ${height} Z`;
+    const area =
+        pts.length > 1 ? `${line} L${width} ${height} L0 ${height} Z` : '';
     const gid = 'ag' + useId().replace(/[:]/g, '');
     const [dash, setDash] = useState(true);
     useEffect(() => {
@@ -390,6 +392,12 @@ export function AreaSpark({
 
     return (
         <svg
+            role="img"
+            aria-label={
+                values.length === 0
+                    ? 'No trend data'
+                    : `Trend with ${values.length} data points`
+            }
             width="100%"
             viewBox={`0 0 ${width} ${height}`}
             preserveAspectRatio="none"
@@ -401,27 +409,31 @@ export function AreaSpark({
                     <stop offset="100%" stopColor={color} stopOpacity="0" />
                 </linearGradient>
             </defs>
-            <path
-                d={area}
-                fill={`url(#${gid})`}
-                style={{
-                    opacity: dash ? 0 : 1,
-                    transition: 'opacity .6s ease .3s',
-                }}
-            />
-            <path
-                d={line}
-                fill="none"
-                stroke={color}
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                    strokeDasharray: 2000,
-                    strokeDashoffset: dash ? 2000 : 0,
-                    transition: 'stroke-dashoffset 1.1s ease',
-                }}
-            />
+            {area && (
+                <path
+                    d={area}
+                    fill={`url(#${gid})`}
+                    style={{
+                        opacity: dash ? 0 : 1,
+                        transition: 'opacity .6s ease .3s',
+                    }}
+                />
+            )}
+            {line && (
+                <path
+                    d={line}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    style={{
+                        strokeDasharray: 2000,
+                        strokeDashoffset: dash ? 2000 : 0,
+                        transition: 'stroke-dashoffset 1.1s ease',
+                    }}
+                />
+            )}
             {pts.length > 0 && (
                 <circle
                     cx={pts[pts.length - 1][0]}
@@ -455,7 +467,10 @@ export function MiniSpark({
     const range = max - min || 1;
     const line = values
         .map((v, i) => {
-            const x = (i / (values.length - 1)) * width;
+            const x =
+                values.length === 1
+                    ? width / 2
+                    : (i / (values.length - 1)) * width;
             const y = height - ((v - min) / range) * (height - 4) - 2;
 
             return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`;
@@ -463,15 +478,30 @@ export function MiniSpark({
         .join(' ');
 
     return (
-        <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-            <path
-                d={line}
-                fill="none"
-                stroke={color}
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
+        <svg
+            role="img"
+            aria-label={
+                values.length === 0
+                    ? 'No trend data'
+                    : `Trend with ${values.length} data points`
+            }
+            width={width}
+            height={height}
+            viewBox={`0 0 ${width} ${height}`}
+        >
+            {line && (
+                <path
+                    d={line}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            )}
+            {values.length === 1 && (
+                <circle cx={width / 2} cy={height / 2} r="2.5" fill={color} />
+            )}
         </svg>
     );
 }

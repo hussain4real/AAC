@@ -5,6 +5,10 @@ use App\Models\User;
 use App\Support\Platform\PlatformAccessManager;
 use App\Support\Platform\PlatformAccessReport;
 use Database\Seeders\PlatformRbacSeeder;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * Phase 8B — the Access Control read model: platform admins (with manager-granted,
@@ -70,4 +74,68 @@ it('exposes the user directory and per-viewer capabilities', function () {
     expect($auditorCaps['isSuperAdmin'])->toBeFalse()
         ->and($auditorCaps['canAssignRoles'])->toBeFalse()
         ->and($auditorCaps['canReviewAccess'])->toBeFalse();
+});
+
+it('bounds and searches the user directory with cursor metadata', function () {
+    User::factory()->count(60)->sequence(
+        fn ($sequence): array => [
+            'name' => sprintf('Directory User %03d', $sequence->index),
+            'email' => sprintf('directory%03d@example.test', $sequence->index),
+        ],
+    )->create();
+
+    $firstPage = $this->report->directoryPage(Request::create('/access-control', 'GET', ['per_page' => 25]));
+    $searchPage = $this->report->directoryPage(Request::create('/access-control', 'GET', ['directory_q' => 'directory042']));
+
+    expect($firstPage['items'])->toHaveCount(25)
+        ->and($firstPage['pagination']['hasMore'])->toBeTrue()
+        ->and($firstPage['pagination']['nextCursor'])->not->toBeNull()
+        ->and($searchPage['items'])->toHaveCount(1)
+        ->and($searchPage['items'][0]['email'])->toBe('directory042@example.test');
+});
+
+it('keeps the access report bounded with ten thousand platform administrators', function () {
+    $role = Role::findByName(PlatformRole::Auditor->value);
+    $firstId = ((int) User::query()->max('id')) + 1;
+    $now = now()->format('Y-m-d H:i:s');
+
+    foreach (array_chunk(range(0, 9_999), 500) as $offsets) {
+        DB::table('users')->insert(array_map(fn (int $offset): array => [
+            'id' => $firstId + $offset,
+            'name' => sprintf('Scale Admin %05d', $offset),
+            'email' => sprintf('scale-admin-%05d@example.test', $offset),
+            'password' => 'not-used',
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $offsets));
+
+        DB::table('model_has_roles')->insert(array_map(fn (int $offset): array => [
+            'role_id' => $role->id,
+            'model_type' => User::class,
+            'model_id' => $firstId + $offset,
+        ], $offsets));
+
+        DB::table('platform_access_grants')->insert(array_map(fn (int $offset): array => [
+            'id' => (string) Str::uuid(),
+            'user_id' => $firstId + $offset,
+            'role' => PlatformRole::Auditor->value,
+            'kind' => 'standard',
+            'reason' => 'enterprise scale test',
+            'certified_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $offsets));
+    }
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $console = $this->report->forConsole(Request::create('/access-control', 'GET', ['per_page' => 25]));
+    $queryCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($console['admins'])->toHaveCount(25)
+        ->and($console['pagination']['admins']['hasMore'])->toBeTrue()
+        ->and($console['pagination']['admins']['nextCursor'])->not->toBeNull()
+        ->and($queryCount)->toBeLessThanOrEqual(15)
+        ->and(strlen((string) json_encode($console)))->toBeLessThan(400_000);
 });

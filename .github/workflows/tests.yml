@@ -63,6 +63,9 @@ jobs:
       - name: Build production assets
         run: npm run build
 
+      - name: Install browser runtime
+        run: npx playwright install --with-deps chromium
+
       - name: Run non-mutating aggregate engineering gate
         run: composer ci:check
 
