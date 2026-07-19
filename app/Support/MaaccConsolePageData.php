@@ -121,12 +121,13 @@ class MaaccConsolePageData
      */
     private function dashboard(Team $team, ?array $projectIds): array
     {
-        $aggregates = app(MaaccConsoleCache::class)->remember($team, 'dashboard:v2', 30, function () use ($team): array {
-            $operational = app(OperationalMonitor::class)->forTeam($team);
+        $scopeKey = $this->projectScopeCacheKey($projectIds);
+        $aggregates = app(MaaccConsoleCache::class)->remember($team, "dashboard:v3:{$scopeKey}", 30, function () use ($team, $projectIds): array {
+            $operational = app(OperationalMonitor::class)->forTeam($team, $projectIds);
 
             return [
                 'dashboard' => [
-                    ...app(RunMetrics::class)->forTeam($team),
+                    ...app(RunMetrics::class)->forTeam($team, $projectIds),
                     'alerts' => $operational['alerts'],
                 ],
                 'operational' => $operational['metrics'],
@@ -329,7 +330,7 @@ class MaaccConsolePageData
         $query = $this->runQuery($team, $projectIds)->with(['agent', 'application', 'project', 'llmProvider']);
         $this->applyRunFilters($query, $request);
         $paginator = $query->latest('created_at')->orderByDesc('id')->cursorPaginate($this->pageSize($request), cursorName: 'runs_cursor');
-        $metrics = app(RunMetrics::class)->forTeam($team);
+        $metrics = app(RunMetrics::class)->forTeam($team, $projectIds);
 
         return [
             'apps' => $this->applications($team, $projectIds),
@@ -731,6 +732,22 @@ class MaaccConsolePageData
         }
 
         return $query->pluck('id')->all();
+    }
+
+    /**
+     * Keep cached aggregates isolated between platform-wide and project-scoped actors.
+     *
+     * @param  array<int, string>|null  $projectIds
+     */
+    private function projectScopeCacheKey(?array $projectIds): string
+    {
+        if ($projectIds === null) {
+            return 'all';
+        }
+
+        sort($projectIds);
+
+        return 'projects:'.hash('sha256', implode('|', $projectIds));
     }
 
     /**

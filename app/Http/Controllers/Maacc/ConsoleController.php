@@ -11,6 +11,7 @@ use App\Models\Application;
 use App\Models\Membership;
 use App\Models\Project;
 use App\Models\ToolContract;
+use App\Models\VaultSecret;
 use App\Support\MaaccConsolePageData;
 use App\Support\Platform\PlatformAccessReport;
 use App\Support\Sdk\VersionJourney;
@@ -251,6 +252,8 @@ class ConsoleController extends Controller
 
     public function vault(Request $request): Response
     {
+        Gate::authorize('viewAny', VaultSecret::class);
+
         return Inertia::render('maacc/vault', [
             'maacc' => fn (): array => $this->pageData->forPage($request, 'vault'),
         ]);

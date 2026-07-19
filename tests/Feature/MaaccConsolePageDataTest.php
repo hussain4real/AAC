@@ -95,6 +95,77 @@ test('project actors are scoped in SQL before resources are serialized', functio
             ->where('maacc.runs.0.projectId', $allowedProject->slug));
 });
 
+test('project actors receive only project-scoped dashboard aggregates', function () {
+    [$owner, $team] = ownerAndTeam();
+    $allowedApplication = Application::factory()->for($team)->create();
+    $hiddenApplication = Application::factory()->for($team)->create();
+    $allowedProject = Project::factory()->for($allowedApplication)->create();
+    $hiddenProject = Project::factory()->for($hiddenApplication)->create();
+    $provider = LlmProvider::factory()->for($team)->create();
+    $allowedProject->llmProviders()->attach($provider);
+    $hiddenProject->llmProviders()->attach($provider);
+    $allowedAgent = Agent::factory()->for($allowedProject)->for($provider)->create(['name' => 'Allowed agent']);
+    $hiddenAgent = Agent::factory()->for($hiddenProject)->for($provider)->create(['name' => 'Hidden agent']);
+    maaccRun($allowedAgent, [
+        'status' => RunStatus::Completed,
+        'tokens_in' => 20,
+        'tokens_out' => 10,
+        'cost' => 1.25,
+        'caller_subject' => 'allowed-user',
+        'caller_department' => 'allowed-department',
+        'latency_ms' => 1_000,
+        'started_at' => now(),
+        'created_at' => now(),
+    ]);
+    maaccRun($hiddenAgent, [
+        'status' => RunStatus::Failed,
+        'tokens_in' => 5_000,
+        'tokens_out' => 500,
+        'cost' => 99.99,
+        'caller_subject' => 'hidden-user',
+        'caller_department' => 'hidden-department',
+        'started_at' => now(),
+        'created_at' => now(),
+    ]);
+    $viewer = projectRoleUser($team, $allowedProject, MaaccRole::Viewer);
+
+    $this->actingAs($owner)
+        ->get(route('dashboard', ['current_team' => $team->slug]))
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('maacc.dashboard.stats.runsToday', 2));
+
+    $this->actingAs($viewer)
+        ->get(route('dashboard', ['current_team' => $team->slug]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('maacc.dashboard.stats.apps', 1)
+            ->where('maacc.dashboard.stats.projects', 1)
+            ->where('maacc.dashboard.stats.agents', 1)
+            ->where('maacc.dashboard.stats.runsToday', 1)
+            ->where('maacc.dashboard.stats.success', 1)
+            ->where('maacc.dashboard.stats.failed', 0)
+            ->where('maacc.dashboard.stats.tokens', '30')
+            ->where('maacc.dashboard.stats.cost', 'USD 1.25')
+            ->where('maacc.dashboard.runStatus', fn ($statuses): bool => $statuses->firstWhere('label', 'Completed')['value'] === 1
+                && $statuses->firstWhere('label', 'Failed')['value'] === 0)
+            ->has('maacc.dashboard.topAgents', 1)
+            ->where('maacc.dashboard.topAgents.0.id', $allowedAgent->slug)
+            ->where('maacc.dashboard.topAgents.0.runs', 1)
+            ->has('maacc.dashboard.usageByUser', 1)
+            ->where('maacc.dashboard.usageByUser.0.runs', 1)
+            ->where('maacc.dashboard.usageByUser.0.tokens', 30)
+            ->where('maacc.dashboard.usageByUser.0.cost', 1.25)
+            ->has('maacc.dashboard.usageByDepartment', 1)
+            ->where('maacc.dashboard.usageByDepartment.0.runs', 1)
+            ->where('maacc.operational.totalRuns', 1)
+            ->where('maacc.operational.failedRuns', 0)
+            ->where('maacc.operational.avgLatencyMs', 1_000)
+            ->has('maacc.dashboard.alerts', 0)
+            ->where('maacc.runs', fn ($runs): bool => $runs->every(
+                fn (array $run): bool => $run['projectId'] === $allowedProject->slug
+            )));
+});
+
 test('the runs page stays within its query and response budgets as rows grow', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = maaccAgent($team);

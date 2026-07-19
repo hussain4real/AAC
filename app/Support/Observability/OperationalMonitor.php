@@ -33,36 +33,38 @@ class OperationalMonitor
     /**
      * Build the operational metrics and alert feed for the given team.
      *
+     * @param  array<int, string>|null  $projectIds
      * @return array{metrics: array<string, mixed>, alerts: array<int, array<string, mixed>>}
      */
-    public function forTeam(Team $team): array
+    public function forTeam(Team $team, ?array $projectIds = null): array
     {
         $window = Date::now()->subDays(self::WINDOW_DAYS);
-        $metrics = $this->metrics($team, $window);
+        $metrics = $this->metrics($team, $window, $projectIds);
 
         return [
             'metrics' => $metrics,
-            'alerts' => $this->alerts($team, $window, $metrics),
+            'alerts' => $this->alerts($team, $window, $metrics, $projectIds),
         ];
     }
 
     /**
      * Compute the operational metric summary.
      *
+     * @param  array<int, string>|null  $projectIds
      * @return array<string, mixed>
      */
-    private function metrics(Team $team, CarbonInterface $window): array
+    private function metrics(Team $team, CarbonInterface $window, ?array $projectIds): array
     {
-        $total = $this->runsSince($team, $window)->count();
-        $failed = $this->runsSince($team, $window)->where('status', RunStatus::Failed)->count();
-        $expired = $this->runsSince($team, $window)->where('status', RunStatus::Expired)->count();
-        $waiting = $this->scopedRuns($team)->where('status', RunStatus::WaitingForClient)->count();
-        $avgLatency = (int) round((float) $this->runsSince($team, $window)
+        $total = $this->runsSince($team, $window, $projectIds)->count();
+        $failed = $this->runsSince($team, $window, $projectIds)->where('status', RunStatus::Failed)->count();
+        $expired = $this->runsSince($team, $window, $projectIds)->where('status', RunStatus::Expired)->count();
+        $waiting = $this->scopedRuns($team, $projectIds)->where('status', RunStatus::WaitingForClient)->count();
+        $avgLatency = (int) round((float) $this->runsSince($team, $window, $projectIds)
             ->where('status', RunStatus::Completed)
             ->avg('latency_ms'));
 
-        $toolTotal = $this->toolCallsSince($team, $window)->count();
-        $toolFailed = $this->toolCallsSince($team, $window)->where('status', ToolCallStatus::Failed)->count();
+        $toolTotal = $this->toolCallsSince($team, $window, $projectIds)->count();
+        $toolFailed = $this->toolCallsSince($team, $window, $projectIds)->where('status', ToolCallStatus::Failed)->count();
 
         return [
             'totalRuns' => $total,
@@ -72,7 +74,7 @@ class OperationalMonitor
             'avgLatencyMs' => $avgLatency,
             'errorRate' => $this->rate($failed, $total),
             'toolFailureRate' => $this->rate($toolFailed, $toolTotal),
-            'costAnomaly' => $this->detectCostAnomaly($team),
+            'costAnomaly' => $this->detectCostAnomaly($team, $projectIds),
         ];
     }
 
@@ -80,14 +82,15 @@ class OperationalMonitor
      * Build the security & governance alert feed, most severe first.
      *
      * @param  array<string, mixed>  $metrics
+     * @param  array<int, string>|null  $projectIds
      * @return array<int, array<string, mixed>>
      */
-    private function alerts(Team $team, CarbonInterface $window, array $metrics): array
+    private function alerts(Team $team, CarbonInterface $window, array $metrics, ?array $projectIds): array
     {
         $alerts = [];
 
         if ($metrics['failedRuns'] > 0) {
-            $latest = $this->runsSince($team, $window)->where('status', RunStatus::Failed)->latest('started_at')->first();
+            $latest = $this->runsSince($team, $window, $projectIds)->where('status', RunStatus::Failed)->latest('started_at')->first();
             $alerts[] = $this->alert(
                 AlertSeverity::High,
                 'shield-alert',
@@ -98,7 +101,7 @@ class OperationalMonitor
         }
 
         if ($metrics['waitingRuns'] > 0) {
-            $latest = $this->scopedRuns($team)->where('status', RunStatus::WaitingForClient)->latest('started_at')->first();
+            $latest = $this->scopedRuns($team, $projectIds)->where('status', RunStatus::WaitingForClient)->latest('started_at')->first();
             $alerts[] = $this->alert(
                 AlertSeverity::Medium,
                 'clock',
@@ -109,7 +112,7 @@ class OperationalMonitor
         }
 
         if ($metrics['expiredRuns'] > 0) {
-            $latest = $this->runsSince($team, $window)->where('status', RunStatus::Expired)->latest('started_at')->first();
+            $latest = $this->runsSince($team, $window, $projectIds)->where('status', RunStatus::Expired)->latest('started_at')->first();
             $alerts[] = $this->alert(
                 AlertSeverity::Medium,
                 'clock',
@@ -119,34 +122,36 @@ class OperationalMonitor
             );
         }
 
-        $revoked = Credential::query()
-            ->whereHas('application', fn (Builder $query) => $query->where('team_id', $team->id))
-            ->where('status', CredentialStatus::Revoked)
-            ->where('revoked_at', '>=', $window)
-            ->latest('revoked_at')
-            ->first();
+        if ($projectIds === null) {
+            $revoked = Credential::query()
+                ->whereHas('application', fn (Builder $query) => $query->where('team_id', $team->id))
+                ->where('status', CredentialStatus::Revoked)
+                ->where('revoked_at', '>=', $window)
+                ->latest('revoked_at')
+                ->first();
 
-        if ($revoked !== null) {
-            $alerts[] = $this->alert(
-                AlertSeverity::Medium,
-                'key',
-                'Credential revoked',
-                'An application credential was revoked.',
-                $revoked->revoked_at,
-            );
-        }
+            if ($revoked !== null) {
+                $alerts[] = $this->alert(
+                    AlertSeverity::Medium,
+                    'key',
+                    'Credential revoked',
+                    'An application credential was revoked.',
+                    $revoked->revoked_at,
+                );
+            }
 
-        $pending = $team->approvalRequests()->pending()->count();
+            $pending = $team->approvalRequests()->pending()->count();
 
-        if ($pending > 0) {
-            $latest = $team->approvalRequests()->pending()->latest()->first();
-            $alerts[] = $this->alert(
-                AlertSeverity::Low,
-                'check2',
-                $pending.' '.Str::plural('change', $pending).' awaiting approval',
-                'Governance approvals are pending review.',
-                $latest?->created_at,
-            );
+            if ($pending > 0) {
+                $latest = $team->approvalRequests()->pending()->latest()->first();
+                $alerts[] = $this->alert(
+                    AlertSeverity::Low,
+                    'check2',
+                    $pending.' '.Str::plural('change', $pending).' awaiting approval',
+                    'Governance approvals are pending review.',
+                    $latest?->created_at,
+                );
+            }
         }
 
         if ($metrics['costAnomaly']) {
@@ -159,7 +164,9 @@ class OperationalMonitor
             );
         }
 
-        $alerts = [...$alerts, ...$this->ssoAlerts($team)];
+        if ($projectIds === null) {
+            $alerts = [...$alerts, ...$this->ssoAlerts($team)];
+        }
 
         usort($alerts, fn (array $a, array $b): int => $b['weight'] <=> $a['weight']);
 
@@ -233,12 +240,14 @@ class OperationalMonitor
     /**
      * Detect a cost anomaly: today's spend significantly above the trailing
      * daily average.
+     *
+     * @param  array<int, string>|null  $projectIds
      */
-    private function detectCostAnomaly(Team $team): bool
+    private function detectCostAnomaly(Team $team, ?array $projectIds): bool
     {
         $startOfToday = Date::now()->startOfDay();
-        $todayCost = (float) $this->scopedRuns($team)->where('started_at', '>=', $startOfToday)->sum('cost');
-        $priorCost = (float) $this->scopedRuns($team)
+        $todayCost = (float) $this->scopedRuns($team, $projectIds)->where('started_at', '>=', $startOfToday)->sum('cost');
+        $priorCost = (float) $this->scopedRuns($team, $projectIds)
             ->whereBetween('started_at', [$startOfToday->copy()->subDays(self::WINDOW_DAYS), $startOfToday])
             ->sum('cost');
         $averageDaily = $priorCost / self::WINDOW_DAYS;
@@ -257,33 +266,44 @@ class OperationalMonitor
     /**
      * Base query for runs owned by the team.
      *
+     * @param  array<int, string>|null  $projectIds
      * @return Builder<AgentRun>
      */
-    private function scopedRuns(Team $team): Builder
+    private function scopedRuns(Team $team, ?array $projectIds): Builder
     {
-        return AgentRun::query()
+        $query = AgentRun::query()
             ->whereHas('application', fn (Builder $query) => $query->where('team_id', $team->id));
+
+        return $projectIds === null ? $query : $query->whereIn('project_id', $projectIds);
     }
 
     /**
      * Query for the team's runs within the trailing window.
      *
+     * @param  array<int, string>|null  $projectIds
      * @return Builder<AgentRun>
      */
-    private function runsSince(Team $team, CarbonInterface $window): Builder
+    private function runsSince(Team $team, CarbonInterface $window, ?array $projectIds): Builder
     {
-        return $this->scopedRuns($team)->where('started_at', '>=', $window);
+        return $this->scopedRuns($team, $projectIds)->where('started_at', '>=', $window);
     }
 
     /**
      * Query for the team's tool calls within the trailing window.
      *
+     * @param  array<int, string>|null  $projectIds
      * @return Builder<ToolCall>
      */
-    private function toolCallsSince(Team $team, CarbonInterface $window): Builder
+    private function toolCallsSince(Team $team, CarbonInterface $window, ?array $projectIds): Builder
     {
-        return ToolCall::query()
+        $query = ToolCall::query()
             ->whereHas('agentRun.application', fn (Builder $query) => $query->where('team_id', $team->id))
             ->where('requested_at', '>=', $window);
+
+        if ($projectIds !== null) {
+            $query->whereHas('agentRun', fn (Builder $builder) => $builder->whereIn('project_id', $projectIds));
+        }
+
+        return $query;
     }
 }
