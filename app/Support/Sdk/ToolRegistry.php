@@ -7,10 +7,12 @@ use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\ImplStatus;
 use App\Enums\SdkLanguage;
+use App\Enums\ToolScope;
 use App\Models\Agent;
 use App\Models\Application;
 use App\Models\ToolContract;
 use App\Models\ToolImplementation;
+use App\Support\Governance\AgentReadinessGate;
 use Illuminate\Database\Eloquent\Collection;
 
 /**
@@ -28,6 +30,7 @@ class ToolRegistry
     public function __construct(
         private readonly SdkStubGenerator $stubs,
         private readonly SdkPlatform $platform,
+        private readonly AgentReadinessGate $readiness,
     ) {}
 
     /**
@@ -38,10 +41,19 @@ class ToolRegistry
     public function requiredClientTools(Application $application): Collection
     {
         return ToolContract::query()
-            ->where('application_id', $application->id)
+            ->where('team_id', $application->team_id)
             ->where('execution_mode', ExecMode::Client)
+            ->where(function ($query) use ($application): void {
+                $query->where('application_id', $application->id)
+                    ->orWhere(function ($global): void {
+                        $global->whereNull('application_id')
+                            ->where('scope', ToolScope::Global);
+                    });
+            })
             ->with([
-                'agents' => fn ($query) => $query->orderBy('name'),
+                'agents' => fn ($query) => $query
+                    ->whereHas('project', fn ($projectQuery) => $projectQuery->where('application_id', $application->id))
+                    ->orderBy('name'),
                 'implementations' => fn ($query) => $query->where('application_id', $application->id),
             ])
             ->orderBy('name')
@@ -53,14 +65,20 @@ class ToolRegistry
      *
      * @return Collection<int, Agent>
      */
-    public function availableAgents(Application $application): Collection
+    public function availableAgents(Application $application, Environment $environment): Collection
     {
         return Agent::query()
             ->whereHas('project', fn ($query) => $query->where('application_id', $application->id))
             ->where('status', AgentStatus::Published)
-            ->with(['tools' => fn ($query) => $query->orderBy('name')])
+            ->with([
+                'project.application',
+                'llmProvider',
+                'tools' => fn ($query) => $query->orderBy('name'),
+            ])
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Agent $agent): bool => $this->readiness->isReady($agent, $application, $environment))
+            ->values();
     }
 
     /**
@@ -84,7 +102,7 @@ class ToolRegistry
             'api_version' => $this->platform->apiVersion(),
             'sdk' => $this->platform->descriptor(),
             'sdk_languages' => SdkLanguage::options(),
-            'agents' => $this->availableAgents($application)
+            'agents' => $this->availableAgents($application, $environment)
                 ->map(fn (Agent $agent): array => [
                     'slug' => $agent->agent_slug,
                     'name' => $agent->name,
@@ -138,10 +156,11 @@ class ToolRegistry
             'max_payload_kb' => $tool->max_payload_kb,
             'input_schema' => $tool->input_schema,
             'output_schema' => $tool->output_schema,
+            'schema_dialect' => ToolSchema::DIALECT,
             'schema_fingerprint' => $tool->schemaFingerprint(),
             'permission' => $this->stubs->permission($tool),
             'used_by_agents' => $tool->agents->pluck('agent_slug')->values()->all(),
-            'implementation' => $this->implementationEntry($implementation),
+            'implementation' => $this->implementationEntry($tool, $implementation),
             'stubs' => $this->stubs->forContract($tool),
         ];
     }
@@ -152,8 +171,26 @@ class ToolRegistry
      *
      * @return array<string, mixed>
      */
-    private function implementationEntry(?ToolImplementation $implementation): array
+    private function implementationEntry(ToolContract $tool, ?ToolImplementation $implementation): array
     {
+        if ($tool->status !== 'Active') {
+            return [
+                'status' => 'disabled',
+                'handler_name' => null,
+                'implemented_version' => null,
+                'last_validated_at' => null,
+            ];
+        }
+
+        if ($tool->scope !== ToolScope::Global && $tool->agents->isEmpty()) {
+            return [
+                'status' => 'not_required',
+                'handler_name' => null,
+                'implemented_version' => null,
+                'last_validated_at' => null,
+            ];
+        }
+
         if ($implementation === null) {
             return [
                 'status' => ImplStatus::Required->value,

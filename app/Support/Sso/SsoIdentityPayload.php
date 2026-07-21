@@ -19,5 +19,6 @@ final readonly class SsoIdentityPayload
         public string $name,
         public array $groups,
         public array $rawClaims,
+        public string $issuer = '',
     ) {}
 }

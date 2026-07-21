@@ -3,13 +3,12 @@
    persona switcher). Bespoke chrome ported from the prototype.
    ============================================================ */
 import { usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@/maacc/icons';
 import { useMaaccNav } from '@/maacc/nav';
-import { NAV_GROUPS, navAllowed, PERSONAS, SCREEN_OF } from '@/maacc/personas';
-import type { Persona } from '@/maacc/personas';
+import type { RouteName } from '@/maacc/nav';
+import { NAV_GROUPS, SCREEN_OF } from '@/maacc/personas';
 import { useMaaccData } from '@/maacc/use-data';
-import { Avatar, Badge } from './ui';
+import { Avatar } from './ui';
 
 function Logo({ compact = false }: { compact?: boolean }) {
     return (
@@ -76,170 +75,44 @@ function Logo({ compact = false }: { compact?: boolean }) {
     );
 }
 
-function AccountSwitcher({
-    persona,
-    setPersona,
-    onClose,
+export function Sidebar({
+    className = '',
+    onNavigate,
 }: {
-    persona: Persona;
-    setPersona: (p: Persona) => void;
-    onClose: () => void;
+    className?: string;
+    onNavigate?: () => void;
 }) {
-    const ref = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        const h = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
-                onClose();
-            }
-        };
-        const id = setTimeout(
-            () => document.addEventListener('mousedown', h),
-            0,
-        );
-
-        return () => {
-            clearTimeout(id);
-            document.removeEventListener('mousedown', h);
-        };
-    }, [onClose]);
-
-    return (
-        <div
-            ref={ref}
-            onClick={(e) => e.stopPropagation()}
-            style={{
-                position: 'absolute',
-                top: 'calc(100% - 2px)',
-                left: 12,
-                right: 12,
-                zIndex: 80,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 'var(--r-lg)',
-                boxShadow: 'var(--sh-pop)',
-                overflow: 'hidden',
-            }}
-        >
-            <div
-                style={{
-                    padding: '10px 13px 8px',
-                    borderBottom: '1px solid var(--border)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 7,
-                }}
-            >
-                <Icon name="eye" size={14} style={{ color: 'var(--text-3)' }} />
-                <span
-                    style={{
-                        fontSize: 11,
-                        fontWeight: 700,
-                        color: 'var(--text-3)',
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5,
-                    }}
-                >
-                    Switch view
-                </span>
-            </div>
-            <div style={{ padding: 6 }}>
-                {PERSONAS.map((p) => {
-                    const on = p.id === persona.id;
-
-                    return (
-                        <button
-                            key={p.id}
-                            onClick={() => setPersona(p)}
-                            className="maacc-row"
-                            style={{
-                                width: '100%',
-                                display: 'flex',
-                                gap: 11,
-                                padding: '10px 10px',
-                                border: 'none',
-                                background: on ? 'var(--primary-soft)' : 'none',
-                                borderRadius: 9,
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                alignItems: 'flex-start',
-                            }}
-                        >
-                            <Avatar name={p.name} size={32} tone={p.tone} />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <div
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: 7,
-                                    }}
-                                >
-                                    <span
-                                        style={{
-                                            fontSize: 13,
-                                            fontWeight: 700,
-                                            color: 'var(--text)',
-                                        }}
-                                    >
-                                        {p.name}
-                                    </span>
-                                    {on && (
-                                        <Badge tone="purple" soft>
-                                            Active
-                                        </Badge>
-                                    )}
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 11,
-                                        fontWeight: 600,
-                                        color: p.tone,
-                                        marginTop: 1,
-                                    }}
-                                >
-                                    {p.role}
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 11,
-                                        color: 'var(--text-3)',
-                                        marginTop: 4,
-                                        lineHeight: 1.45,
-                                    }}
-                                >
-                                    {p.blurb}
-                                </div>
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
-
-export function Sidebar() {
-    const { go, persona, setPersona, activeScreen } = useMaaccNav();
+    const { go, persona, activeScreen } = useMaaccNav();
     const MAACC = useMaaccData();
     // System status reflects real governance/observability alerts: a high-
     // severity alert degrades the footer indicator.
     const degraded = MAACC.dashboard.alerts.some((a) => a.sev === 'high');
-    const [acctOpen, setAcctOpen] = useState(false);
     // Platform-administration nav items are additionally gated on the real
     // global RBAC, so they appear only for actual MAACC platform admins — not
     // merely whoever selects the admin persona (Phase 8B).
     const platformPermissions =
         usePage().props.auth.platform?.permissions ?? [];
+    const authorizedNavigation = usePage().props.auth.maacc.navigation;
+    const canCreateAgent =
+        usePage().props.auth.maacc.permissions.includes('agent:manage');
     const visibleGroups = NAV_GROUPS.map((g) => ({
         ...g,
         items: g.items.filter(
             (it) =>
-                navAllowed(persona.id, it.id) &&
+                authorizedNavigation.includes(it.id) &&
                 (!it.permission || platformPermissions.includes(it.permission)),
         ),
     })).filter((g) => g.items.length);
 
+    const navigate = (screen: RouteName) => {
+        go(screen);
+        onNavigate?.();
+    };
+
     return (
         <aside
+            className={className}
+            aria-label="Primary navigation"
             style={{
                 width: 'var(--sidebar-w)',
                 flexShrink: 0,
@@ -256,12 +129,9 @@ export function Sidebar() {
                 <Logo />
             </div>
 
-            {/* account / persona switcher */}
+            {/* Authenticated actor and server-issued access role. */}
             <div style={{ padding: '0 12px 10px', position: 'relative' }}>
-                <button
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onClick={() => setAcctOpen((o) => !o)}
-                    className="maacc-navitem"
+                <div
                     style={{
                         width: '100%',
                         display: 'flex',
@@ -270,11 +140,7 @@ export function Sidebar() {
                         padding: '8px 10px',
                         borderRadius: 10,
                         border: '1px solid rgba(255,255,255,.1)',
-                        background: acctOpen
-                            ? 'rgba(255,255,255,.08)'
-                            : 'rgba(255,255,255,.04)',
-                        cursor: 'pointer',
-                        transition: 'background .12s',
+                        background: 'rgba(255,255,255,.04)',
                     }}
                 >
                     <Avatar name={persona.name} size={32} tone={persona.tone} />
@@ -318,54 +184,39 @@ export function Sidebar() {
                             {persona.role}
                         </div>
                     </div>
-                    <Icon
-                        name="chevdown"
-                        size={15}
-                        style={{
-                            color: 'rgba(255,255,255,.5)',
-                            transform: acctOpen ? 'rotate(180deg)' : 'none',
-                            transition: 'transform .15s',
-                        }}
-                    />
-                </button>
-                {acctOpen && (
-                    <AccountSwitcher
-                        persona={persona}
-                        setPersona={(p) => {
-                            setPersona(p);
-                            setAcctOpen(false);
-                        }}
-                        onClose={() => setAcctOpen(false)}
-                    />
-                )}
+                </div>
             </div>
 
-            <div style={{ padding: '0 12px 8px' }}>
-                <button
-                    onClick={() => go('createAgent')}
-                    className="maacc-navitem"
-                    style={{
-                        width: '100%',
-                        height: 36,
-                        borderRadius: 8,
-                        border: '1px solid rgba(255,255,255,.12)',
-                        background: 'rgba(255,255,255,.04)',
-                        color: '#fff',
-                        fontSize: 12.5,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: 7,
-                        transition: 'background .12s',
-                    }}
-                >
-                    <Icon name="plus" size={15} strokeWidth={2.2} /> New Agent
-                </button>
-            </div>
+            {canCreateAgent && (
+                <div style={{ padding: '0 12px 8px' }}>
+                    <button
+                        onClick={() => navigate('createAgent')}
+                        className="maacc-navitem"
+                        style={{
+                            width: '100%',
+                            height: 36,
+                            borderRadius: 8,
+                            border: '1px solid rgba(255,255,255,.12)',
+                            background: 'rgba(255,255,255,.04)',
+                            color: '#fff',
+                            fontSize: 12.5,
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 7,
+                            transition: 'background .12s',
+                        }}
+                    >
+                        <Icon name="plus" size={15} strokeWidth={2.2} /> New
+                        Agent
+                    </button>
+                </div>
+            )}
 
             <nav
+                aria-label="MAACC console"
                 className="maacc-scroll"
                 style={{ flex: 1, overflowY: 'auto', padding: '6px 12px 14px' }}
             >
@@ -400,7 +251,8 @@ export function Sidebar() {
                                 return (
                                     <button
                                         key={it.id}
-                                        onClick={() => go(it.id)}
+                                        onClick={() => navigate(it.id)}
+                                        aria-current={on ? 'page' : undefined}
                                         className="maacc-navitem"
                                         style={{
                                             display: 'flex',
@@ -491,8 +343,8 @@ export function Sidebar() {
                         }}
                     >
                         {degraded
-                            ? 'Service degraded'
-                            : 'All systems operational'}
+                            ? 'Governance attention required'
+                            : 'No governance alerts'}
                     </div>
                     <div>MAACC v1.1 · Doha DC</div>
                 </div>

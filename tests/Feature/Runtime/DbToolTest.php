@@ -8,7 +8,9 @@ use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Enums\TraceEventType;
 use App\Enums\VaultSecretKind;
+use App\Exceptions\Sdk\RuntimeRequestException;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\DataSource;
 use App\Models\LlmProvider;
@@ -19,6 +21,8 @@ use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Db\DbToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
 use App\Support\Secrets\Contracts\SecretVault;
+use Illuminate\Database\Connection;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -273,6 +277,33 @@ it('fails when the source data is stale', function () {
     ))->toThrow(ToolExecutionException::class, 'stale');
 });
 
+it('treats a never-refreshed source as stale when freshness is required', function () {
+    $this->source->update([
+        'data_refreshed_at' => null,
+        'staleness_threshold_minutes' => 60,
+    ]);
+
+    expect(fn () => app(DbToolExecutor::class)->execute(
+        dbTool($this->source),
+        Environment::Production,
+        ['region' => 'EU'],
+    ))->toThrow(ToolExecutionException::class, 'stale');
+});
+
+it('cleans up its session statement timeout after a query', function () {
+    $this->source->update(['statement_timeout_ms' => 1234]);
+
+    app(DbToolExecutor::class)->execute(
+        dbTool($this->source),
+        Environment::Production,
+        ['region' => 'EU'],
+    );
+
+    $timeout = DB::connection()->selectOne('PRAGMA busy_timeout');
+
+    expect((int) ($timeout->timeout ?? -1))->toBe(0);
+});
+
 it('fails when the referenced connection is not configured', function () {
     $this->source->update(['connection' => 'nonexistent_replica']);
 
@@ -360,6 +391,7 @@ it('drives a full db-tool run through the runtime with trace and row data', func
     ]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()
         ->toolCallThen('regionMetrics', ['region' => 'EU'])
@@ -376,7 +408,7 @@ it('drives a full db-tool run through the runtime with trace and row data', func
         ->and($run->traceEvents()->where('type', TraceEventType::ToolResultReceived)->exists())->toBeTrue();
 });
 
-it('fails the run when a db tool requires approval but is not active', function () {
+it('rejects a run before creation when a db tool requires approval but is not active', function () {
     $tool = dbTool($this->source, [
         'slug' => 'gatedDb',
         'requires_approval' => true,
@@ -389,16 +421,17 @@ it('fails the run when a db tool requires approval but is not active', function 
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('gatedDb', ['region' => 'EU']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('tool_requires_approval');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
-it('fails the run with a controlled code when the db source is unavailable', function () {
+it('rejects a run before creation when the db source is unavailable', function () {
     $this->source->update(['status' => DataSourceStatus::Disabled]);
     $tool = dbTool($this->source, ['slug' => 'disabledDb']);
 
@@ -407,13 +440,14 @@ it('fails the run with a controlled code when the db source is unavailable', fun
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('disabledDb', ['region' => 'EU']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('db_source_unavailable');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
 it('fails the run with db_invalid_output when the result violates the output schema', function () {
@@ -427,6 +461,7 @@ it('fails the run with db_invalid_output when the result violates the output sch
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('badSchemaDb', ['region' => 'EU']);
 
@@ -434,4 +469,51 @@ it('fails the run with db_invalid_output when the result violates the output sch
 
     expect($run->status)->toBe(RunStatus::Failed)
         ->and($run->failure_reason)->toBe('db_invalid_output');
+});
+
+it('applies and resets governed timeouts for every supported database driver', function () {
+    $executor = app(DbToolExecutor::class);
+    $apply = new ReflectionMethod($executor, 'applyStatementTimeout');
+    $reset = new ReflectionMethod($executor, 'resetStatementTimeout');
+    $statements = [
+        'pgsql' => 'SET statement_timeout TO 500',
+        'mysql' => 'SET SESSION MAX_EXECUTION_TIME = 500',
+        'mariadb' => 'SET SESSION MAX_EXECUTION_TIME = 500',
+        'sqlsrv' => 'SET LOCK_TIMEOUT 500',
+    ];
+
+    foreach ($statements as $driver => $statement) {
+        $pdo = Mockery::mock(PDO::class);
+        $pdo->shouldReceive('exec')->once()->with($statement)->andReturn(0);
+        $connection = Mockery::mock(Connection::class);
+        $connection->shouldReceive('getDriverName')->andReturn($driver);
+        $connection->shouldReceive('getPdo')->once()->andReturn($pdo);
+        $apply->invoke($executor, $connection, 500);
+
+        $connection->shouldReceive('unprepared')->once()->andReturnTrue();
+        $reset->invoke($executor, $connection);
+    }
+
+    $unsupported = Mockery::mock(Connection::class);
+    $unsupported->shouldReceive('getDriverName')->andReturn('oracle');
+    expect(fn () => $apply->invoke($executor, $unsupported, 500))
+        ->toThrow(ToolExecutionException::class, 'does not support governed statement timeouts');
+});
+
+it('disconnects a database session when resetting its timeout fails', function () {
+    $executor = app(DbToolExecutor::class);
+    $reset = new ReflectionMethod($executor, 'resetStatementTimeout');
+    $connection = Mockery::mock(Connection::class);
+    $connection->shouldReceive('getDriverName')->andReturn('pgsql');
+    $connection->shouldReceive('unprepared')->andThrow(new QueryException(
+        'reporting',
+        'SET statement_timeout TO DEFAULT',
+        [],
+        new RuntimeException('connection lost'),
+    ));
+    $connection->shouldReceive('disconnect')->once();
+
+    $reset->invoke($executor, $connection);
+
+    expect(true)->toBeTrue();
 });

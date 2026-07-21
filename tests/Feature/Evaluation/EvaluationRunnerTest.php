@@ -17,6 +17,7 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\ToolAssignment;
 use App\Models\ToolContract;
+use App\Models\ToolImplementation;
 use App\Support\Evaluation\EvaluationRunner;
 use App\Support\Runtime\Knowledge\KnowledgeIndexer;
 
@@ -80,6 +81,8 @@ it('services a client-side tool case from its stub', function () {
         'output_schema' => ['records' => 'array', 'total' => 'number'],
     ]);
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    ToolImplementation::factory()->for($tool)->for($this->application)->create();
+    approveCurrentAgentConfiguration($agent);
 
     $dataset = evalDataset();
     EvaluationCase::factory()->for($dataset, 'dataset')
@@ -118,6 +121,8 @@ it('passes a RAG case that surfaces a citation', function () {
     ]);
     $agent = evalAgent();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    ToolImplementation::factory()->for($tool)->for($this->application)->create();
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('searchPolicy', ['query' => 'berth allocation'])->textThen('Policy answer.');
 
@@ -143,6 +148,8 @@ it('fails a client-tool case with no stub (the run never resolves)', function ()
         'output_schema' => ['records' => 'array'],
     ]);
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    ToolImplementation::factory()->for($tool)->for($this->application)->create();
+    approveCurrentAgentConfiguration($agent);
 
     $dataset = evalDataset();
     EvaluationCase::factory()->for($dataset, 'dataset')->state(['kind' => EvaluationCaseKind::ClientTool])->create();
@@ -163,6 +170,8 @@ it('fails a case whose stub violates the output schema', function () {
         'output_schema' => ['records' => 'array', 'total' => 'number'],
     ]);
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    ToolImplementation::factory()->for($tool)->for($this->application)->create();
+    approveCurrentAgentConfiguration($agent);
 
     $dataset = evalDataset();
     EvaluationCase::factory()->for($dataset, 'dataset')

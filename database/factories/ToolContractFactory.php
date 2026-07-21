@@ -8,7 +8,6 @@ use App\Enums\ImplStatus;
 use App\Enums\RemoteAuthType;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
-use App\Models\Application;
 use App\Models\DataSource;
 use App\Models\McpConnector;
 use App\Models\Team;
@@ -39,7 +38,7 @@ class ToolContractFactory extends Factory
 
         return [
             'team_id' => Team::factory(),
-            'application_id' => Application::factory(),
+            'application_id' => null,
             'slug' => fake()->unique()->slug(2),
             'name' => $name,
             'description' => fake()->sentence(),

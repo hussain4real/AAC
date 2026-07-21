@@ -6,9 +6,11 @@
    immediately (bypassing normal approval), and is recorded on the
    immutable incident timeline with a high-severity audit event.
    ============================================================ */
-import { Head, useForm, usePage } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
 import { store as storeIncident } from '@/actions/App/Http/Controllers/Maacc/IncidentController';
+import { CursorPagination } from '@/components/maacc/common';
 import {
     Badge,
     Btn,
@@ -22,11 +24,13 @@ import {
     Td,
     Textarea,
     Tr,
+    inputStyle,
 } from '@/components/maacc/ui';
 import type { Tone } from '@/components/maacc/ui';
 import { FieldError } from '@/maacc/forms';
 import { Icon } from '@/maacc/icons';
 import { useMaaccData } from '@/maacc/use-data';
+import { incidents as incidentsRoute } from '@/routes';
 
 const ACTION_OPTIONS = [
     { value: 'freeze_application', label: 'Freeze application runtime' },
@@ -181,8 +185,31 @@ function BreakGlassPanel() {
 
 export default function Incidents() {
     const MAACC = useMaaccData();
+    const { currentTeam } = usePage().props;
     const incidents = MAACC.incidents;
     const frozen = MAACC.apps.filter((a) => a.runtimeFrozen);
+    const [query, setQuery] = useState(
+        String(MAACC.pagination.incidents?.filters.q ?? ''),
+    );
+
+    const search = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!currentTeam) {
+            return;
+        }
+
+        router.get(
+            incidentsRoute.url(currentTeam.slug),
+            query.trim() ? { q: query.trim() } : {},
+            {
+                only: ['maacc'],
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
+        );
+    };
 
     return (
         <>
@@ -192,6 +219,29 @@ export default function Incidents() {
                     title="Incident Response"
                     sub="Break-glass controls and the immutable incident timeline. Use these to contain an incident immediately — revoke a credential, disable a model, shut down a connector, suspend a webhook, or freeze an application's runtime — and review every action a reviewer took."
                 />
+
+                <form
+                    aria-label="Incident filters"
+                    onSubmit={search}
+                    style={{
+                        display: 'flex',
+                        gap: 8,
+                        marginBottom: 14,
+                        maxWidth: 520,
+                    }}
+                >
+                    <input
+                        aria-label="Search incident actions"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search subject or rationale…"
+                        className="maacc-input"
+                        style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <Btn type="submit" variant="default" icon="search">
+                        Search
+                    </Btn>
+                </form>
 
                 <div
                     style={{
@@ -310,6 +360,12 @@ export default function Incidents() {
                         ))}
                     </Table>
                 )}
+
+                <CursorPagination
+                    pageKey="incidents"
+                    cursorName="incidents_cursor"
+                    label="Incident actions"
+                />
             </div>
         </>
     );

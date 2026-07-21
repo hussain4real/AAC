@@ -49,6 +49,13 @@ export type Llm = {
     ctx: string;
     inCost: number;
     outCost: number;
+    pricing?: {
+        currency: string;
+        unit: string;
+        source: string;
+        version: string;
+        effectiveAt: string | null;
+    };
     sensitivity: Sensitivity;
     envs: Environment[];
     status: 'Draft' | 'Approved' | 'Deprecated' | 'Blocked';
@@ -135,6 +142,26 @@ export type Project = {
     agents: number;
     tools: number;
     runs7d: number;
+    members?: ProjectMemberAccess[];
+    can?: { manageMembers: boolean };
+};
+
+export type ProjectMemberAccess = {
+    id: number;
+    userId: number;
+    name: string;
+    email: string;
+    role: string;
+    roleLabel: string;
+    active: boolean;
+    expiresAt: string | null;
+    revokedAt: string | null;
+    certifiedAt: string | null;
+    grantor: string | null;
+    revoker: string | null;
+    certifier: string | null;
+    reason: string | null;
+    certificationNote: string | null;
 };
 
 export type ToolImplementationRecord = {
@@ -281,10 +308,19 @@ export type Run = {
     tokensIn: number;
     tokensOut: number;
     cost: number;
+    currency?: string;
+    pricing?: {
+        source: string | null;
+        version: string | null;
+        effectiveAt: string | null;
+        estimated: boolean;
+    };
     latency: string;
     latencyMs?: number | null;
     started: string;
     completed: string;
+    startedAt?: string | null;
+    completedAt?: string | null;
     input: string;
     output?: string | null;
     error?: string;

@@ -2,8 +2,8 @@
 
 namespace App\Concerns;
 
-use App\Models\AuditEvent;
 use App\Models\Team;
+use App\Support\Governance\AuditLedger;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
@@ -34,7 +34,7 @@ trait RecordsAuditEvents
         if ($team !== null) {
             $user = auth()->user();
 
-            AuditEvent::create([
+            app(AuditLedger::class)->record([
                 'team_id' => $team->id,
                 'actor_user_id' => $user?->getAuthIdentifier(),
                 'actor_label' => $user?->name,

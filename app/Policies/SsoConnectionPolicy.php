@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\PlatformPermission;
 use App\Models\SsoConnection;
 use App\Models\User;
 
@@ -16,9 +17,7 @@ class SsoConnectionPolicy
      */
     public function viewAny(User $user): bool
     {
-        $team = $user->currentTeam;
-
-        return $team !== null && $user->isMaaccPlatformAdmin($team);
+        return $user->hasPlatformPermission(PlatformPermission::ViewIdentity);
     }
 
     /**
@@ -26,9 +25,7 @@ class SsoConnectionPolicy
      */
     public function create(User $user): bool
     {
-        $team = $user->currentTeam;
-
-        return $team !== null && $user->isMaaccPlatformAdmin($team);
+        return $user->hasPlatformPermission(PlatformPermission::ManageIdentity);
     }
 
     /**
@@ -36,7 +33,7 @@ class SsoConnectionPolicy
      */
     public function update(User $user, SsoConnection $ssoConnection): bool
     {
-        return $user->isMaaccPlatformAdmin($ssoConnection->team);
+        return $user->hasPlatformPermission(PlatformPermission::ManageIdentity);
     }
 
     /**
@@ -44,6 +41,22 @@ class SsoConnectionPolicy
      */
     public function delete(User $user, SsoConnection $ssoConnection): bool
     {
-        return $user->isMaaccPlatformAdmin($ssoConnection->team);
+        return $user->hasPlatformPermission(PlatformPermission::ManageIdentity);
+    }
+
+    /**
+     * Determine whether the user may test a connection before approval.
+     */
+    public function test(User $user, SsoConnection $ssoConnection): bool
+    {
+        return $user->hasPlatformPermission(PlatformPermission::ManageIdentity);
+    }
+
+    /**
+     * Determine whether the user may independently approve activation.
+     */
+    public function approve(User $user, SsoConnection $ssoConnection): bool
+    {
+        return $user->hasPlatformPermission(PlatformPermission::ApproveIdentity);
     }
 }

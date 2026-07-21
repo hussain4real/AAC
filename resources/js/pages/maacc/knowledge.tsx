@@ -6,7 +6,7 @@
    the runtime may retrieve from it. Every action is wired to the
    tested console write endpoints via Wayfinder.
    ============================================================ */
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage, usePoll } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     destroy as destroyDocument,
@@ -49,6 +49,17 @@ import { useMaaccData } from '@/maacc/use-data';
 import type { MaaccKnowledgeSource } from '@/types/global';
 
 const NO_APP = 'none';
+
+const INGESTION_STATUS: Record<
+    MaaccKnowledgeSource['documents'][number]['ingestionStatus'],
+    { label: string; tone: Tone }
+> = {
+    pending: { label: 'Queued', tone: 'blue' },
+    scanning: { label: 'Scanning', tone: 'orange' },
+    indexed: { label: 'Indexed', tone: 'teal' },
+    quarantined: { label: 'Quarantined', tone: 'red' },
+    failed: { label: 'Retry pending', tone: 'amber' },
+};
 
 function SourceFormModal({
     source,
@@ -497,6 +508,7 @@ function DocumentsPanel({
                             { label: 'Title' },
                             { label: 'URI' },
                             { label: 'Chunks', align: 'center' },
+                            { label: 'Status' },
                             { label: 'Indexed' },
                             { label: '', align: 'right' },
                         ]}
@@ -535,6 +547,35 @@ function DocumentsPanel({
                                     </span>
                                 </Td>
                                 <Td align="center">{doc.chunkCount ?? 0}</Td>
+                                <Td>
+                                    <Badge
+                                        tone={
+                                            INGESTION_STATUS[
+                                                doc.ingestionStatus
+                                            ].tone
+                                        }
+                                        dot
+                                    >
+                                        {
+                                            INGESTION_STATUS[
+                                                doc.ingestionStatus
+                                            ].label
+                                        }
+                                    </Badge>
+                                    {doc.quarantineReason ? (
+                                        <div
+                                            role="alert"
+                                            style={{
+                                                maxWidth: 240,
+                                                marginTop: 4,
+                                                color: 'var(--red-500)',
+                                                fontSize: 11,
+                                            }}
+                                        >
+                                            {doc.quarantineReason}
+                                        </div>
+                                    ) : null}
+                                </Td>
                                 <Td>{doc.indexedAt ?? '—'}</Td>
                                 <Td align="right">
                                     <IconBtn
@@ -564,6 +605,8 @@ export default function Knowledge() {
     const [editing, setEditing] = useState<MaaccKnowledgeSource | undefined>();
     const [docModalOpen, setDocModalOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    usePoll(5000);
 
     const selected = sources.find((s) => s.id === selectedId) ?? null;
     const active = sources.filter((s) => s.status === 'active').length;

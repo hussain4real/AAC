@@ -21,13 +21,14 @@ use Illuminate\Support\Carbon;
  * @property string $subject
  * @property string|null $email
  * @property array<string, mixed>|null $raw_claims
+ * @property array<int, string>|null $managed_project_ids
  * @property Carbon|null $last_login_at
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read SsoConnection $connection
  * @property-read User $user
  */
-#[Fillable(['sso_connection_id', 'user_id', 'subject', 'email', 'raw_claims', 'last_login_at'])]
+#[Fillable(['sso_connection_id', 'user_id', 'subject', 'email', 'raw_claims', 'managed_project_ids', 'last_login_at'])]
 class SsoIdentity extends Model
 {
     /** @use HasFactory<SsoIdentityFactory> */
@@ -62,6 +63,7 @@ class SsoIdentity extends Model
     {
         return [
             'raw_claims' => 'array',
+            'managed_project_ids' => 'array',
             'last_login_at' => 'datetime',
         ];
     }

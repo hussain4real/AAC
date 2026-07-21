@@ -4,6 +4,8 @@ namespace App\Http\Requests\Maacc;
 
 use App\Enums\Environment;
 use App\Enums\WebhookEventType;
+use App\Rules\SafeOutboundUrl;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,14 +20,14 @@ class StoreWebhookEndpointRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
         $teamId = $this->user()?->currentTeam?->id;
 
         return [
             'application_id' => ['required', 'uuid', Rule::exists('applications', 'id')->where('team_id', $teamId)],
             'environment' => ['required', Rule::enum(Environment::class)],
-            'url' => ['required', 'url:http,https', 'max:2048'],
+            'url' => ['required', new SafeOutboundUrl($policy, 'webhook'), 'max:2048'],
             'events' => ['sometimes', 'array'],
             'events.*' => ['string', Rule::in([...WebhookEventType::values(), '*'])],
             'description' => ['nullable', 'string', 'max:255'],

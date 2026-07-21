@@ -7,6 +7,7 @@ function manifestTool(input: Record<string, unknown>, output: Record<string, unk
   return {
     name: 'fetch-records',
     version: '1.0.0',
+    schemaDialect: 'https://maacc.dev/schema/compact/1.0',
     schemaFingerprint: 'fp',
     inputSchema: input,
     outputSchema: output,
@@ -36,6 +37,16 @@ test('parses optional markers and format hints in definitions', () => {
   assert.equal(baseType('number?'), 'number');
   assert.equal(isOptional('number?'), true);
   assert.equal(isOptional('string'), false);
+});
+
+test('matches MAACC date-time validation exactly', () => {
+  const schema = { at: { type: 'string', format: 'date-time' } };
+
+  assert.equal(validateSchema(schema, { at: '2026-07-18T12:34:56Z' }).valid, true);
+  assert.equal(validateSchema(schema, { at: '2026-07-18T12:34:56+03:00' }).valid, true);
+  assert.equal(validateSchema(schema, { at: '2026-07-18' }).valid, false);
+  assert.equal(validateSchema(schema, { at: '2026-02-30T12:34:56Z' }).valid, false);
+  assert.equal(validateSchema(schema, { at: '2026-07-18T12:34:56.123Z' }).valid, false);
 });
 
 test('validates a handler input and output against the contract', async () => {

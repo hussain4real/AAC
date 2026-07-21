@@ -2,12 +2,15 @@
 
 use App\Enums\Environment;
 use App\Enums\ExecMode;
+use App\Enums\KnowledgeDocumentStatus;
 use App\Enums\KnowledgeSourceStatus;
 use App\Enums\RunStatus;
 use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Enums\TraceEventType;
+use App\Exceptions\Sdk\RuntimeRequestException;
 use App\Models\Agent;
+use App\Models\AgentRun;
 use App\Models\Application;
 use App\Models\KnowledgeSource;
 use App\Models\LlmProvider;
@@ -16,6 +19,7 @@ use App\Models\ToolAssignment;
 use App\Models\ToolContract;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\Knowledge\Contracts\KnowledgeRetriever;
+use App\Support\Runtime\Knowledge\KnowledgeExtractionException;
 use App\Support\Runtime\Knowledge\KnowledgeIndexer;
 use App\Support\Runtime\Knowledge\KnowledgeToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
@@ -156,6 +160,7 @@ it('drives a full RAG run through the runtime with citations and a trace', funct
     ]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()
         ->toolCallThen('searchPolicy', ['query' => 'berth allocation'])
@@ -171,7 +176,7 @@ it('drives a full RAG run through the runtime with citations and a trace', funct
         ->and($run->traceEvents()->where('type', TraceEventType::ToolResultReceived)->exists())->toBeTrue();
 });
 
-it('fails the run when a knowledge tool requires approval but is not active', function () {
+it('rejects a run before creation when a knowledge tool requires approval but is not active', function () {
     $tool = knowledgeTool($this->source, [
         'slug' => 'gatedKnowledge',
         'requires_approval' => true,
@@ -184,13 +189,14 @@ it('fails the run when a knowledge tool requires approval but is not active', fu
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('gatedKnowledge', ['query' => 'berth']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('tool_requires_approval');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
 it('returns no matches for a stopword-only query or a zero limit', function () {
@@ -227,7 +233,7 @@ it('produces no chunks for a whitespace-only document body', function () {
         ->and($document->indexed_at)->not->toBeNull();
 });
 
-it('fails the run when the knowledge source is unavailable', function () {
+it('rejects a run before creation when the knowledge source is unavailable', function () {
     $this->source->update(['status' => KnowledgeSourceStatus::Disabled]);
     $tool = knowledgeTool($this->source, ['slug' => 'searchDisabled']);
 
@@ -236,13 +242,14 @@ it('fails the run when the knowledge source is unavailable', function () {
     $model = LlmProvider::factory()->for($this->team)->create(['environments' => [Environment::Production->value]]);
     $agent = Agent::factory()->for($project)->for($model)->published()->create();
     ToolAssignment::factory()->forAgent($agent)->create(['tool_contract_id' => $tool->id]);
+    approveCurrentAgentConfiguration($agent);
 
     bindFakeRouter()->toolCallThen('searchDisabled', ['query' => 'berth']);
 
-    $run = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester');
+    expect(fn () => app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'q', 'tester'))
+        ->toThrow(RuntimeRequestException::class);
 
-    expect($run->status)->toBe(RunStatus::Failed)
-        ->and($run->failure_reason)->toBe('knowledge_unavailable');
+    expect(AgentRun::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
 it('reindexes a source and rebuilds its chunks', function () {
@@ -252,6 +259,30 @@ it('reindexes a source and rebuilds its chunks', function () {
     app(KnowledgeIndexer::class)->reindex($this->source->fresh());
 
     expect($this->source->fresh()->chunk_count)->toBe(3);
+});
+
+it('keeps quarantined uploads excluded during source reindexing', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('knowledge-quarantine/unsafe.txt', 'must not be indexed');
+    $document = $this->source->documents()->create([
+        'title' => 'Unsafe upload',
+        'body' => '',
+        'checksum' => '',
+        'disk' => 'local',
+        'storage_path' => 'knowledge-quarantine/unsafe.txt',
+        'original_filename' => 'unsafe.txt',
+        'mime_type' => 'text/plain',
+        'file_size' => 19,
+        'ingestion_status' => KnowledgeDocumentStatus::Quarantined,
+        'quarantine_reason' => 'Unsafe content.',
+    ]);
+
+    app(KnowledgeIndexer::class)->reindex($this->source->fresh());
+
+    expect($document->fresh()->ingestion_status)->toBe(KnowledgeDocumentStatus::Quarantined)
+        ->and($document->fresh()->body)->toBe('')
+        ->and($document->chunks()->count())->toBe(0)
+        ->and($this->source->fresh()->chunk_count)->toBe(3);
 });
 
 it('splits a long paragraph into word windows', function () {
@@ -302,4 +333,38 @@ it('retrieves and cites chunks from an uploaded document', function () {
         ->and($result['citations'][0]['uri'])->toBe('https://docs.example/tug-scheduling')
         ->and($result['citations'][0]['score'])->toBeGreaterThan(0)
         ->and($result['citations'][0]['indexed_at'])->not->toBeNull();
+});
+
+it('rejects stored-document records without complete storage metadata', function () {
+    $document = $this->source->documents()->create([
+        'title' => 'Missing file metadata',
+        'body' => '',
+        'checksum' => '',
+    ]);
+
+    expect(fn () => app(KnowledgeIndexer::class)->indexStoredDocument($document))
+        ->toThrow(KnowledgeExtractionException::class, 'could not be read');
+});
+
+it('the document index path re-extracts uploaded records and enforces the chunk ceiling', function () {
+    Storage::fake('local');
+    Storage::disk('local')->put('knowledge/reindex.txt', 'Re-extracted body.');
+    $document = $this->source->documents()->create([
+        'title' => 'Uploaded',
+        'body' => 'old',
+        'checksum' => hash('sha256', 'old'),
+        'disk' => 'local',
+        'storage_path' => 'knowledge/reindex.txt',
+        'original_filename' => 'reindex.txt',
+    ]);
+    $indexer = app(KnowledgeIndexer::class);
+    $method = new ReflectionMethod($indexer, 'indexDocument');
+    $method->invoke($indexer, $document);
+    expect($document->fresh()->body)->toBe('Re-extracted body.');
+
+    config(['maacc.runtime.knowledge.upload.max_chunks' => 1]);
+    expect(fn () => $indexer->ingestDocument($this->source, [
+        'title' => 'Too many chunks',
+        'body' => "First paragraph.\n\nSecond paragraph.",
+    ]))->toThrow(KnowledgeExtractionException::class, 'chunk safety limit');
 });

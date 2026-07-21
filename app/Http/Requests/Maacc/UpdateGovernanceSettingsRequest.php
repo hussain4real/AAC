@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Maacc;
 
+use App\Enums\PayloadHandling;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateGovernanceSettingsRequest extends FormRequest
 {
@@ -21,6 +23,7 @@ class UpdateGovernanceSettingsRequest extends FormRequest
             'audit_retention_days' => ['required', 'integer', 'min:1', 'max:3650'],
             'mask_sensitive_inputs' => ['required', 'boolean'],
             'mask_sensitive_outputs' => ['required', 'boolean'],
+            'tool_result_handling' => ['required', Rule::enum(PayloadHandling::class)],
             'block_restricted_logging' => ['required', 'boolean'],
             'default_daily_run_quota' => ['nullable', 'integer', 'min:1', 'max:1000000'],
         ];

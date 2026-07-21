@@ -7,11 +7,13 @@ use App\Models\AgentRun;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Runtime\RunAuthorizer;
 use App\Support\Runtime\RunPayload;
+use App\Support\Runtime\StreamConcurrencyLimiter;
 use App\Support\Sdk\SdkContext;
+use App\Support\Sdk\SdkError;
 use Generator;
 use Illuminate\Http\Request;
 use Illuminate\Http\StreamedEvent;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Streams a run's lifecycle as Server-Sent Events for chat-style or
@@ -27,13 +29,26 @@ class RunStreamController extends Controller
     /**
      * Open an SSE stream for a run owned by the application.
      */
-    public function show(Request $request, RunAuthorizer $authorizer, AgentRunner $runner, string $runId): StreamedResponse
+    public function show(Request $request, RunAuthorizer $authorizer, AgentRunner $runner, StreamConcurrencyLimiter $limiter, string $runId): Response
     {
         $context = SdkContext::fromRequest($request);
         $run = $runner->refreshExpiry($authorizer->resolveRun($context->application, $runId));
+        $lease = $limiter->acquire($context->application->id);
 
-        return response()->eventStream(function () use ($run): Generator {
-            yield from $this->events($run);
+        if ($lease === null) {
+            return SdkError::response(
+                'stream_concurrency_exceeded',
+                'This application has reached its concurrent stream limit.',
+                429,
+            )->withHeaders(['Retry-After' => '2', 'X-MAACC-Backpressure' => 'stream-limit']);
+        }
+
+        return response()->eventStream(function () use ($run, $lease): Generator {
+            try {
+                yield from $this->events($run);
+            } finally {
+                $lease->release();
+            }
         });
     }
 

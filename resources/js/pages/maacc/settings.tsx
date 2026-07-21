@@ -4,7 +4,7 @@
    real backend data (the `members` page prop + the shared `maacc` prop);
    the platform name reflects the current team.
    ============================================================ */
-import { Head, usePage } from '@inertiajs/react';
+import { Deferred, Head, router, usePage } from '@inertiajs/react';
 import { useState } from 'react';
 import {
     Avatar,
@@ -48,6 +48,7 @@ function UsageStat({ label, value }: { label: string; value: number }) {
 
 function GeneralSettings() {
     const MAACC = useMaaccData();
+    const { go } = useMaaccNav();
     const { currentTeam } = usePage().props;
     const settings = MAACC.governanceSettings;
 
@@ -172,11 +173,14 @@ function GeneralSettings() {
                             gap: 8,
                         }}
                     >
-                        <Btn variant="soft" size="sm" full icon="book">
+                        <Btn
+                            variant="soft"
+                            size="sm"
+                            full
+                            icon="book"
+                            onClick={() => go('sdkDocs')}
+                        >
                             Documentation
-                        </Btn>
-                        <Btn variant="default" size="sm" full icon="send">
-                            Contact platform team
                         </Btn>
                     </div>
                 </Card>
@@ -186,20 +190,39 @@ function GeneralSettings() {
 }
 
 type Member = { name: string; email: string; role: string };
+type MembersPage = {
+    items: Member[];
+    pagination: {
+        nextCursor: string | null;
+        previousCursor: string | null;
+    };
+};
 
-function MembersSettings({ members }: { members: Member[] }) {
+function MembersSettings({ members }: { members: MembersPage }) {
+    const visit = (cursor: string | null) => {
+        if (!cursor) {
+            return;
+        }
+
+        router.get(
+            window.location.pathname,
+            { members_cursor: cursor },
+            { only: ['members'], preserveState: true, preserveScroll: true },
+        );
+    };
+
     return (
         <Card pad={false}>
             <div style={{ padding: '14px 16px 12px' }}>
                 <SectionHeader
                     title="Members"
-                    sub={`${members.length} ${members.length === 1 ? 'person' : 'people'} with access to this team`}
+                    sub={`${members.items.length} ${members.items.length === 1 ? 'person' : 'people'} on this page`}
                     icon="user"
                     style={{ marginBottom: 0 }}
                 />
             </div>
             <Table columns={[{ label: 'Member' }, { label: 'Role' }]}>
-                {members.map((m) => (
+                {members.items.map((m) => (
                     <Tr key={m.email}>
                         <Td strong>
                             <div
@@ -239,6 +262,35 @@ function MembersSettings({ members }: { members: Member[] }) {
                     </Tr>
                 ))}
             </Table>
+            {(members.pagination.previousCursor ||
+                members.pagination.nextCursor) && (
+                <nav
+                    aria-label="Team member pagination"
+                    style={{
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: 8,
+                        padding: 16,
+                    }}
+                >
+                    <Btn
+                        size="sm"
+                        variant="ghost"
+                        disabled={!members.pagination.previousCursor}
+                        onClick={() => visit(members.pagination.previousCursor)}
+                    >
+                        Previous
+                    </Btn>
+                    <Btn
+                        size="sm"
+                        variant="ghost"
+                        disabled={!members.pagination.nextCursor}
+                        onClick={() => visit(members.pagination.nextCursor)}
+                    >
+                        Next
+                    </Btn>
+                </nav>
+            )}
         </Card>
     );
 }
@@ -489,7 +541,7 @@ function AppearanceSettings({
 
 /* ── Page ─────────────────────────────────────────────────── */
 
-export default function Settings({ members }: { members: Member[] }) {
+export default function Settings({ members }: { members?: MembersPage }) {
     const { theme, setTheme, scope } = useMaaccNav();
     const allTabs: (TabDef & { roles: string[] })[] = [
         {
@@ -529,7 +581,42 @@ export default function Settings({ members }: { members: Member[] }) {
                     tabs={<Tabs tabs={tabs} active={tab} onChange={setTab} />}
                 />
                 {tab === 'general' && <GeneralSettings />}
-                {tab === 'members' && <MembersSettings members={members} />}
+                {tab === 'members' && (
+                    <Deferred
+                        data="members"
+                        fallback={
+                            <Card>
+                                <div role="status" aria-live="polite">
+                                    Loading team members…
+                                </div>
+                            </Card>
+                        }
+                        rescue={({ reloading }) => (
+                            <Card>
+                                <div role="alert">
+                                    <strong>
+                                        Team members could not be loaded.
+                                    </strong>
+                                    <p>
+                                        Please retry. The rest of settings is
+                                        still available.
+                                    </p>
+                                    <Btn
+                                        variant="primary"
+                                        disabled={reloading}
+                                        onClick={() =>
+                                            router.reload({ only: ['members'] })
+                                        }
+                                    >
+                                        {reloading ? 'Retrying…' : 'Retry'}
+                                    </Btn>
+                                </div>
+                            </Card>
+                        )}
+                    >
+                        {members ? <MembersSettings members={members} /> : null}
+                    </Deferred>
+                )}
                 {tab === 'environments' && <EnvSettings />}
                 {tab === 'appearance' && (
                     <AppearanceSettings theme={theme} setTheme={setTheme} />

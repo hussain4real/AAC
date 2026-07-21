@@ -59,6 +59,40 @@ class SdkClientManager
     }
 
     /**
+     * Apply an approved, pre-generated secret to the MAACC and Passport records.
+     */
+    public function applyApprovedSecret(Credential $credential, string $plainSecret): void
+    {
+        $client = $credential->oauthClient;
+
+        if ($client !== null) {
+            $client->tokens()->update(['revoked' => true]);
+            $client->forceFill([
+                'secret' => $plainSecret,
+                'revoked' => false,
+            ])->save();
+        }
+
+        $credential->fillSecret($plainSecret);
+    }
+
+    /**
+     * Make a staged Passport client unavailable until approval.
+     */
+    public function deactivate(Credential $credential): void
+    {
+        $credential->oauthClient?->forceFill(['revoked' => true])->save();
+    }
+
+    /**
+     * Activate an approved staged Passport client.
+     */
+    public function activate(Credential $credential): void
+    {
+        $credential->oauthClient?->forceFill(['revoked' => false])->save();
+    }
+
+    /**
      * Revoke the backing Passport client and all of its issued tokens.
      */
     public function revoke(Credential $credential): void

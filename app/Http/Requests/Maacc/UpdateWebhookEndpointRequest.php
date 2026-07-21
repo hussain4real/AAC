@@ -4,6 +4,8 @@ namespace App\Http\Requests\Maacc;
 
 use App\Enums\WebhookEndpointStatus;
 use App\Enums\WebhookEventType;
+use App\Rules\SafeOutboundUrl;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,14 +20,14 @@ class UpdateWebhookEndpointRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
         return [
-            'url' => ['sometimes', 'url:http,https', 'max:2048'],
+            'url' => ['sometimes', new SafeOutboundUrl($policy, 'webhook'), 'max:2048'],
             'events' => ['sometimes', 'array', 'min:1'],
             'events.*' => ['string', Rule::in([...WebhookEventType::values(), '*'])],
             'description' => ['nullable', 'string', 'max:255'],
-            'status' => ['sometimes', Rule::enum(WebhookEndpointStatus::class)],
+            'status' => ['sometimes', Rule::in([WebhookEndpointStatus::Disabled->value])],
         ];
     }
 }

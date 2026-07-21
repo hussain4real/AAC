@@ -6,7 +6,7 @@
    `Modal` → shadcn Dialog, `Select` → shadcn Select. Presentational
    atoms are styled directly with the token system for exact fidelity.
    ============================================================ */
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties, KeyboardEvent, ReactNode } from 'react';
 import { useState } from 'react';
 import {
     Dialog,
@@ -267,6 +267,8 @@ export function Btn({
     style = {},
     type = 'button',
     full = false,
+    ariaLabel,
+    ariaDescribedBy,
 }: {
     children?: ReactNode;
     variant?: BtnVariant;
@@ -278,6 +280,8 @@ export function Btn({
     style?: CSSProperties;
     type?: 'button' | 'submit' | 'reset';
     full?: boolean;
+    ariaLabel?: string;
+    ariaDescribedBy?: string;
 }) {
     const sizes: Record<
         BtnSize,
@@ -334,6 +338,8 @@ export function Btn({
             type={type}
             onClick={disabled ? undefined : onClick}
             disabled={disabled}
+            aria-label={ariaLabel}
+            aria-describedby={ariaDescribedBy}
             className="maacc-btn"
             style={{
                 display: full ? 'flex' : 'inline-flex',
@@ -622,8 +628,22 @@ export function Tabs({
     onChange: (id: string) => void;
     style?: CSSProperties;
 }) {
+    const focusTab = (currentIndex: number, direction: -1 | 1) => {
+        const nextIndex =
+            (currentIndex + direction + tabs.length) % tabs.length;
+        onChange(tabs[nextIndex].id);
+        requestAnimationFrame(() => {
+            document
+                .querySelector<HTMLButtonElement>(
+                    `[role="tab"][data-tab-id="${tabs[nextIndex].id}"]`,
+                )
+                ?.focus();
+        });
+    };
+
     return (
         <div
+            role="tablist"
             style={{
                 display: 'flex',
                 gap: 2,
@@ -633,13 +653,33 @@ export function Tabs({
                 ...style,
             }}
         >
-            {tabs.map((t) => {
+            {tabs.map((t, index) => {
                 const on = t.id === active;
 
                 return (
                     <button
                         key={t.id}
+                        type="button"
+                        role="tab"
+                        data-tab-id={t.id}
+                        aria-selected={on}
+                        tabIndex={on ? 0 : -1}
                         onClick={() => onChange(t.id)}
+                        onKeyDown={(event) => {
+                            if (event.key === 'ArrowRight') {
+                                event.preventDefault();
+                                focusTab(index, 1);
+                            } else if (event.key === 'ArrowLeft') {
+                                event.preventDefault();
+                                focusTab(index, -1);
+                            } else if (event.key === 'Home') {
+                                event.preventDefault();
+                                onChange(tabs[0].id);
+                            } else if (event.key === 'End') {
+                                event.preventDefault();
+                                onChange(tabs[tabs.length - 1].id);
+                            }
+                        }}
                         style={{
                             position: 'relative',
                             border: 'none',
@@ -713,6 +753,8 @@ export function Segmented({
 
     return (
         <div
+            role="group"
+            aria-label="View options"
             style={{
                 display: 'inline-flex',
                 background: 'var(--surface-3)',
@@ -728,6 +770,13 @@ export function Segmented({
                 return (
                     <button
                         key={val}
+                        type="button"
+                        aria-label={
+                            typeof o === 'object' && o.label
+                                ? o.label
+                                : `${val} view`
+                        }
+                        aria-pressed={on}
                         onClick={() => onChange(val)}
                         style={{
                             height: h - 6,
@@ -830,6 +879,18 @@ export function Tr({
     return (
         <tr
             onClick={onClick}
+            tabIndex={onClick ? 0 : undefined}
+            aria-label={onClick ? 'Open details' : undefined}
+            onKeyDown={
+                onClick
+                    ? (event: KeyboardEvent<HTMLTableRowElement>) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              onClick();
+                          }
+                      }
+                    : undefined
+            }
             className={onClick && hover ? 'maacc-row' : ''}
             style={{
                 cursor: onClick ? 'pointer' : 'default',
@@ -971,11 +1032,13 @@ export function Select({
     value,
     onChange,
     options,
+    ariaLabel,
     style = {},
 }: {
     value: string;
     onChange: (v: string) => void;
     options: SelectOption[];
+    ariaLabel?: string;
     style?: CSSProperties;
 }) {
     const opts = options.map((o) =>
@@ -986,6 +1049,7 @@ export function Select({
         <div style={{ position: 'relative', ...style }}>
             <ShadSelect value={value} onValueChange={onChange}>
                 <SelectTrigger
+                    aria-label={ariaLabel ?? 'Select an option'}
                     className="maacc-input maacc-select-trigger"
                     style={{
                         ...inputStyle,
@@ -1035,10 +1099,12 @@ export function Toggle({
     on,
     onChange,
     size = 'md',
+    ariaLabel = 'Toggle setting',
 }: {
     on: boolean;
     onChange: (v: boolean) => void;
     size?: 'sm' | 'md';
+    ariaLabel?: string;
 }) {
     const w = size === 'sm' ? 32 : 38;
     const h = size === 'sm' ? 18 : 22;
@@ -1046,6 +1112,10 @@ export function Toggle({
 
     return (
         <button
+            type="button"
+            role="switch"
+            aria-checked={on}
+            aria-label={ariaLabel}
             onClick={() => onChange(!on)}
             style={{
                 width: w,
@@ -1267,12 +1337,23 @@ export function CodeBlock({
     maxHeight?: number;
     copyable?: boolean;
 }) {
-    const [copied, setCopied] = useState(false);
-    const copy = () => {
-        navigator.clipboard?.writeText(code);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1400);
+    const [copyState, setCopyState] = useState<'idle' | 'copied' | 'manual'>(
+        'idle',
+    );
+    const copy = async () => {
+        try {
+            if (!navigator.clipboard) {
+                throw new Error('Clipboard access is unavailable.');
+            }
+
+            await navigator.clipboard.writeText(code);
+            setCopyState('copied');
+            setTimeout(() => setCopyState('idle'), 1400);
+        } catch {
+            setCopyState('manual');
+        }
     };
+    const copied = copyState === 'copied';
 
     return (
         <div
@@ -1309,7 +1390,9 @@ export function CodeBlock({
                     </span>
                     {copyable && (
                         <button
-                            onClick={copy}
+                            type="button"
+                            onClick={() => void copy()}
+                            aria-label="Copy code"
                             className="maacc-link"
                             style={{
                                 border: 'none',
@@ -1349,7 +1432,9 @@ export function CodeBlock({
             </pre>
             {!lang && copyable && (
                 <button
-                    onClick={copy}
+                    type="button"
+                    onClick={() => void copy()}
+                    aria-label="Copy code"
                     className="maacc-copybtn"
                     style={{
                         position: 'absolute',
@@ -1371,6 +1456,27 @@ export function CodeBlock({
                     <Icon name={copied ? 'check' : 'copy'} size={12} />
                     {copied ? 'Copied' : 'Copy'}
                 </button>
+            )}
+            <div aria-live="polite" className="sr-only">
+                {copyState === 'copied'
+                    ? 'Copied to clipboard.'
+                    : copyState === 'manual'
+                      ? 'Clipboard unavailable. Select the code and copy it manually.'
+                      : ''}
+            </div>
+            {copyState === 'manual' && (
+                <div
+                    role="alert"
+                    style={{
+                        padding: '8px 12px',
+                        borderTop: '1px solid var(--border)',
+                        color: 'var(--amber-500)',
+                        fontSize: 11.5,
+                    }}
+                >
+                    Clipboard unavailable. Select the text above and copy it
+                    manually.
+                </div>
             )}
         </div>
     );

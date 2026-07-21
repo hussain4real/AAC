@@ -44,6 +44,9 @@ enum PlatformPermission: string
     case ViewRuns = 'runs.view';
     case ViewWebhooks = 'webhooks.view';
     case ManageWebhooks = 'webhooks.manage';
+    case ViewIdentity = 'identity.view';
+    case ManageIdentity = 'identity.manage';
+    case ApproveIdentity = 'identity.approve';
 
     // Governance + operations.
     case ViewApprovals = 'approvals.view';

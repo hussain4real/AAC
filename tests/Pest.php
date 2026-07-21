@@ -1,6 +1,8 @@
 <?php
 
 use App\Actions\Maacc\CreateToolContract;
+use App\Enums\AgentStatus;
+use App\Enums\Environment;
 use App\Enums\ExecMode;
 use App\Enums\MaaccRole;
 use App\Enums\Sensitivity;
@@ -13,6 +15,7 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\User;
+use App\Support\Governance\AgentReadinessGate;
 use App\Support\Runtime\Contracts\LlmRouter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\Runtime\FakeLlmRouter;
@@ -31,7 +34,7 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('Feature');
+    ->in('Feature', 'Browser');
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +93,18 @@ function teamMember(Team $team): User
 }
 
 /**
+ * Add a separate team administrator who may decide four-eyes approvals.
+ */
+function teamAdminReviewer(Team $team): User
+{
+    $reviewer = User::factory()->create();
+    $team->members()->attach($reviewer, ['role' => TeamRole::Admin->value]);
+    $reviewer->switchTeam($team);
+
+    return $reviewer;
+}
+
+/**
  * Add a plain team member and grant them a MAACC role on the given project.
  */
 function projectRoleUser(Team $team, Project $project, MaaccRole $role): User
@@ -108,11 +123,20 @@ function projectRoleUser(Team $team, Project $project, MaaccRole $role): User
  */
 function maaccAgent(Team $team, array $attributes = []): Agent
 {
-    $application = Application::factory()->for($team)->create();
-    $project = Project::factory()->for($application)->create();
+    $application = Application::factory()->for($team)->create(['environment' => Environment::Production]);
+    $project = Project::factory()->for($application)->create(['environment' => Environment::Production]);
     $model = LlmProvider::factory()->for($team)->create();
+    $project->llmProviders()->attach($model);
 
-    return Agent::factory()->for($project)->for($model)->create($attributes);
+    $factory = Agent::factory()->for($project)->for($model);
+    $status = $attributes['status'] ?? null;
+
+    if ($status === AgentStatus::Published || $status === AgentStatus::Published->value) {
+        $factory = $factory->published();
+        unset($attributes['status']);
+    }
+
+    return $factory->create($attributes);
 }
 
 /**
@@ -128,6 +152,24 @@ function maaccRun(Agent $agent, array $attributes = []): AgentRun
         'application_id' => $agent->project->application_id,
         'llm_provider_id' => $agent->llm_provider_id,
     ], $attributes));
+}
+
+/**
+ * Snapshot a test agent's current execution configuration as its approved version.
+ */
+function approveCurrentAgentConfiguration(Agent $agent): Agent
+{
+    $agent->loadMissing('currentVersion');
+
+    if ($agent->currentVersion === null) {
+        throw new RuntimeException('The test agent has no published version to approve.');
+    }
+
+    $settings = $agent->currentVersion->settings ?? [];
+    $settings['configuration_hash'] = app(AgentReadinessGate::class)->configurationHash($agent);
+    $agent->currentVersion->update(['settings' => $settings]);
+
+    return $agent->refresh();
 }
 
 /**

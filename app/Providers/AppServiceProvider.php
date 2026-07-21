@@ -5,17 +5,26 @@ namespace App\Providers;
 use App\Models\Team;
 use App\Models\TeamInvitation;
 use App\Models\User;
-use App\Support\MaaccConsoleData;
+use App\Support\Governance\Contracts\AuditArchive;
+use App\Support\MaaccConsoleCache;
+use App\Support\Outbound\DnsResolver;
+use App\Support\Outbound\SystemDnsResolver;
+use App\Support\ProductReadinessProbe;
+use App\Support\Sdk\SdkContext;
 use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Secrets\DatabaseSecretVault;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterval;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Events\DiagnosingHealth;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Passport\Passport;
@@ -27,6 +36,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(AuditArchive::class, fn (Application $app): AuditArchive => $app->make(
+            (string) config('maacc.audit.archive_driver'),
+        ));
+
+        $this->app->bind(DnsResolver::class, SystemDnsResolver::class);
+
         // Bind the platform secrets vault. The database-backed driver is the
         // default; an enterprise deployment swaps in an external vault (HashiCorp
         // Vault, AWS Secrets Manager, …) via `maacc.vault.driver` with no caller
@@ -45,15 +60,43 @@ class AppServiceProvider extends ServiceProvider
         $this->configurePassport();
         $this->configurePlatformAuthorization();
         $this->configureConsoleCacheInvalidation();
+        $this->configureSdkRateLimits();
+
+        Event::listen(
+            DiagnosingHealth::class,
+            function (): void {
+                app(ProductReadinessProbe::class)->assertReady();
+            },
+        );
     }
 
     /**
-     * Invalidate the shared console dataset cache ({@see MaaccConsoleData}) on any
-     * write to a console-scoped model. The dataset is a shared Inertia prop built
-     * on every authenticated request, so it is cached and only rebuilt when the
-     * underlying data actually changes. Team membership and auth models are
-     * ignored because they do not appear in the console payload and would
-     * otherwise bust the cache on routine writes (e.g. login).
+     * Apply route-weighted, application-scoped API limits. Expensive run starts
+     * and callbacks receive smaller per-minute budgets than read-only discovery.
+     */
+    protected function configureSdkRateLimits(): void
+    {
+        RateLimiter::for('maacc-sdk', function (Request $request): Limit {
+            $context = $request->attributes->get('sdk_context');
+            $application = $context instanceof SdkContext ? $context->application->id : $request->ip();
+            $path = $request->path();
+            $weight = match (true) {
+                $request->isMethod('POST') && str_ends_with($path, '/runs') => 10,
+                $request->isMethod('POST') && str_ends_with($path, '/tool-results') => 5,
+                str_ends_with($path, '/stream') => 4,
+                $request->isMethod('POST') => 2,
+                default => 1,
+            };
+            $budget = max(1, intdiv((int) config('maacc.runtime.api_weight_budget_per_minute', 120), $weight));
+
+            return Limit::perMinute($budget)->by($application.'|'.$weight);
+        });
+    }
+
+    /**
+     * Invalidate only the changed tenant's versioned console aggregate cache.
+     * Authentication models are ignored so routine login writes do not evict
+     * unrelated reporting snapshots.
      */
     protected function configureConsoleCacheInvalidation(): void
     {
@@ -70,7 +113,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            MaaccConsoleData::invalidate();
+            app(MaaccConsoleCache::class)->invalidateForModel($model);
         });
     }
 

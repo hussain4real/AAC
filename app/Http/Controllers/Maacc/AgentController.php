@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Maacc;
 
 use App\Actions\Maacc\CreateAgent;
 use App\Actions\Maacc\DeleteAgent;
-use App\Actions\Maacc\PublishAgent;
 use App\Actions\Maacc\UpdateAgent;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreAgentRequest;
@@ -12,7 +11,7 @@ use App\Http\Requests\Maacc\UpdateAgentRequest;
 use App\Models\Agent;
 use App\Models\Project;
 use App\Models\User;
-use App\Support\Evaluation\EvaluationGate;
+use App\Support\Governance\ApprovalManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -54,26 +53,16 @@ class AgentController extends Controller
      * Publish the agent, snapshotting its configuration into a new version. The
      * promotion gate blocks publication while a required evaluation has not passed.
      */
-    public function publish(Request $request, string $currentTeam, Agent $agent, PublishAgent $publishAgent, EvaluationGate $gate): RedirectResponse
+    public function publish(Request $request, string $currentTeam, Agent $agent, ApprovalManager $approvals): RedirectResponse
     {
         Gate::authorize('publish', $agent);
 
-        $blockers = $gate->blockers($agent);
-
-        if ($blockers !== []) {
-            Inertia::flash('toast', [
-                'type' => 'error',
-                'message' => 'Cannot publish — '.implode(' ', $blockers),
-            ]);
-
-            return back();
-        }
-
         /** @var User $publisher */
         $publisher = $request->user();
-        $publishAgent->handle($agent, $publisher);
+        $agent->loadMissing('project');
+        $approvals->requestAgentPublication($agent, $publisher, $agent->project->environment);
 
-        Inertia::flash('toast', ['type' => 'success', 'message' => 'Agent published.']);
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Agent publication approval requested.']);
 
         return back();
     }

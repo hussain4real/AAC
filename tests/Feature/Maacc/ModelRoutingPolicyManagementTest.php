@@ -1,8 +1,10 @@
 <?php
 
+use App\Actions\Maacc\CreateModelRoutingPolicy;
 use App\Enums\RoutingStrategy;
 use App\Models\LlmProvider;
 use App\Models\ModelRoutingPolicy;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('the routing console page renders', function () {
@@ -19,6 +21,7 @@ test('a platform admin can create a routing policy', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = maaccAgent($team);
     $fallback = LlmProvider::factory()->for($team)->create();
+    $agent->project->llmProviders()->attach($fallback);
 
     $this->actingAs($owner)
         ->post(route('routing-policies.store', ['current_team' => $team->slug]), [
@@ -54,6 +57,30 @@ test('routing policy creation validates and enforces one policy per agent', func
             'strategy' => 'invalid',
         ])
         ->assertSessionHasErrors(['name', 'agent_id', 'strategy']);
+});
+
+test('routing policy candidates must be approved for the agent project at every write boundary', function () {
+    [$owner, $team] = ownerAndTeam();
+    $agent = maaccAgent($team);
+    $unapprovedForProject = LlmProvider::factory()->for($team)->create();
+    $payload = [
+        'name' => 'Unsafe fallback',
+        'agent_id' => $agent->id,
+        'strategy' => 'balanced',
+        'fallback_provider_ids' => [$unapprovedForProject->id],
+    ];
+
+    $this->actingAs($owner)
+        ->post(route('routing-policies.store', ['current_team' => $team->slug]), $payload)
+        ->assertSessionHasErrors(['fallback_provider_ids.0']);
+
+    expect(fn () => app(CreateModelRoutingPolicy::class)->handle(
+        $team,
+        $payload,
+        $owner->getAuthIdentifier(),
+    ))->toThrow(ValidationException::class);
+
+    expect(ModelRoutingPolicy::query()->where('agent_id', $agent->id)->exists())->toBeFalse();
 });
 
 test('a plain member cannot manage routing policies', function () {
@@ -92,13 +119,13 @@ test('a platform admin can update and delete a routing policy', function () {
     expect(ModelRoutingPolicy::find($policy->id))->toBeNull();
 });
 
-test('the console dataset exposes routing policies and provider health', function () {
+test('the routing page exposes policies and provider health', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = maaccAgent($team);
     ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create(['name' => 'Cheap first']);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('routing', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.routingPolicies', 1)

@@ -7,6 +7,7 @@ use App\Enums\Sensitivity;
 use App\Enums\ToolScope;
 use App\Http\Requests\Maacc\Concerns\ValidatesToolConfig;
 use App\Rules\ValidToolSchema;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -19,11 +20,13 @@ class StoreToolContractRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
+        $teamId = $this->user()?->currentTeam()->value('id');
+
         return [
             'name' => ['required', 'string', 'max:255'],
-            'application_id' => ['nullable', 'string', Rule::exists('applications', 'id')],
+            'application_id' => ['nullable', 'string', Rule::exists('applications', 'id')->where('team_id', $teamId)->where('status', 'active')],
             'description' => ['nullable', 'string'],
             'scope' => ['required', Rule::enum(ToolScope::class)],
             'execution_mode' => ['required', Rule::enum(ExecMode::class)],
@@ -34,10 +37,8 @@ class StoreToolContractRequest extends FormRequest
             'version' => ['sometimes', 'string', 'max:32'],
             // JSON contract schemas: an object mapping field name => type string.
             'input_schema' => ['required', 'array', new ValidToolSchema],
-            'input_schema.*' => ['required', 'string', 'max:64'],
             'output_schema' => ['required', 'array', new ValidToolSchema],
-            'output_schema.*' => ['required', 'string', 'max:64'],
-            ...$this->toolConfigRules($this->user()?->currentTeam()->value('id')),
+            ...$this->toolConfigRules($teamId, $policy),
         ];
     }
 

@@ -28,7 +28,7 @@ it('shares a platform admin\'s roles and permissions', function () {
 });
 
 it('shares an empty platform access for a guest', function () {
-    $this->get('/')
+    $this->get(route('login'))
         ->assertOk()
         ->assertInertia(fn (AssertableInertia $page) => $page
             ->where('auth.platform.roles', [])

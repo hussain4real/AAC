@@ -87,9 +87,11 @@ class QuotaGuard
 
         if ($quota->max_tokens_per_day !== null) {
             $tokens = (int) $this->usage($quota, $application, $agent)->sum('tokens_in')
-                + (int) $this->usage($quota, $application, $agent)->sum('tokens_out');
+                + (int) $this->usage($quota, $application, $agent)->sum('tokens_out')
+                + (int) $this->usage($quota, $application, $agent)->sum('reserved_tokens');
+            $reservation = $agent->max_tokens * max(1, (int) config('maacc.runtime.max_steps', 8));
 
-            if ($tokens >= $quota->max_tokens_per_day) {
+            if ($tokens + $reservation > $quota->max_tokens_per_day) {
                 throw RuntimeRequestException::quotaExceeded($quota->scope->label().' daily token quota');
             }
         }

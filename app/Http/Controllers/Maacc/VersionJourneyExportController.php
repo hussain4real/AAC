@@ -12,9 +12,8 @@ use Illuminate\Support\Facades\Gate;
 /**
  * Downloads the team's tool version journey — the contract version snapshots and
  * the implementation event timeline for its client-side tools — as a signed
- * JSON or CSV export. The export carries a SHA-256 checksum (in the JSON
- * manifest and an `X-Maacc-Journey-Checksum` header) so its integrity can be
- * verified after the fact.
+ * JSON or CSV export. The manifest is authenticated by the independent audit
+ * export key so consumers can verify its origin and integrity.
  */
 class VersionJourneyExportController extends Controller
 {
@@ -45,7 +44,9 @@ class VersionJourneyExportController extends Controller
         return response($body, 200, [
             'Content-Type' => $contentType,
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
-            'X-Maacc-Journey-Checksum' => $export['manifest']['checksum'],
+            'X-Maacc-Journey-Digest' => $export['manifest']['rows_digest'],
+            'X-Maacc-Journey-Signature' => $export['manifest']['signature'],
+            'X-Maacc-Journey-Key-Id' => $export['manifest']['signature_key_id'],
             'X-Maacc-Journey-Event-Count' => (string) $export['manifest']['event_count'],
         ]);
     }

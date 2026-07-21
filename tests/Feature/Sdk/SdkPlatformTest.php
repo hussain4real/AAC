@@ -21,9 +21,9 @@ test('it falls back to defaults when config values are missing or non-string', f
     config()->set('maacc.sdk.minimum_client_version', ['not', 'a', 'string']);
     config()->set('maacc.sdk.current_client_version', '');
 
-    expect($this->platform->apiVersion())->toBe('0.0.1')
-        ->and($this->platform->minimumClientVersion())->toBe('0.0.1')
-        ->and($this->platform->currentClientVersion())->toBe('0.0.1');
+    expect($this->platform->apiVersion())->toBe('1.0.0')
+        ->and($this->platform->minimumClientVersion())->toBe('1.0.0')
+        ->and($this->platform->currentClientVersion())->toBe('1.0.0');
 });
 
 test('it normalises the package registry and ignores malformed entries', function () {

@@ -22,7 +22,7 @@ class CreateCredential
      *
      * @param  array<string, mixed>  $data
      */
-    public function handle(Application $application, User $creator, array $data): CredentialSecret
+    public function handle(Application $application, User $creator, array $data, bool $staged = false): CredentialSecret
     {
         $environment = Environment::from((string) $data['environment']);
         $label = (string) ($data['label'] ?? '');
@@ -32,7 +32,7 @@ class CreateCredential
             'application_id' => $application->id,
             'environment' => $environment->value,
             'label' => $label,
-            'status' => CredentialStatus::Active->value,
+            'status' => $staged ? CredentialStatus::PendingApproval->value : CredentialStatus::Active->value,
             'created_by' => $creator->id,
         ]);
 
@@ -40,6 +40,11 @@ class CreateCredential
             $credential,
             $application->name.' — '.$environment->label(),
         );
+
+        if ($staged) {
+            $this->sdkClients->deactivate($credential);
+        }
+
         $credential->save();
 
         return new CredentialSecret($credential, $plainSecret);

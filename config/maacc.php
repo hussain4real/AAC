@@ -1,8 +1,77 @@
 <?php
 
+use App\Support\Governance\FilesystemAuditArchive;
 use App\Support\Secrets\DatabaseSecretVault;
 
 return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Enterprise Readiness Containment
+    |--------------------------------------------------------------------------
+    |
+    | MAACC remains non-enterprise until the readiness gates are signed. New
+    | account and tenant creation therefore fail closed unless an operator has
+    | explicitly enabled a controlled onboarding window. The status message is
+    | shared with every Inertia surface so the containment state is visible.
+    |
+    */
+
+    'readiness' => [
+        'asset_manifest' => env('MAACC_ASSET_MANIFEST', public_path('build/manifest.json')),
+        'status' => env('MAACC_ENTERPRISE_STATUS', 'non_enterprise'),
+        'message' => env(
+            'MAACC_ENTERPRISE_STATUS_MESSAGE',
+            'Enterprise onboarding and real sensitive-data onboarding are paused pending readiness approval.',
+        ),
+        'registration_enabled' => (bool) env('MAACC_REGISTRATION_ENABLED', false),
+        'team_creation_enabled' => (bool) env('MAACC_TEAM_CREATION_ENABLED', false),
+        'real_sensitive_data_enabled' => (bool) env('MAACC_REAL_SENSITIVE_DATA_ENABLED', false),
+        'change_owner' => env('MAACC_READINESS_CHANGE_OWNER', 'Aminu Hussain'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Unified Outbound Request Policy
+    |--------------------------------------------------------------------------
+    |
+    | Every tenant-controlled HTTP destination is resolved, classified and
+    | pinned immediately before connection. Automatic redirects are disabled;
+    | approved redirects are followed only after the next hop passes the same
+    | policy. Production permits HTTPS on approved ports only.
+    |
+    */
+
+    'outbound' => [
+        'require_https' => false,
+        'infrastructure_enforced' => (bool) env('MAACC_EGRESS_INFRASTRUCTURE_ENFORCED', false),
+        'connect_timeout_seconds' => (int) env('MAACC_OUTBOUND_CONNECT_TIMEOUT', 3),
+        'timeout_seconds' => (int) env('MAACC_OUTBOUND_TIMEOUT', 10),
+        'max_redirects' => (int) env('MAACC_OUTBOUND_MAX_REDIRECTS', 3),
+        'sensitive_headers' => [],
+        'purposes' => [
+            'remote_http' => [
+                'allowed_ports' => [443],
+                'require_allowlist' => true,
+                'allowed_hosts' => array_values(array_filter(array_map(
+                    'trim',
+                    explode(',', (string) env('MAACC_REMOTE_HTTP_ALLOWED_HOSTS', '')),
+                ))),
+            ],
+            'webhook' => [
+                'allowed_ports' => [443],
+            ],
+            'sso' => [
+                'allowed_ports' => [443],
+            ],
+            'mcp' => [
+                'allowed_ports' => [443],
+            ],
+            'knowledge' => [
+                'allowed_ports' => [443],
+            ],
+        ],
+    ],
 
     /*
     |--------------------------------------------------------------------------
@@ -44,29 +113,46 @@ return [
     */
 
     'runtime' => [
+        'policy_version' => env('MAACC_RUNTIME_POLICY_VERSION', '1.0.0'),
+        'api_weight_budget_per_minute' => (int) env('MAACC_API_WEIGHT_BUDGET_PER_MINUTE', 120),
+        'api_concurrency' => [
+            'run' => (int) env('MAACC_API_RUN_CONCURRENCY', 2),
+            'callback' => (int) env('MAACC_API_CALLBACK_CONCURRENCY', 4),
+            'write' => (int) env('MAACC_API_WRITE_CONCURRENCY', 5),
+            'read' => (int) env('MAACC_API_READ_CONCURRENCY', 10),
+        ],
         'driver' => env('MAACC_LLM_DRIVER', 'ai'),
         'max_steps' => (int) env('MAACC_RUNTIME_MAX_STEPS', 8),
         'default_timeout_seconds' => (int) env('MAACC_RUNTIME_TIMEOUT', 120),
         'per_turn_timeout_seconds' => (int) env('MAACC_RUNTIME_TURN_TIMEOUT', 30),
         'verify_timeout_seconds' => (int) env('MAACC_VERIFY_TIMEOUT', 15),
+        'state_store' => env('MAACC_RUNTIME_STATE_STORE'),
+        'state_ttl_seconds' => (int) env('MAACC_RUNTIME_STATE_TTL', 300),
 
         'stream' => [
             'poll_interval_ms' => (int) env('MAACC_RUNTIME_STREAM_INTERVAL', 500),
             'max_seconds' => (int) env('MAACC_RUNTIME_STREAM_MAX_SECONDS', 60),
+            'max_concurrent_per_application' => (int) env('MAACC_RUNTIME_STREAM_CONCURRENCY', 5),
+        ],
+
+        'gateway' => [
+            'max_body_kb' => (int) env('MAACC_GATEWAY_MAX_BODY_KB', 11264),
+            'max_header_kb' => (int) env('MAACC_GATEWAY_MAX_HEADER_KB', 16),
+            'request_timeout_seconds' => (int) env('MAACC_GATEWAY_REQUEST_TIMEOUT', 150),
         ],
 
         'webhooks' => [
             'timeout_seconds' => (int) env('MAACC_WEBHOOK_TIMEOUT', 10),
+            'connect_timeout_seconds' => (int) env('MAACC_WEBHOOK_CONNECT_TIMEOUT', 3),
             'max_attempts' => (int) env('MAACC_WEBHOOK_MAX_ATTEMPTS', 5),
             'backoff' => [10, 30, 60, 120],
             'signature_tolerance_seconds' => (int) env('MAACC_WEBHOOK_SIGNATURE_TOLERANCE', 300),
+            'secret_rotation_overlap_seconds' => (int) env('MAACC_WEBHOOK_SECRET_OVERLAP', 86400),
+            'retention_days' => (int) env('MAACC_WEBHOOK_RETENTION_DAYS', 30),
+            'stale_claim_seconds' => (int) env('MAACC_WEBHOOK_STALE_CLAIM_SECONDS', 180),
         ],
 
         'remote_http' => [
-            'allowed_hosts' => array_values(array_filter(array_map(
-                'trim',
-                explode(',', (string) env('MAACC_REMOTE_HTTP_ALLOWED_HOSTS', '')),
-            ))),
             'blocked_hosts' => [
                 'localhost',
                 '127.0.0.1',
@@ -94,6 +180,16 @@ return [
             'upload' => [
                 'allowed_extensions' => ['txt', 'md', 'markdown', 'csv', 'pdf', 'docx'],
                 'max_kb' => (int) env('MAACC_KNOWLEDGE_UPLOAD_MAX_KB', 10240),
+                'max_archive_entries' => (int) env('MAACC_KNOWLEDGE_MAX_ARCHIVE_ENTRIES', 500),
+                'max_decompressed_kb' => (int) env('MAACC_KNOWLEDGE_MAX_DECOMPRESSED_KB', 51200),
+                'max_compression_ratio' => (int) env('MAACC_KNOWLEDGE_MAX_COMPRESSION_RATIO', 100),
+                'max_pdf_pages' => (int) env('MAACC_KNOWLEDGE_MAX_PDF_PAGES', 500),
+                'max_text_characters' => (int) env('MAACC_KNOWLEDGE_MAX_TEXT_CHARACTERS', 1000000),
+                'max_chunks' => (int) env('MAACC_KNOWLEDGE_MAX_CHUNKS', 5000),
+                // Set this to an independently managed ClamAV-compatible binary
+                // in production. Production ingestion fails closed when absent.
+                'malware_scanner_binary' => env('MAACC_MALWARE_SCANNER_BINARY'),
+                'scanner_timeout_seconds' => (int) env('MAACC_MALWARE_SCANNER_TIMEOUT', 60),
             ],
         ],
 
@@ -140,6 +236,16 @@ return [
     */
 
     'pricing' => [
+        'currency' => 'USD',
+
+        'unit' => 'per_million_tokens',
+
+        'source' => 'MAACC governed catalog',
+
+        'version' => '2026-07-19',
+
+        'effective_at' => '2026-07-19T00:00:00Z',
+
         'models' => [
             'gpt-5.4' => ['input' => 1.25, 'output' => 10.0],
         ],
@@ -175,22 +281,22 @@ return [
     */
 
     'sdk' => [
-        'api_version' => env('MAACC_SDK_API_VERSION', '0.0.1'),
+        'api_version' => env('MAACC_SDK_API_VERSION', '1.0.0'),
 
-        'minimum_client_version' => env('MAACC_SDK_MIN_CLIENT_VERSION', '0.0.1'),
+        'minimum_client_version' => env('MAACC_SDK_MIN_CLIENT_VERSION', '1.0.0'),
 
-        'current_client_version' => env('MAACC_SDK_CURRENT_CLIENT_VERSION', '0.2.0'),
+        'current_client_version' => env('MAACC_SDK_CURRENT_CLIENT_VERSION', '1.0.0'),
 
         'packages' => [
             'php' => [
                 'name' => 'maacc/sdk',
-                'version' => '0.2.0',
+                'version' => '1.0.0',
                 'registry' => 'composer-vcs',
                 'status' => 'supported',
             ],
             'typescript' => [
                 'name' => '@qatar-navigation-milaha/sdk',
-                'version' => '0.2.0',
+                'version' => '1.0.0',
                 'registry' => 'npm',
                 'status' => 'supported',
             ],
@@ -210,8 +316,34 @@ return [
         | @var array<int, array{id: string, summary: string, deprecated_in: string, removed_in: string, guide: string}>
         */
         'deprecations' => [
-            //
+            [
+                'id' => 'requires-tool-persisted-status',
+                'summary' => '`requires_tool` is a transient model decision; consume the durable `waiting_for_client` pause instead.',
+                'deprecated_in' => '1.0.0',
+                'removed_in' => '2.0.0',
+                'guide' => '/docs/MAACC_SDK_Migration_Guide.md#v1-run-status-migration',
+            ],
+            [
+                'id' => 'legacy-compact-schema-strings',
+                'summary' => 'Legacy `field => type` strings remain accepted in v1; new contracts should use the versioned rich compact dialect.',
+                'deprecated_in' => '1.0.0',
+                'removed_in' => '2.0.0',
+                'guide' => '/docs/MAACC_SDK_Migration_Guide.md#v1-schema-migration',
+            ],
         ],
+    ],
+
+    'caller_context' => [
+        'signing_key' => env('MAACC_CALLER_CONTEXT_SIGNING_KEY', env('APP_KEY')),
+        'ttl_seconds' => (int) env('MAACC_CALLER_CONTEXT_TTL', 300),
+        'allowed_departments' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('MAACC_CALLER_CONTEXT_DEPARTMENTS', '')),
+        ))),
+        'allowed_roles' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('MAACC_CALLER_CONTEXT_ROLES', '')),
+        ))),
     ],
 
     /*
@@ -262,11 +394,43 @@ return [
     |
     | Settings for the OAuth 2.0 / OIDC authorization-code login flow. `http_timeout_seconds`
     | bounds each outbound call to the provider's token and userinfo endpoints.
+    | Rejected attempts and IdP availability failures are aggregated into the
+    | tenant alert feed over `alert_window_minutes`; the rejection alert fires at
+    | `rejected_login_alert_threshold` attempts inside that window.
     |
     */
 
     'sso' => [
         'http_timeout_seconds' => (int) env('MAACC_SSO_HTTP_TIMEOUT', 10),
+        'connect_timeout_seconds' => (int) env('MAACC_SSO_CONNECT_TIMEOUT', 3),
+        'allowed_id_token_algorithms' => ['RS256'],
+        'flow_ttl_seconds' => (int) env('MAACC_SSO_FLOW_TTL', 600),
+        'alert_window_minutes' => (int) env('MAACC_SSO_ALERT_WINDOW', 15),
+        'rejected_login_alert_threshold' => (int) env('MAACC_SSO_REJECTED_ALERT_THRESHOLD', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Audit integrity and independent archive
+    |--------------------------------------------------------------------------
+    */
+
+    'audit' => [
+        'chain_key_id' => env('MAACC_AUDIT_CHAIN_KEY_ID', 'local-chain-v1'),
+        'chain_key' => env('MAACC_AUDIT_CHAIN_KEY'),
+        'chain_verification_keys' => json_decode((string) env('MAACC_AUDIT_CHAIN_PREVIOUS_KEYS', '{}'), true) ?: [],
+        'export_key_id' => env('MAACC_AUDIT_EXPORT_KEY_ID', 'local-export-v1'),
+        'export_key' => env('MAACC_AUDIT_EXPORT_KEY'),
+        'export_verification_keys' => json_decode((string) env('MAACC_AUDIT_EXPORT_PREVIOUS_KEYS', '{}'), true) ?: [],
+        'archive_disk' => env('MAACC_AUDIT_ARCHIVE_DISK', 'audit_archive'),
+        'archive_immutable_enforced' => (bool) env('MAACC_AUDIT_ARCHIVE_IMMUTABLE_ENFORCED', false),
+        'archive_retention_days' => (int) env('MAACC_AUDIT_ARCHIVE_RETENTION_DAYS', 2555),
+        'archive_driver' => FilesystemAuditArchive::class,
+    ],
+
+    'governance' => [
+        'approval_ttl_hours' => (int) env('MAACC_APPROVAL_TTL_HOURS', 168),
+        'quarantine_retention_days' => (int) env('MAACC_QUARANTINE_RETENTION_DAYS', 7),
     ],
 
     /*

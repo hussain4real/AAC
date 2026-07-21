@@ -2,6 +2,7 @@
 
 namespace App\Support\Runtime\Mcp;
 
+use App\Enums\McpConnectorStatus;
 use App\Models\McpConnector;
 use App\Support\Runtime\ToolExecutionException;
 use Illuminate\Support\Facades\Date;
@@ -34,6 +35,7 @@ class McpCapabilityDiscoverer
         $connector->forceFill([
             'capabilities' => $capabilities,
             'last_discovered_at' => Date::now(),
+            'status' => McpConnectorStatus::Active,
         ])->save();
 
         return $capabilities;

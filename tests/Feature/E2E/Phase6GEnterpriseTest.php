@@ -16,7 +16,7 @@ use App\Models\SsoConnection;
 use App\Models\User;
 use App\Support\Runtime\AgentRunner;
 use App\Support\Secrets\Contracts\SecretVault;
-use Illuminate\Support\Facades\Http;
+use Tests\Support\OidcTestProvider;
 
 /**
  * Phase 6G end-to-end proof: a single scenario that exercises enterprise SSO role
@@ -36,20 +36,17 @@ test('the enterprise hardening surfaces work together end to end', function () {
         'authorize_url' => 'https://idp.example.com/authorize',
         'token_url' => 'https://idp.example.com/token',
         'userinfo_url' => 'https://idp.example.com/userinfo',
+        'allowed_domains' => ['milaha.com'],
     ]);
 
-    Http::preventStrayRequests();
-    Http::fake([
-        'idp.example.com/token' => Http::response(['access_token' => 'at-e2e']),
-        'idp.example.com/userinfo' => Http::response([
-            'sub' => 'idp-user-1',
-            'email' => 'newadmin@milaha.com',
-            'name' => 'New Admin',
-            'groups' => ['platform-admins'],
-        ]),
+    OidcTestProvider::fake($connection, [
+        'sub' => 'idp-user-1',
+        'email' => 'newadmin@milaha.com',
+        'name' => 'New Admin',
+        'groups' => ['platform-admins'],
     ]);
 
-    $this->withSession(['sso.state' => 'e2e-state'])
+    $this->withSession(OidcTestProvider::session($connection, 'e2e-state'))
         ->get(route('sso.callback', ['ssoConnection' => $connection->slug, 'state' => 'e2e-state', 'code' => 'e2e-code']))
         ->assertRedirect();
 
@@ -65,12 +62,14 @@ test('the enterprise hardening surfaces work together end to end', function () {
     $secret = $vault->store($team, VaultSecretKind::LlmKey->reference($agent->llmProvider->slug), 'Model key', VaultSecretKind::LlmKey, 'sk-original', $admin);
     $agent->llmProvider->update(['vault_secret_id' => $secret->id]);
     $application = $agent->project->application;
+    approveCurrentAgentConfiguration($agent);
 
     $fake = bindFakeRouter()->textThen('first');
     app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'go', null);
     expect($fake->requests[0]->apiKey)->toBe('sk-original');
 
     $vault->rotate($secret, 'sk-rotated');
+    approveCurrentAgentConfiguration($agent);
     $fake = bindFakeRouter()->textThen('second');
     app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'go again', null);
     expect($fake->requests[0]->apiKey)->toBe('sk-rotated')
@@ -80,7 +79,9 @@ test('the enterprise hardening surfaces work together end to end', function () {
     //    primary model errors mid-run.
     $agent->llmProvider->update(['input_cost' => 0.1, 'output_cost' => 0.1]);
     $fallback = LlmProvider::factory()->for($team)->create(['input_cost' => 9, 'output_cost' => 9]);
+    $agent->project->llmProviders()->attach($fallback);
     ModelRoutingPolicy::factory()->for($team)->for($agent)->costOptimized()->create(['fallback_provider_ids' => [$fallback->id]]);
+    approveCurrentAgentConfiguration($agent);
 
     $fake = bindFakeRouter()->throwThen('primary down')->textThen('recovered');
     $routed = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'route me', null);
@@ -91,6 +92,7 @@ test('the enterprise hardening surfaces work together end to end', function () {
     // 4. Human-in-the-loop runtime approval: flag the agent, invoke, pause, and let
     //    the admin approve to completion.
     $agent->update(['requires_runtime_approval' => true]);
+    approveCurrentAgentConfiguration($agent);
     bindFakeRouter()->textThen('approved run');
     $paused = app(AgentRunner::class)->start($agent->fresh(), $application, Environment::Production, 'sensitive', null);
     expect($paused->status)->toBe(RunStatus::RequiresApproval);
@@ -112,6 +114,7 @@ test('the enterprise hardening surfaces work together end to end', function () {
         ->assertRedirect();
 
     $agent->update(['requires_runtime_approval' => false]);
+    approveCurrentAgentConfiguration($agent);
     bindFakeRouter()->textThen('should not run');
     $frozenRun = app(AgentRunner::class)->start($agent->fresh(), $application->fresh(), Environment::Production, 'blocked', null);
     expect($frozenRun->status)->toBe(RunStatus::Failed)
@@ -135,7 +138,7 @@ test('the enterprise hardening surfaces work together end to end', function () {
         ->json();
 
     $actions = collect($export['events'])->pluck('action');
-    expect($export['manifest']['checksum'])->toBeString()
+    expect($export['manifest']['signature'])->toBeString()
         ->and($actions)->toContain('sso.provisioned')
         ->and($actions)->toContain('incident.freeze_application')
         ->and($actions)->toContain('incident.disable_model');

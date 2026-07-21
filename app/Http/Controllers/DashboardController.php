@@ -3,12 +3,15 @@
 namespace App\Http\Controllers;
 
 use App\Models\TeamInvitation;
+use App\Support\MaaccConsolePageData;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
+    public function __construct(private readonly MaaccConsolePageData $pageData) {}
+
     public function __invoke(Request $request): Response
     {
         $email = strtolower($request->user()->email);
@@ -33,6 +36,7 @@ class DashboardController extends Controller
 
         return Inertia::render('dashboard', [
             'pendingInvitations' => $pendingInvitations,
+            'maacc' => fn (): array => $this->pageData->forPage($request, 'dashboard'),
         ]);
     }
 }

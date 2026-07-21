@@ -9,6 +9,7 @@ use App\Enums\Environment;
 use App\Enums\Sensitivity;
 use Database\Factories\ApprovalRequestFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -28,6 +29,8 @@ use Illuminate\Support\Carbon;
  * @property ApprovalStatus $status
  * @property string|null $subject_type
  * @property string|null $subject_id
+ * @property string|null $subject_version_hash
+ * @property string|null $pending_key
  * @property string $title
  * @property string|null $summary
  * @property Sensitivity|null $sensitivity
@@ -38,7 +41,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $decided_label
  * @property string|null $decision_note
  * @property Carbon|null $decided_at
+ * @property Carbon|null $expires_at
  * @property array<string, mixed>|null $metadata
+ * @property array<string, mixed>|null $encrypted_payload
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Team $team
@@ -48,7 +53,8 @@ use Illuminate\Support\Carbon;
  * @property-read User|null $decider
  * @property-read Model|null $subject
  */
-#[Fillable(['team_id', 'application_id', 'project_id', 'type', 'status', 'subject_type', 'subject_id', 'title', 'summary', 'sensitivity', 'environment', 'requested_by', 'requested_label', 'decided_by', 'decided_label', 'decision_note', 'decided_at', 'metadata'])]
+#[Fillable(['team_id', 'application_id', 'project_id', 'type', 'status', 'subject_type', 'subject_id', 'subject_version_hash', 'pending_key', 'title', 'summary', 'sensitivity', 'environment', 'requested_by', 'requested_label', 'decided_by', 'decided_label', 'decision_note', 'decided_at', 'expires_at', 'metadata', 'encrypted_payload'])]
+#[Hidden(['encrypted_payload'])]
 class ApprovalRequest extends Model
 {
     /** @use HasFactory<ApprovalRequestFactory> */
@@ -153,7 +159,9 @@ class ApprovalRequest extends Model
             'sensitivity' => Sensitivity::class,
             'environment' => Environment::class,
             'decided_at' => 'datetime',
+            'expires_at' => 'datetime',
             'metadata' => 'array',
+            'encrypted_payload' => 'encrypted:array',
         ];
     }
 }

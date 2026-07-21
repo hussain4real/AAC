@@ -13,6 +13,15 @@ use Maacc\Sdk\Webhooks\WebhookSignature;
  */
 final class WebhookReceiver
 {
+    /** @var array<string, true> */
+    private array $processedDeliveryIds = [];
+
+    private bool $duplicate = false;
+
+    private ?string $deliveryId = null;
+
+    private ?int $sequence = null;
+
     public function __construct(private readonly string $signingSecret) {}
 
     /**
@@ -26,13 +35,39 @@ final class WebhookReceiver
     {
         $signature = $headers['X-Maacc-Signature'] ?? '';
         $timestamp = $headers['X-Maacc-Webhook-Timestamp'] ?? '';
+        $deliveryId = $headers['X-Maacc-Webhook-Delivery'] ?? '';
+        $sequence = $headers['X-Maacc-Webhook-Sequence'] ?? '';
 
-        if (! WebhookSignature::verify($body, $signature, $timestamp, $this->signingSecret)) {
+        if ($deliveryId === '' || ! ctype_digit($sequence) || ! WebhookSignature::verify($body, $signature, $timestamp, $this->signingSecret)) {
             return null;
         }
 
         $decoded = json_decode($body, true);
 
-        return is_array($decoded) ? $decoded : null;
+        if (! is_array($decoded)) {
+            return null;
+        }
+
+        $this->deliveryId = $deliveryId;
+        $this->sequence = (int) $sequence;
+        $this->duplicate = isset($this->processedDeliveryIds[$deliveryId]);
+        $this->processedDeliveryIds[$deliveryId] = true;
+
+        return $decoded;
+    }
+
+    public function wasDuplicate(): bool
+    {
+        return $this->duplicate;
+    }
+
+    public function deliveryId(): ?string
+    {
+        return $this->deliveryId;
+    }
+
+    public function sequence(): ?int
+    {
+        return $this->sequence;
     }
 }

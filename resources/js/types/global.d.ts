@@ -32,6 +32,7 @@ export interface MaaccDashboardStats {
     failed: number;
     tokens: string;
     cost: string;
+    costEstimated?: boolean;
 }
 
 export interface MaaccAlert {
@@ -48,6 +49,41 @@ export interface MaaccDashboard {
     runsOverTime: number[];
     topAgents: { id: string; name: string; runs: number; app: string }[];
     alerts: MaaccAlert[];
+    usageByUser?: Array<{
+        key: string;
+        runs: number;
+        tokens: number;
+        cost: number;
+    }>;
+    usageByDepartment?: Array<{
+        key: string;
+        runs: number;
+        tokens: number;
+        cost: number;
+    }>;
+    reporting?: {
+        source: string;
+        measuredAt: string;
+        timezone: string;
+        window: string;
+        cost: {
+            estimated: boolean;
+            currency: string;
+            unit: string;
+            source: string | null;
+            version: string | null;
+            effectiveAt: string | null;
+        };
+    };
+}
+
+export interface EnterpriseReadinessState {
+    status: string;
+    message: string;
+    registrationEnabled: boolean;
+    teamCreationEnabled: boolean;
+    realSensitiveDataEnabled: boolean;
+    changeOwner: string | null;
 }
 
 /** Operational monitoring summary (Phase 5). */
@@ -82,6 +118,7 @@ export interface MaaccGovernanceSettings {
     auditRetentionDays: number;
     maskSensitiveInputs: boolean;
     maskSensitiveOutputs: boolean;
+    toolResultHandling: 'store' | 'mask' | 'exclude';
     blockRestrictedLogging: boolean;
     defaultDailyRunQuota: number | null;
 }
@@ -256,6 +293,10 @@ export interface MaaccKnowledgeDocument {
     uploaded: boolean;
     originalFilename: string | null;
     fileSize: number | null;
+    ingestionStatus:
+        'pending' | 'scanning' | 'indexed' | 'quarantined' | 'failed';
+    quarantineReason: string | null;
+    processedAt: string | null;
     createdAt: string | null;
 }
 
@@ -461,15 +502,18 @@ export interface MaaccSsoConnection {
     name: string;
     provider: string;
     providerLabel: string;
+    issuer: string;
     authorizeUrl: string;
     tokenUrl: string;
     userinfoUrl: string;
+    jwksUrl: string;
     clientId: string;
     secretConfigured: boolean;
     scopes: string;
     emailClaim: string;
     nameClaim: string;
     groupsClaim: string;
+    allowedDomains: string[];
     defaultTeamRole: string;
     groupRoleMappings: Array<{
         group: string;
@@ -480,6 +524,10 @@ export interface MaaccSsoConnection {
     autoProvision: boolean;
     status: string;
     statusLabel: string;
+    testedAt: string | null;
+    approvedAt: string | null;
+    createdBy: number | null;
+    approvedBy: number | null;
     redirectUri: string;
     loginUrl: string;
     identityCount: number | null;
@@ -514,6 +562,24 @@ export interface MaaccProp {
     providerHealth: MaaccProviderHealth[];
     incidents: MaaccIncident[];
     ssoConnections: MaaccSsoConnection[];
+    memberDirectory: Array<{ id: number; name: string; email: string }>;
+    pagination: Record<
+        string,
+        {
+            count: number;
+            perPage: number;
+            hasMore: boolean;
+            nextCursor: string | null;
+            previousCursor: string | null;
+            filters: Record<string, string | number | null>;
+        }
+    >;
+    meta: {
+        source: string;
+        freshAt: string;
+        cacheSeconds: number;
+        timezone: string;
+    } | null;
 }
 
 declare module '@inertiajs/core' {
@@ -521,6 +587,7 @@ declare module '@inertiajs/core' {
         sharedPageProps: {
             name: string;
             auth: Auth;
+            readiness: EnterpriseReadinessState;
             sidebarOpen: boolean;
             currentTeam: Team | null;
             teams: Team[];

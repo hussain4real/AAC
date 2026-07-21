@@ -28,6 +28,13 @@ class ContractFixtures
         ['code' => 'invalid_token', 'status' => 401],
         ['code' => 'unknown_client', 'status' => 401],
         ['code' => 'credential_revoked', 'status' => 403],
+        ['code' => 'invalid_json', 'status' => 400],
+        ['code' => 'invalid_caller_context', 'status' => 422],
+        ['code' => 'idempotency_conflict', 'status' => 409],
+        ['code' => 'request_body_too_large', 'status' => 413],
+        ['code' => 'request_headers_too_large', 'status' => 431],
+        ['code' => 'stream_concurrency_exceeded', 'status' => 429],
+        ['code' => 'api_concurrency_exceeded', 'status' => 429],
         ['code' => 'agent_not_found', 'status' => 404],
         ['code' => 'run_not_found', 'status' => 404],
         ['code' => 'agent_not_published', 'status' => 409],
@@ -120,14 +127,42 @@ class ContractFixtures
                 'payload' => ['a' => ['k' => 'v']],
             ],
             [
-                'name' => 'format hint is ignored',
+                'name' => 'date format is enforced',
                 'schema' => ['d' => 'string·date'],
                 'payload' => ['d' => '2026-01-01'],
             ],
             [
-                'name' => 'extra fields are tolerated',
+                'name' => 'undeclared fields are rejected',
                 'schema' => ['query' => 'string'],
                 'payload' => ['query' => 'hi', 'extra' => true],
+            ],
+            [
+                'name' => 'nested arrays enums formats and bounds are valid',
+                'schema' => [
+                    'request' => [
+                        'type' => 'object',
+                        'additionalProperties' => false,
+                        'properties' => [
+                            'email' => ['type' => 'string', 'format' => 'email', 'maxLength' => 254],
+                            'priority' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5],
+                            'tags' => ['type' => 'array', 'maxItems' => 3, 'items' => ['type' => 'string', 'enum' => ['ops', 'safety']]],
+                        ],
+                    ],
+                ],
+                'payload' => ['request' => ['email' => 'ops@example.com', 'priority' => 3, 'tags' => ['ops']]],
+            ],
+            [
+                'name' => 'nested constraints and additional properties are rejected',
+                'schema' => [
+                    'request' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'priority' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5],
+                            'tags' => ['type' => 'array', 'maxItems' => 1, 'items' => ['type' => 'string', 'enum' => ['ops']]],
+                        ],
+                    ],
+                ],
+                'payload' => ['request' => ['priority' => 9, 'tags' => ['ops', 'other'], 'admin' => true]],
             ],
         ];
 
@@ -211,11 +246,11 @@ class ContractFixtures
     private static function versionNegotiationCases(): array
     {
         $cases = [
-            ['name' => 'within the window is compatible', 'reported' => '0.1.0', 'minimum' => '0.0.1', 'current' => '0.2.0'],
-            ['name' => 'at the exact minimum is compatible', 'reported' => '0.0.1', 'minimum' => '0.0.1', 'current' => '0.2.0'],
-            ['name' => 'below the minimum requires an upgrade', 'reported' => '0.0.0', 'minimum' => '0.0.1', 'current' => '0.2.0'],
-            ['name' => 'ahead of current is compatible', 'reported' => '1.0.0', 'minimum' => '0.0.1', 'current' => '0.2.0'],
-            ['name' => 'unreported is unknown', 'reported' => null, 'minimum' => '0.0.1', 'current' => '0.2.0'],
+            ['name' => 'within the window is compatible', 'reported' => '1.0.1', 'minimum' => '1.0.0', 'current' => '1.1.0'],
+            ['name' => 'at the exact minimum is compatible', 'reported' => '1.0.0', 'minimum' => '1.0.0', 'current' => '1.1.0'],
+            ['name' => 'below the minimum requires an upgrade', 'reported' => '0.2.0', 'minimum' => '1.0.0', 'current' => '1.1.0'],
+            ['name' => 'ahead of current is compatible', 'reported' => '2.0.0', 'minimum' => '1.0.0', 'current' => '1.1.0'],
+            ['name' => 'unreported is unknown', 'reported' => null, 'minimum' => '1.0.0', 'current' => '1.1.0'],
         ];
 
         return array_map(static function (array $case): array {
@@ -223,7 +258,7 @@ class ContractFixtures
                 $case['reported'],
                 (string) $case['minimum'],
                 (string) $case['current'],
-                '0.0.1',
+                '1.0.0',
             );
 
             return [

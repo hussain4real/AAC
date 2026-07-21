@@ -37,7 +37,9 @@ export class NodeConsumer {
 
   /** Invoke the agent and drive it to a terminal state via local handlers. */
   async run(prompt: string, caller = 'node-reference'): Promise<Run> {
-    return this.client.run(this.agentSlug, prompt, this.registry, caller);
+    const context = await this.client.issueCallerContext('reference:node-consumer');
+
+    return this.client.run(this.agentSlug, prompt, this.registry, caller, 16, context);
   }
 
   /**
@@ -46,7 +48,9 @@ export class NodeConsumer {
    * an HTTP request open while the model works.
    */
   async runAsync(prompt: string, caller = 'node-reference', options: AsyncRunOptions = {}): Promise<Run> {
-    return this.client.runAsync(this.agentSlug, prompt, this.registry, caller, options);
+    const context = await this.client.issueCallerContext('reference:node-consumer');
+
+    return this.client.runAsync(this.agentSlug, prompt, this.registry, caller, { ...options, callerContext: context });
   }
 
   /** Build the consumer from the documented MAACC_* environment variables. */

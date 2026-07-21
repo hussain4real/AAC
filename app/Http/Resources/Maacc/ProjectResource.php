@@ -35,6 +35,10 @@ class ProjectResource extends JsonResource
             'agents' => $this->agents_count,
             'tools' => $this->tools_count,
             'runs7d' => $this->runs_7d,
+            'members' => $this->whenLoaded('projectMembers', fn () => ProjectMemberResource::collection($this->projectMembers)->resolve(), []),
+            'can' => [
+                'manageMembers' => $request->user()?->can('manageMembers', $this->resource) ?? false,
+            ],
         ];
     }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AgentRunController;
+use App\Http\Controllers\Api\V1\CallerContextController;
 use App\Http\Controllers\Api\V1\ManifestController;
 use App\Http\Controllers\Api\V1\RunStreamController;
 use App\Http\Controllers\Api\V1\SdkVersionController;
@@ -8,6 +9,9 @@ use App\Http\Controllers\Api\V1\ToolImplementationController;
 use App\Http\Controllers\Api\V1\ToolResultController;
 use App\Http\Controllers\Api\V1\WebhookEndpointController;
 use App\Http\Middleware\AddApiVersionHeader;
+use App\Http\Middleware\EnforceApiEnvelopeLimits;
+use App\Http\Middleware\LimitConcurrentSdkRequests;
+use App\Http\Middleware\RejectDuplicateJsonKeys;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Laravel\Passport\Http\Middleware\EnsureClientIsResourceOwner;
@@ -27,7 +31,7 @@ Route::get('/user', function (Request $request) {
 |
 */
 Route::prefix('v1')
-    ->middleware([AddApiVersionHeader::class, EnsureClientIsResourceOwner::class, 'sdk.auth'])
+    ->middleware([EnforceApiEnvelopeLimits::class, AddApiVersionHeader::class, RejectDuplicateJsonKeys::class, EnsureClientIsResourceOwner::class, 'sdk.auth', LimitConcurrentSdkRequests::class, 'throttle:maacc-sdk'])
     ->name('api.v1.')
     ->group(function () {
         // SDK version negotiation — API contract version, supported client
@@ -36,6 +40,7 @@ Route::prefix('v1')
 
         // SDK manifest sync — fetch available agents + required client tools.
         Route::get('manifest', [ManifestController::class, 'show'])->name('manifest');
+        Route::post('caller-contexts', [CallerContextController::class, 'store'])->name('caller-contexts.store');
 
         // SDK implementation status reporting.
         Route::post('tool-implementations', [ToolImplementationController::class, 'store'])
@@ -54,5 +59,6 @@ Route::prefix('v1')
         // Webhooks — self-service registration of run-event delivery endpoints.
         Route::get('webhook-endpoints', [WebhookEndpointController::class, 'index'])->name('webhook-endpoints.index');
         Route::post('webhook-endpoints', [WebhookEndpointController::class, 'store'])->name('webhook-endpoints.store');
+        Route::post('webhook-endpoints/{webhookEndpoint}/verify', [WebhookEndpointController::class, 'verify'])->name('webhook-endpoints.verify');
         Route::delete('webhook-endpoints/{webhookEndpoint}', [WebhookEndpointController::class, 'destroy'])->name('webhook-endpoints.destroy');
     });

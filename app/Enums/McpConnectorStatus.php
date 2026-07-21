@@ -11,6 +11,7 @@ use Illuminate\Support\Str;
  */
 enum McpConnectorStatus: string
 {
+    case PendingVerification = 'pending_verification';
     case Active = 'active';
     case Disabled = 'disabled';
 

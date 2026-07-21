@@ -35,7 +35,7 @@ test('a platform admin can register an MCP connector', function () {
 
     expect($connector)->not->toBeNull()
         ->and($connector->team_id)->toBe($team->id)
-        ->and($connector->status)->toBe(McpConnectorStatus::Active)
+        ->and($connector->status)->toBe(McpConnectorStatus::PendingVerification)
         ->and($connector->transport)->toBe('http')
         ->and($connector->auth_type)->toBe(RemoteAuthType::Bearer)
         ->and($connector->auth_credential)->toBe('secret-token-1')
@@ -92,6 +92,23 @@ test('updating a connector without a credential preserves the stored one', funct
         ->and($fresh->auth_credential)->toBe('original-secret');
 });
 
+test('changing connector connectivity resets discovery evidence', function () {
+    [$owner, $team] = ownerAndTeam();
+    $connector = McpConnector::factory()->for($team)->withCapabilities([
+        ['name' => 'lookup', 'description' => 'Lookup', 'input_schema' => []],
+    ])->create(['status' => McpConnectorStatus::Active]);
+
+    $this->actingAs($owner)
+        ->put(route('connectors.update', ['current_team' => $team->slug, 'mcpConnector' => $connector->slug]), [
+            'server_url' => 'https://new.example.com/mcp',
+        ])
+        ->assertRedirect();
+
+    expect($connector->fresh()->status)->toBe(McpConnectorStatus::PendingVerification)
+        ->and($connector->fresh()->capabilities)->toBeNull()
+        ->and($connector->fresh()->last_discovered_at)->toBeNull();
+});
+
 test('a connector can be disabled and re-enabled', function () {
     [$owner, $team] = ownerAndTeam();
     $connector = McpConnector::factory()->for($team)->create();
@@ -116,7 +133,8 @@ test('discovery fetches and persists the connector capabilities', function () {
         ->post(route('connectors.discover', ['current_team' => $team->slug, 'mcpConnector' => $connector->slug]))
         ->assertRedirect();
 
-    expect($connector->fresh()->discoveredToolNames())->toBe(['lookup', 'translate']);
+    expect($connector->fresh()->discoveredToolNames())->toBe(['lookup', 'translate'])
+        ->and($connector->fresh()->status)->toBe(McpConnectorStatus::Active);
 });
 
 test('a discovery failure surfaces a controlled error and stores nothing', function () {
@@ -144,16 +162,14 @@ test('a connector can be deleted', function () {
     expect($connector->fresh()->trashed())->toBeTrue();
 });
 
-test('the console connectors dataset exposes connectors without credential material', function () {
+test('the connectors page exposes connectors without credential material', function () {
     [$owner, $team] = ownerAndTeam();
     McpConnector::factory()->for($team)->withBearer('top-secret')->withCapabilities([
         ['name' => 'lookup', 'title' => 'Lookup', 'description' => 'Look up', 'input_schema' => []],
     ])->create(['name' => 'Ops MCP']);
 
-    // The connectors dataset rides the shared `maacc` prop served on every console
-    // page, so it is asserted from an existing page to avoid a Vite build here.
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('connectors', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.connectors', 1)

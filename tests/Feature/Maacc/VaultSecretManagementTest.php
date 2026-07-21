@@ -97,6 +97,18 @@ test('a plain member cannot manage the vault', function () {
         ->assertForbidden();
 });
 
+test('a plain member cannot view the vault inventory', function () {
+    [, $team] = ownerAndTeam();
+    $member = teamMember($team);
+    VaultSecret::factory()->for($team)->withValue('sensitive-value')->create([
+        'name' => 'Restricted inventory item',
+    ]);
+
+    $this->actingAs($member)
+        ->get(route('vault', ['current_team' => $team->slug]))
+        ->assertForbidden();
+});
+
 test('a platform admin can rotate a secret', function () {
     [$owner, $team] = ownerAndTeam();
     $secret = VaultSecret::factory()->for($team)->withValue('old-value')->create();
@@ -126,12 +138,12 @@ test('forgetting a secret unbinds the models that used it', function () {
         ->and($provider->fresh()->vault_secret_id)->toBeNull();
 });
 
-test('the console vault dataset exposes secrets without the plaintext', function () {
+test('the vault page exposes secrets without the plaintext', function () {
     [$owner, $team] = ownerAndTeam();
     VaultSecret::factory()->for($team)->withValue('super-secret-value')->create(['name' => 'Ops token']);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('vault', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.vaultSecrets', 1)
@@ -148,6 +160,7 @@ test('the runtime resolves the model API key from the vault and records the acce
 
     $agent = maaccAgent($team, ['status' => AgentStatus::Published]);
     $agent->llmProvider->update(['vault_secret_id' => $secret->id]);
+    approveCurrentAgentConfiguration($agent);
 
     $fake = bindFakeRouter();
     $fake->textThen('All set.');

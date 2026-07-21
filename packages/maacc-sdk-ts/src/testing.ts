@@ -17,8 +17,19 @@ export interface ValidationResult {
   errors: string[];
 }
 
-/** Extract the base type from a definition (strip the optional marker + format hint). */
-export function baseType(definition: string): string {
+/** The versioned compact-schema dialect implemented by server and SDKs. */
+export const SCHEMA_DIALECT = 'https://maacc.dev/schema/compact/1.0';
+
+/** Extract the base type from a legacy string or rich definition object. */
+export function baseType(definition: unknown): string {
+  if (isRecord(definition)) {
+    return typeof definition.type === 'string' ? definition.type.trim() : '';
+  }
+
+  if (typeof definition !== 'string') {
+    return '';
+  }
+
   const head = definition.split('·')[0] ?? '';
 
   return head
@@ -28,41 +39,126 @@ export function baseType(definition: string): string {
 }
 
 /** Whether a field definition marks the field optional. */
-export function isOptional(definition: string): boolean {
-  return (definition.split('·')[0] ?? '').includes('?');
+export function isOptional(definition: unknown): boolean {
+  if (isRecord(definition)) {
+    return definition.required === false;
+  }
+
+  return typeof definition === 'string' && (definition.split('·')[0] ?? '').includes('?');
 }
 
 /**
- * Validate a payload against a MAACC tool contract schema map. Unknown extra
- * fields are tolerated; missing required fields and type mismatches are not.
+ * Validate a payload against the closed top-level MAACC compact schema.
  */
 export function validateSchema(
   schema: Record<string, unknown>,
   payload: Record<string, unknown>,
 ): ValidationResult {
+  const errors = validateObject(schema, payload, '', false);
+
+  return { valid: errors.length === 0, errors };
+}
+
+function validateObject(
+  schema: Record<string, unknown>,
+  payload: Record<string, unknown>,
+  prefix: string,
+  additionalProperties: boolean,
+): string[] {
   const errors: string[] = [];
 
   for (const [field, definition] of Object.entries(schema)) {
-    if (typeof definition !== 'string') {
-      continue;
-    }
+    const path = prefix === '' ? field : `${prefix}.${field}`;
 
     if (!Object.prototype.hasOwnProperty.call(payload, field)) {
       if (!isOptional(definition)) {
-        errors.push(`Missing required field "${field}".`);
+        errors.push(`Missing required field "${path}".`);
       }
 
       continue;
     }
 
-    const base = baseType(definition);
-
-    if (!valueMatchesType(payload[field], base)) {
-      errors.push(`Field "${field}" must be of type ${base}.`);
+    for (const error of validateValue(definition, payload[field], path)) {
+      errors.push(error);
     }
   }
 
-  return { valid: errors.length === 0, errors };
+  if (!additionalProperties) {
+    for (const field of Object.keys(payload)) {
+      if (!Object.prototype.hasOwnProperty.call(schema, field)) {
+        const path = prefix === '' ? field : `${prefix}.${field}`;
+        errors.push(`Field "${path}" is not declared by the schema.`);
+      }
+    }
+  }
+
+  return errors;
+}
+
+function validateValue(definition: unknown, value: unknown, path: string): string[] {
+  const base = baseType(definition);
+
+  if (!valueMatchesType(value, base)) {
+    return [`Field "${path}" must be of type ${base}.`];
+  }
+
+  if (!isRecord(definition)) {
+    const format = typeof definition === 'string' ? definition.split('·')[1] : undefined;
+
+    return format !== undefined && !matchesFormat(value, format)
+      ? [`Field "${path}" must match format ${format}.`]
+      : [];
+  }
+
+  const errors: string[] = [];
+
+  if (Array.isArray(definition.enum) && !definition.enum.some((candidate) => Object.is(candidate, value))) {
+    errors.push(`Field "${path}" must be one of the declared enum values.`);
+  }
+
+  if (typeof value === 'string') {
+    if (typeof definition.minLength === 'number' && value.length < definition.minLength) {
+      errors.push(`Field "${path}" is shorter than minLength.`);
+    }
+
+    if (typeof definition.maxLength === 'number' && value.length > definition.maxLength) {
+      errors.push(`Field "${path}" exceeds maxLength.`);
+    }
+
+    if (typeof definition.format === 'string' && !matchesFormat(value, definition.format)) {
+      errors.push(`Field "${path}" must match format ${definition.format}.`);
+    }
+  }
+
+  if (typeof value === 'number') {
+    if (typeof definition.minimum === 'number' && value < definition.minimum) {
+      errors.push(`Field "${path}" is below minimum.`);
+    }
+
+    if (typeof definition.maximum === 'number' && value > definition.maximum) {
+      errors.push(`Field "${path}" exceeds maximum.`);
+    }
+  }
+
+  if (base === 'object' && isRecord(value) && isRecord(definition.properties)) {
+    errors.push(...validateObject(definition.properties, value, path, definition.additionalProperties === true));
+  }
+
+  if (base === 'array' && Array.isArray(value)) {
+    if (typeof definition.minItems === 'number' && value.length < definition.minItems) {
+      errors.push(`Field "${path}" has fewer than minItems entries.`);
+    }
+
+    if (typeof definition.maxItems === 'number' && value.length > definition.maxItems) {
+      errors.push(`Field "${path}" exceeds maxItems.`);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(definition, 'items')) {
+      value.forEach((item, index) => errors.push(...validateValue(definition.items, item, `${path}[${index}]`)));
+    }
+  }
+
+  return errors;
 }
 
 /**
@@ -128,6 +224,60 @@ function valueMatchesType(value: unknown, base: string): boolean {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function matchesFormat(value: unknown, format: string): boolean {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  switch (format) {
+    case 'date': {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return false;
+      }
+
+      const date = new Date(`${value}T00:00:00Z`);
+
+      return !Number.isNaN(date.valueOf()) && date.toISOString().slice(0, 10) === value;
+    }
+    case 'date-time': {
+      const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:Z|[+-](\d{2}):(\d{2}))$/.exec(value);
+
+      if (match === null) {
+        return false;
+      }
+
+      const [, date, hour, minute, second, offsetHour, offsetMinute] = match;
+
+      return (
+        matchesFormat(date, 'date') &&
+        Number(hour) <= 23 &&
+        Number(minute) <= 59 &&
+        Number(second) <= 59 &&
+        (offsetHour === undefined || Number(offsetHour) <= 23) &&
+        (offsetMinute === undefined || Number(offsetMinute) <= 59)
+      );
+    }
+    case 'email':
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+    case 'uuid':
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+    case 'uri':
+      try {
+        new URL(value);
+
+        return true;
+      } catch {
+        return false;
+      }
+    default:
+      return true;
+  }
+}
+
 /**
  * A harness that validates a local tool handler against its MAACC contract before
  * it is reported as implemented.
@@ -182,7 +332,8 @@ function syntheticContext(tool: ManifestTool, args: Record<string, unknown>): To
     response: null,
     toolCall,
     error: null,
+    callerContext: {},
   };
 
-  return { run, toolCall };
+  return { run, toolCall, callerContext: run.callerContext };
 }

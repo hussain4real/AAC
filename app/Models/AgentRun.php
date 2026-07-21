@@ -20,19 +20,40 @@ use Illuminate\Support\Carbon;
 /**
  * @property string $id
  * @property string $agent_id
+ * @property string|null $agent_version_id
  * @property string|null $evaluation_id
  * @property string $project_id
  * @property string $application_id
+ * @property int|null $initiated_by
  * @property string|null $llm_provider_id
  * @property string $slug
+ * @property string|null $correlation_id
+ * @property string|null $idempotency_key
+ * @property string|null $request_hash
+ * @property string $policy_version
+ * @property bool $is_test
+ * @property array<string, mixed>|null $execution_snapshot
  * @property string|null $caller
+ * @property array<string, mixed>|null $caller_context
+ * @property string|null $caller_subject
+ * @property string|null $caller_department
  * @property RunMode $mode
  * @property Environment|null $environment
  * @property Sensitivity $sensitivity
  * @property RunStatus $status
  * @property int $tokens_in
  * @property int $tokens_out
+ * @property int $reserved_tokens
+ * @property int $next_trace_sequence
+ * @property int $next_tool_sequence
+ * @property string|null $processing_token
+ * @property Carbon|null $processing_claimed_at
+ * @property bool $terminal_event_emitted
  * @property float $cost
+ * @property string $cost_currency
+ * @property string|null $pricing_source
+ * @property string|null $pricing_version
+ * @property Carbon|null $pricing_effective_at
  * @property int|null $latency_ms
  * @property array<int, string>|null $tools
  * @property string|null $input
@@ -47,14 +68,16 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Agent $agent
+ * @property-read AgentVersion|null $agentVersion
  * @property-read Evaluation|null $evaluation
  * @property-read Project $project
  * @property-read Application $application
+ * @property-read User|null $initiator
  * @property-read LlmProvider|null $llmProvider
  * @property-read Collection<int, ToolCall> $toolCalls
  * @property-read Collection<int, TraceEvent> $traceEvents
  */
-#[Fillable(['agent_id', 'evaluation_id', 'project_id', 'application_id', 'llm_provider_id', 'slug', 'caller', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'cost', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
+#[Fillable(['agent_id', 'agent_version_id', 'evaluation_id', 'project_id', 'application_id', 'initiated_by', 'llm_provider_id', 'slug', 'correlation_id', 'idempotency_key', 'request_hash', 'policy_version', 'is_test', 'execution_snapshot', 'caller', 'caller_context', 'caller_subject', 'caller_department', 'mode', 'environment', 'sensitivity', 'status', 'tokens_in', 'tokens_out', 'reserved_tokens', 'next_trace_sequence', 'next_tool_sequence', 'processing_token', 'processing_claimed_at', 'terminal_event_emitted', 'cost', 'cost_currency', 'pricing_source', 'pricing_version', 'pricing_effective_at', 'latency_ms', 'tools', 'input', 'output', 'state', 'error', 'failure_reason', 'masked', 'started_at', 'completed_at', 'expires_at'])]
 class AgentRun extends Model
 {
     /** @use HasFactory<AgentRunFactory> */
@@ -68,6 +91,16 @@ class AgentRun extends Model
     public function agent(): BelongsTo
     {
         return $this->belongsTo(Agent::class);
+    }
+
+    /**
+     * Get the immutable published agent version used for the run, when one exists.
+     *
+     * @return BelongsTo<AgentVersion, $this>
+     */
+    public function agentVersion(): BelongsTo
+    {
+        return $this->belongsTo(AgentVersion::class);
     }
 
     /**
@@ -98,6 +131,16 @@ class AgentRun extends Model
     public function application(): BelongsTo
     {
         return $this->belongsTo(Application::class);
+    }
+
+    /**
+     * Get the console user that initiated a governed test run, when applicable.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function initiator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'initiated_by');
     }
 
     /**
@@ -166,6 +209,15 @@ class AgentRun extends Model
     }
 
     /**
+     * Whether this run may execute an unpublished candidate through an internal,
+     * authorized evaluation or console test path.
+     */
+    public function allowsUnpublishedExecution(): bool
+    {
+        return $this->isEvaluation() || $this->is_test;
+    }
+
+    /**
      * Determine whether the run has passed its expiry deadline without finishing.
      */
     public function hasExpired(): bool
@@ -196,11 +248,20 @@ class AgentRun extends Model
             'sensitivity' => Sensitivity::class,
             'status' => RunStatus::class,
             'masked' => 'boolean',
+            'is_test' => 'boolean',
+            'execution_snapshot' => 'array',
             'tokens_in' => 'integer',
             'tokens_out' => 'integer',
+            'reserved_tokens' => 'integer',
+            'next_trace_sequence' => 'integer',
+            'next_tool_sequence' => 'integer',
+            'processing_claimed_at' => 'datetime',
+            'terminal_event_emitted' => 'boolean',
             'cost' => 'float',
+            'pricing_effective_at' => 'datetime',
             'latency_ms' => 'integer',
             'tools' => 'array',
+            'caller_context' => 'array',
             'state' => 'array',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',

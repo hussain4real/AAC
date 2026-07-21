@@ -77,7 +77,8 @@ await client.reportHandlers(manifest, registry);
 // 4. Drive the run loop manually, servicing each pause and failing loudly on a
 //    missing handler rather than letting the run hang.
 try {
-  let run = await client.startRun('e2e-ops-agent', 'Summarize today');
+  const callerContext = await client.issueCallerContext('example:typescript-advanced');
+  let run = await client.startRun('e2e-ops-agent', 'Summarize today', undefined, 'sync', callerContext);
 
   while (isWaiting(run)) {
     const toolCall = run.toolCall;
@@ -92,7 +93,7 @@ try {
       throw new MissingToolHandlerError(toolCall.tool);
     }
 
-    const result = await handler(toolCall.arguments, { run, toolCall });
+    const result = await handler(toolCall.arguments, { run, toolCall, callerContext: run.callerContext });
     run = await client.submitToolResult(run.runId, toolCall.id, result);
   }
 

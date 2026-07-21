@@ -13,6 +13,7 @@ use Maacc\Reference\Cli\WebhookReceiver;
 use Maacc\Sdk\MaaccClient;
 use Maacc\Sdk\MaaccConfig;
 use Maacc\Sdk\Tools\ToolHandlerRegistry;
+use Maacc\Sdk\Webhooks\WebhookSignature;
 use Tests\Support\Sdk\KernelTransport;
 
 /**
@@ -64,18 +65,46 @@ it('receives a signed webhook the receiver verifies, for a completed run', funct
 
     $endpoint = $this->client->registerWebhook('https://consumer.test/hooks/maacc', ['*']);
     $receiver = new WebhookReceiver($endpoint->secret);
+    $verified = $this->client->verifyWebhook($endpoint->id);
+
+    expect($verified->status)->toBe('active');
 
     bindFakeRouter()->textThen('Done.');
     $this->client->run(MaaccE2ESeeder::AGENT_SLUG, 'Status?', new ToolHandlerRegistry, 'cli-webhook');
 
     Http::assertSent(function ($request) use ($receiver): bool {
+        if (($request->header('X-Maacc-Webhook-Event')[0] ?? '') !== 'run.completed') {
+            return false;
+        }
+
         $verified = $receiver->handle($request->body(), [
             'X-Maacc-Signature' => $request->header('X-Maacc-Signature')[0] ?? '',
             'X-Maacc-Webhook-Timestamp' => $request->header('X-Maacc-Webhook-Timestamp')[0] ?? '',
+            'X-Maacc-Webhook-Delivery' => $request->header('X-Maacc-Webhook-Delivery')[0] ?? '',
+            'X-Maacc-Webhook-Sequence' => $request->header('X-Maacc-Webhook-Sequence')[0] ?? '',
         ]);
 
         return $verified !== null && $verified['event'] === 'run.completed';
     });
+});
+
+it('acknowledges a duplicate delivery id without treating it as new work', function () {
+    $secret = 'whsec_consumer_test';
+    $body = '{"event":"run.completed"}';
+    $timestamp = (string) now()->timestamp;
+    $receiver = new WebhookReceiver($secret);
+    $headers = [
+        'X-Maacc-Signature' => 'sha256='.WebhookSignature::sign($body, $timestamp, $secret),
+        'X-Maacc-Webhook-Timestamp' => $timestamp,
+        'X-Maacc-Webhook-Delivery' => 'delivery-1',
+        'X-Maacc-Webhook-Sequence' => '42',
+    ];
+
+    expect($receiver->handle($body, $headers))->not->toBeNull()
+        ->and($receiver->wasDuplicate())->toBeFalse()
+        ->and($receiver->sequence())->toBe(42)
+        ->and($receiver->handle($body, $headers))->not->toBeNull()
+        ->and($receiver->wasDuplicate())->toBeTrue();
 });
 
 it('streams a run and sees the same final state as the polling API', function () {

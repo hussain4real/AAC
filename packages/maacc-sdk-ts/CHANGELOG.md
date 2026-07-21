@@ -7,6 +7,21 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) and
 The SDK's MAJOR version tracks the MAACC **API contract version** it targets: a
 breaking change to a MAACC SDK/runtime response shape bumps the MAJOR of both.
 
+## [1.0.0] — 2026-07-18
+
+Targets the frozen MAACC API contract **v1.0.0**.
+
+### Added
+
+- Versioned compact-schema 1.0 validation with nested objects/items, enums, bounds, formats, closed-object projection, and shared fixtures.
+- Signed minimized caller-context issuance, run submission, response parsing, and tool context propagation.
+- Webhook endpoint verification before activation and v1 manifest status semantics.
+
+### Changed
+
+- `waiting_for_client` is the durable client-tool pause; `requires_tool` is a transient server decision retained only as a 1.x compatibility token.
+- Pre-v1 clients are outside the supported compatibility window.
+
 ## [0.2.0] — 2026-06-23
 
 Adds visibility of server-side tools. Still targets MAACC API contract **v0.0.1**

@@ -119,7 +119,7 @@ test('the console approvals dataset surfaces the runtime queue with run detail',
     [$run] = gatedRun($team);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('governance', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.approvals.runtime', 1)

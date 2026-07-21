@@ -3,9 +3,8 @@
    Drop-in replacement for the Phase 1 `MAACC` fixture object. Reads the
    team's records from the shared `maacc` Inertia prop (served by
    App\Support\MaaccConsoleData) and exposes the same helper API the console
-   screens already use. Phase 5 adds real governance/observability rollups
-   (dashboard metrics, approvals, audit log, roles, policies, settings, quotas),
-   falling back to the fixture only when the prop is unavailable.
+   screens already use. Missing page data fails closed to an explicit empty
+   contract; production never substitutes the historical demo fixture.
    ============================================================ */
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
@@ -29,14 +28,16 @@ import type {
     MaaccVaultSecret,
     MaaccWebhookEndpoint,
 } from '@/types/global';
-import { MAACC as FIXTURE } from './data';
 import type {
     Agent,
     Application,
     Llm,
+    Policy,
     Project,
     ProviderCatalogEntry,
+    Role,
     Run,
+    SensitivityLevel,
     Tool,
 } from './data';
 
@@ -84,22 +85,85 @@ const DEFAULT_SETTINGS: MaaccGovernanceSettings = {
     auditRetentionDays: 365,
     maskSensitiveInputs: true,
     maskSensitiveOutputs: true,
+    toolResultHandling: 'mask',
     blockRestrictedLogging: true,
     defaultDailyRunQuota: null,
 };
 
-/** Resolve the team dataset from the shared prop, falling back to the fixture. */
+const EMPTY_DASHBOARD: MaaccDashboard = {
+    stats: {
+        apps: 0,
+        projects: 0,
+        agents: 0,
+        tools: 0,
+        runsToday: 0,
+        waitingClient: 0,
+        success: 0,
+        failed: 0,
+        tokens: '0',
+        cost: 'USD 0',
+        costEstimated: true,
+    },
+    runStatus: [],
+    runsOverTime: [],
+    topAgents: [],
+    alerts: [],
+};
+
+const SENSITIVITY_LEVELS: SensitivityLevel[] = [
+    {
+        name: 'Public',
+        desc: 'No restriction. Safe for external models and logging.',
+        color: 'slate',
+    },
+    {
+        name: 'Internal',
+        desc: 'Company-internal. Approved cloud models permitted.',
+        color: 'blue',
+    },
+    {
+        name: 'Confidential',
+        desc: 'Restricted distribution. Masked in logs by default.',
+        color: 'amber',
+    },
+    {
+        name: 'Restricted',
+        desc: 'Highest sensitivity. Raw logging is blocked.',
+        color: 'red',
+    },
+];
+
+const EXECUTION_MODE_LABELS: Record<string, string> = {
+    hosted: 'MAACC-hosted',
+    client: 'Client-side',
+    http: 'Remote HTTP',
+    connector: 'Connector server',
+    knowledge: 'Knowledge retrieval',
+    db: 'Read-only DB',
+};
+
+const IMPLEMENTATION_LABELS: Record<string, string> = {
+    ready: 'Ready',
+    implemented: 'Implemented',
+    required: 'Requires implementation',
+    outdated: 'Outdated',
+    incompatible: 'Incompatible',
+    disabled: 'Disabled',
+    'n/a': 'Not required',
+};
+
+/** Resolve the bounded page dataset, failing closed when it is absent. */
 export function useMaaccDataset(): MaaccDataset {
     const { maacc } = usePage().props;
 
     return useMemo(
         () => ({
-            apps: maacc?.apps ?? FIXTURE.apps,
-            projects: maacc?.projects ?? FIXTURE.projects,
-            agents: maacc?.agents ?? FIXTURE.agents,
-            tools: maacc?.tools ?? FIXTURE.tools,
-            runs: maacc?.runs ?? FIXTURE.runs,
-            llms: maacc?.llms ?? FIXTURE.llms,
+            apps: maacc?.apps ?? [],
+            projects: maacc?.projects ?? [],
+            agents: maacc?.agents ?? [],
+            tools: maacc?.tools ?? [],
+            runs: maacc?.runs ?? [],
+            llms: maacc?.llms ?? [],
         }),
         [maacc],
     );
@@ -107,10 +171,10 @@ export function useMaaccDataset(): MaaccDataset {
 
 export type MaaccData = MaaccDataset & {
     providerCatalog: ProviderCatalogEntry[];
-    roles: typeof FIXTURE.roles;
+    roles: Role[];
     approvals: MaaccApprovals;
-    policies: typeof FIXTURE.policies;
-    sensitivityLevels: typeof FIXTURE.sensitivityLevels;
+    policies: Policy[];
+    sensitivityLevels: SensitivityLevel[];
     dashboard: MaaccDashboard;
     operational: MaaccOperational;
     auditEvents: MaaccAuditEvent[];
@@ -128,8 +192,12 @@ export type MaaccData = MaaccDataset & {
     providerHealth: MaaccProviderHealth[];
     incidents: MaaccIncident[];
     ssoConnections: MaaccSsoConnection[];
-    execModeLabel: typeof FIXTURE.execModeLabel;
-    implLabel: typeof FIXTURE.implLabel;
+    pagination: NonNullable<
+        ReturnType<typeof usePage>['props']['maacc']
+    >['pagination'];
+    meta: NonNullable<ReturnType<typeof usePage>['props']['maacc']>['meta'];
+    execModeLabel: Record<string, string>;
+    implLabel: Record<string, string>;
     byId: <T extends { id: string }>(list: T[], id: string) => T | undefined;
     appById: (id: string) => Application | undefined;
     agentById: (id: string) => Agent | undefined;
@@ -152,11 +220,17 @@ export function useMaaccData(): MaaccData {
         () => ({
             ...dataset,
             providerCatalog: maacc?.providerCatalog ?? [],
-            roles: maacc?.roles ?? FIXTURE.roles,
-            approvals: maacc?.approvals ?? FIXTURE.approvals,
-            policies: maacc?.policies ?? FIXTURE.policies,
-            sensitivityLevels: FIXTURE.sensitivityLevels,
-            dashboard: maacc?.dashboard ?? FIXTURE.dashboard,
+            roles: maacc?.roles ?? [],
+            approvals: maacc?.approvals ?? {
+                tools: [],
+                agents: [],
+                models: [],
+                data: [],
+                runtime: [],
+            },
+            policies: maacc?.policies ?? [],
+            sensitivityLevels: SENSITIVITY_LEVELS,
+            dashboard: maacc?.dashboard ?? EMPTY_DASHBOARD,
             operational: maacc?.operational ?? EMPTY_OPERATIONAL,
             auditEvents: maacc?.auditEvents ?? [],
             governanceSettings: maacc?.governanceSettings ?? DEFAULT_SETTINGS,
@@ -174,8 +248,10 @@ export function useMaaccData(): MaaccData {
             providerHealth: maacc?.providerHealth ?? [],
             incidents: maacc?.incidents ?? [],
             ssoConnections: maacc?.ssoConnections ?? [],
-            execModeLabel: FIXTURE.execModeLabel,
-            implLabel: FIXTURE.implLabel,
+            pagination: maacc?.pagination ?? {},
+            meta: maacc?.meta ?? null,
+            execModeLabel: EXECUTION_MODE_LABELS,
+            implLabel: IMPLEMENTATION_LABELS,
             byId: <T extends { id: string }>(list: T[], id: string) =>
                 list.find((item) => item.id === id),
             appById: (id: string) => dataset.apps.find((app) => app.id === id),

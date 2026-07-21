@@ -19,9 +19,11 @@ use App\Models\LlmProvider;
 use App\Models\Team;
 use App\Models\ToolCall;
 use App\Models\ToolContract;
+use App\Support\Governance\AgentReadinessGate;
 use App\Support\Governance\ApprovalManager;
 use App\Support\Governance\RunRedactor;
 use App\Support\Governance\RuntimeApprovalPolicy;
+use App\Support\Governance\TenantRelationshipGuard;
 use App\Support\Runtime\Contracts\LlmRouter;
 use App\Support\Runtime\Db\DbToolExecutor;
 use App\Support\Runtime\HostedTools\HostedToolRegistry;
@@ -36,6 +38,7 @@ use App\Support\Secrets\Contracts\SecretVault;
 use App\Support\Webhooks\RunWebhookEmitter;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -48,6 +51,9 @@ use Throwable;
  */
 class AgentRunner
 {
+    /** @var array<string, string> */
+    private array $activeClaims = [];
+
     public function __construct(
         private readonly LlmRouter $router,
         private readonly HostedToolRegistry $hostedTools,
@@ -66,15 +72,20 @@ class AgentRunner
         private readonly ModelPricing $pricing,
         private readonly AgentPromptComposer $promptComposer,
         private readonly RuntimeImplementationRecorder $runtimeImplementations,
+        private readonly TenantRelationshipGuard $relationships,
+        private readonly RunStateStore $stateStore,
+        private readonly AgentReadinessGate $readiness,
     ) {}
 
     /**
      * Create and synchronously drive a new run for the given agent and caller
      * context, blocking until it completes, pauses, or fails.
+     *
+     * @param  array<string, mixed>|null  $callerContext
      */
-    public function start(Agent $agent, Application $application, Environment $environment, string $input, ?string $caller): AgentRun
+    public function start(Agent $agent, Application $application, Environment $environment, string $input, ?string $caller, ?array $callerContext = null, bool $testRun = false, ?int $initiatedBy = null): AgentRun
     {
-        return $this->process($this->createRun($agent, $application, $environment, $input, $caller, RunMode::Sync));
+        return $this->process($this->createRun($agent, $application, $environment, $input, $caller, RunMode::Sync, callerContext: $callerContext, testRun: $testRun, initiatedBy: $initiatedBy));
     }
 
     /**
@@ -82,37 +93,65 @@ class AgentRunner
      * request and applying the masking policy, without driving it yet. The
      * synchronous path drives it immediately via {@see self::process()}; the
      * asynchronous path hands the queued run to a worker.
+     *
+     * @param  array<string, mixed>|null  $callerContext
      */
-    public function createRun(Agent $agent, Application $application, Environment $environment, string $input, ?string $caller, RunMode $mode): AgentRun
+    public function createRun(Agent $agent, Application $application, Environment $environment, string $input, ?string $caller, RunMode $mode, bool $candidateEvaluation = false, ?array $callerContext = null, bool $testRun = false, ?int $initiatedBy = null, ?string $idempotencyKey = null, ?string $requestHash = null): AgentRun
     {
+        if (! $this->relationships->runtimeAgentRelationshipsAreValid($agent, $application, $environment)) {
+            throw RuntimeRequestException::invalidRuntimeConfiguration();
+        }
+
+        $this->ensureReady($agent, $application, $environment, $candidateEvaluation || $testRun);
+
         $provider = $agent->llmProvider;
+        $pricingQuote = $this->pricing->quoteFor($provider);
+        $snapshot = $this->readiness->executionSnapshot($agent);
 
         $run = AgentRun::create([
             'agent_id' => $agent->id,
+            'agent_version_id' => $testRun ? null : $agent->current_version_id,
             'project_id' => $agent->project_id,
             'application_id' => $application->id,
+            'initiated_by' => $initiatedBy,
             'llm_provider_id' => $provider->id,
             'slug' => 'run_'.Str::lower(Str::random(10)),
-            'caller' => $caller,
+            'correlation_id' => 'corr_'.Str::lower((string) Str::ulid()),
+            'idempotency_key' => $idempotencyKey,
+            'request_hash' => $requestHash,
+            'policy_version' => (string) config('maacc.runtime.policy_version', '1.0.0'),
+            'is_test' => $testRun,
+            'execution_snapshot' => $snapshot,
+            'caller' => null,
+            'caller_context' => $callerContext,
+            'caller_subject' => is_string($callerContext['sub'] ?? null) ? $callerContext['sub'] : null,
+            'caller_department' => is_string($callerContext['department'] ?? null) ? $callerContext['department'] : null,
             'mode' => $mode,
             'environment' => $environment,
             'sensitivity' => $this->resolveSensitivity($agent),
             'status' => RunStatus::Queued,
             'tokens_in' => 0,
             'tokens_out' => 0,
+            'reserved_tokens' => $agent->max_tokens * $this->maxSteps(),
             'cost' => 0,
+            'cost_currency' => $pricingQuote['currency'],
+            'pricing_source' => $pricingQuote['source'],
+            'pricing_version' => $pricingQuote['version'],
+            'pricing_effective_at' => $pricingQuote['effectiveAt'],
             'tools' => [],
-            'input' => $input,
-            'state' => ['messages' => [LlmMessage::user($input)->toArray()], 'steps' => 0],
+            'input' => null,
+            'state' => null,
             'started_at' => Date::now(),
             'expires_at' => Date::now()->addSeconds($this->timeout()),
         ]);
 
         $run->setRelation('agent', $agent);
+        $this->stateStore->initialize($run, ['messages' => [LlmMessage::user($input)->toArray()], 'steps' => 0]);
 
         // Apply the masking policy to the stored prompt (the live conversation
         // state keeps the raw value so the model still receives it).
         $run->update([
+            'caller' => $this->redactor->input($run, $caller),
             'input' => $this->redactor->input($run, $input),
             'masked' => $this->redactor->applies($run),
         ]);
@@ -121,6 +160,8 @@ class AgentRunner
         $this->tracer->record($run, TraceEventType::CallerAuthenticated, 'Caller authenticated.', [
             'application' => $application->slug,
             'environment' => $environment->value,
+            'subject' => $callerContext['sub'] ?? null,
+            'context_version' => $callerContext['v'] ?? null,
         ]);
 
         return $run;
@@ -134,6 +175,17 @@ class AgentRunner
     {
         $run->loadMissing(['agent.tools', 'agent.llmProvider', 'agent.routingPolicy', 'llmProvider.vaultSecret', 'application.team']);
 
+        if (! $this->readiness->isReady(
+            $run->agent,
+            $run->application,
+            $run->environment ?? $run->application->environment,
+            requirePublished: ! $run->allowsUnpublishedExecution(),
+            requireEvaluations: ! $run->allowsUnpublishedExecution(),
+            requireImmutableVersion: ! $run->allowsUnpublishedExecution(),
+        )) {
+            return $this->fail($run, 'agent_not_ready', 'The agent is not ready to execute.');
+        }
+
         if ($run->application->isRuntimeFrozen()) {
             return $this->fail($run, 'runtime_frozen', 'The application runtime is frozen by an incident control.');
         }
@@ -145,10 +197,12 @@ class AgentRunner
         }
 
         $this->applyProvider($run, $decision->provider);
-        $run->update(['state' => [...$run->state ?? [], 'routing' => [
+        $state = $this->stateStore->get($run);
+        $state['routing'] = [
             'chain' => $decision->chainIds(),
             'tried' => [$decision->provider->id],
-        ]]]);
+        ];
+        $this->stateStore->put($run, $state);
 
         $this->tracer->record($run, TraceEventType::ModelSelected, 'Model selected.', $decision->traceData());
         $this->tracer->record($run, TraceEventType::PromptPrepared, 'Prompt prepared.');
@@ -162,6 +216,42 @@ class AgentRunner
         $this->markRunning($run);
 
         return $this->advance($run);
+    }
+
+    /**
+     * Claim and process a queued run exactly once across duplicate deliveries.
+     */
+    public function processClaimed(AgentRun $run): AgentRun
+    {
+        $claimed = $this->claim($run, RunStatus::Queued);
+
+        if ($claimed === null) {
+            return $run->fresh();
+        }
+
+        try {
+            return $this->process($claimed);
+        } finally {
+            $this->releaseClaim($claimed);
+        }
+    }
+
+    /**
+     * Claim and advance a resumed asynchronous run exactly once.
+     */
+    public function driveClaimed(AgentRun $run): AgentRun
+    {
+        $claimed = $this->claim($run, RunStatus::Running);
+
+        if ($claimed === null) {
+            return $run->fresh();
+        }
+
+        try {
+            return $this->drive($claimed);
+        } finally {
+            $this->releaseClaim($claimed);
+        }
     }
 
     /**
@@ -267,6 +357,19 @@ class AgentRunner
     {
         $run->loadMissing(['agent.tools', 'agent.llmProvider', 'llmProvider.vaultSecret', 'application']);
 
+        if (! $this->readiness->isReady(
+            $run->agent,
+            $run->application,
+            $run->environment ?? $run->application->environment,
+            requirePublished: ! $run->allowsUnpublishedExecution(),
+            requireEvaluations: ! $run->allowsUnpublishedExecution(),
+            requireImmutableVersion: ! $run->allowsUnpublishedExecution(),
+        )) {
+            return $run->agent->status !== AgentStatus::Published && ! $run->allowsUnpublishedExecution()
+                ? $this->cancel($run)
+                : $this->fail($run, 'agent_not_ready', 'The agent is not ready to execute.');
+        }
+
         if ($run->application->isRuntimeFrozen()) {
             throw RuntimeRequestException::runtimeFrozen();
         }
@@ -287,6 +390,18 @@ class AgentRunner
         }
 
         $this->validateClientResult($run, $tool, $call, $result);
+        $result = ToolSchema::projectPayload($tool->output_schema, $result);
+
+        $claimed = AgentRun::query()
+            ->whereKey($run->id)
+            ->where('status', RunStatus::WaitingForClient->value)
+            ->update(['status' => RunStatus::Running->value]);
+
+        if ($claimed !== 1) {
+            throw RuntimeRequestException::runNotWaiting();
+        }
+
+        $run->setAttribute('status', RunStatus::Running);
 
         $this->completeToolCall($run, $tool, $call, $result);
         $this->tracer->record($run, TraceEventType::ToolResultReceived, "Client tool result received: {$call->tool_name}.", ['tool_call_id' => $call->id]);
@@ -338,7 +453,7 @@ class AgentRunner
             // External invocations require a published agent; an internal
             // evaluation run is permitted against a candidate that is not yet
             // published so it can be assessed before promotion.
-            if ($agent->status !== AgentStatus::Published && ! $run->isEvaluation()) {
+            if ($agent->status !== AgentStatus::Published && ! $run->allowsUnpublishedExecution()) {
                 return $this->cancel($run);
             }
 
@@ -374,7 +489,7 @@ class AgentRunner
                 return $this->runTurn($run, $agent);
             }
 
-            $this->fail($run, 'model_error', $exception->getMessage());
+            $this->fail($run, 'model_error', 'The model provider could not complete the request.');
 
             return null;
         }
@@ -391,7 +506,8 @@ class AgentRunner
      */
     private function failover(AgentRun $run, Throwable $exception): bool
     {
-        $routing = $run->state['routing'] ?? null;
+        $state = $this->stateStore->get($run);
+        $routing = $state['routing'] ?? null;
 
         if (! is_array($routing)) {
             return false;
@@ -413,14 +529,14 @@ class AgentRunner
         }
 
         $tried[] = $next;
-        $state = $run->state ?? [];
         $state['routing']['tried'] = $tried;
-        $run->update(['state' => $state]);
+        $this->stateStore->put($run, $state);
         $this->applyProvider($run, $provider);
 
         $this->tracer->record($run, TraceEventType::ModelFailover, "Model failover to {$provider->code}.", [
             'model' => $provider->code,
-            'reason' => $exception->getMessage(),
+            'reason' => 'provider_call_failed',
+            'correlation_id' => $run->correlation_id,
         ]);
 
         return true;
@@ -460,6 +576,7 @@ class AgentRunner
             maxTokens: $agent->max_tokens,
             timeoutSeconds: $this->turnTimeout(),
             apiKey: $provider->resolveApiKey($this->vault),
+            platformOwned: $provider->platform_owned,
         );
     }
 
@@ -511,6 +628,18 @@ class AgentRunner
         }
 
         $arguments = $completion->toolArguments ?? [];
+
+        $errors = ToolSchema::validatePayload($tool->input_schema, $arguments);
+
+        if ($errors !== []) {
+            return $this->fail($run, 'invalid_tool_arguments', 'The model produced arguments that do not satisfy the tool input schema.', ['errors' => $errors]);
+        }
+
+        if (ToolSchema::payloadBytes($arguments) > $tool->max_payload_kb * 1024) {
+            return $this->fail($run, 'tool_arguments_too_large', 'The model produced tool arguments that exceed the contract payload limit.');
+        }
+
+        $arguments = ToolSchema::projectPayload($tool->input_schema, $arguments);
         $this->appendMessage($run, LlmMessage::assistant((string) json_encode(['tool' => $tool->slug, 'arguments' => $arguments])));
 
         $call = $this->recordToolCall($run, $tool, $arguments);
@@ -518,14 +647,6 @@ class AgentRunner
             'tool_call_id' => $call->id,
             'execution_mode' => $tool->execution_mode->value,
         ]);
-
-        $errors = ToolSchema::validatePayload($tool->input_schema, $arguments);
-
-        if ($errors !== []) {
-            $this->failToolCall($call);
-
-            return $this->fail($run, 'invalid_tool_arguments', 'The model produced arguments that do not satisfy the tool input schema.', ['errors' => $errors]);
-        }
 
         return match ($tool->execution_mode) {
             ExecMode::Hosted => $this->executeHosted($run, $tool, $call, $arguments),
@@ -677,6 +798,12 @@ class AgentRunner
      */
     private function finishServerTool(AgentRun $run, ToolContract $tool, ToolCall $call, array $result, string $invalidCode, string $label, array $traceData = []): ?AgentRun
     {
+        if (ToolSchema::payloadBytes($result) > $tool->max_payload_kb * 1024) {
+            $this->failToolCall($call);
+
+            return $this->fail($run, 'tool_result_too_large', "The {$label} tool returned output that exceeds the contract payload limit.");
+        }
+
         $errors = ToolSchema::validatePayload($tool->output_schema, $result);
 
         if ($errors !== []) {
@@ -685,6 +812,7 @@ class AgentRunner
             return $this->fail($run, $invalidCode, "The {$label} tool returned output that does not satisfy its schema.", ['errors' => $errors]);
         }
 
+        $result = ToolSchema::projectPayload($tool->output_schema, $result);
         $this->completeToolCall($run, $tool, $call, $result);
         $this->tracer->record($run, TraceEventType::ToolResultReceived, "{$label} tool result received: {$tool->slug}.", ['tool_call_id' => $call->id, ...$traceData]);
         $this->tracer->record($run, TraceEventType::Validated, 'Tool result validated.');
@@ -740,7 +868,7 @@ class AgentRunner
      */
     private function validateClientResult(AgentRun $run, ToolContract $tool, ToolCall $call, array $result): void
     {
-        $bytes = strlen((string) json_encode($result));
+        $bytes = ToolSchema::payloadBytes($result);
 
         if ($bytes > $tool->max_payload_kb * 1024) {
             $this->tracer->record($run, TraceEventType::Failed, 'Submitted tool result exceeds the payload limit.', [
@@ -771,24 +899,33 @@ class AgentRunner
      */
     private function recordToolCall(AgentRun $run, ToolContract $tool, array $arguments): ToolCall
     {
-        $max = $run->toolCalls()->max('sequence');
+        $call = DB::transaction(function () use ($run, $tool, $arguments): ToolCall {
+            $locked = AgentRun::query()->lockForUpdate()->findOrFail($run->id);
+            $sequence = $locked->next_tool_sequence;
+            $tools = $locked->tools ?? [];
 
-        $call = $run->toolCalls()->create([
-            'tool_contract_id' => $tool->id,
-            'tool_name' => $tool->slug,
-            'status' => ToolCallStatus::Pending,
-            'arguments' => $arguments,
-            'execution_mode' => $tool->execution_mode,
-            'sequence' => $max === null ? 0 : ((int) $max) + 1,
-            'requested_at' => Date::now(),
-        ]);
+            if (! in_array($tool->slug, $tools, true)) {
+                $tools[] = $tool->slug;
+            }
 
-        $tools = $run->tools ?? [];
+            $locked->update([
+                'next_tool_sequence' => $sequence + 1,
+                'tools' => $tools,
+            ]);
+            $run->forceFill(['next_tool_sequence' => $sequence + 1, 'tools' => $tools]);
 
-        if (! in_array($tool->slug, $tools, true)) {
-            $tools[] = $tool->slug;
-            $run->update(['tools' => $tools]);
-        }
+            return ToolCall::query()->create([
+                'agent_run_id' => $run->id,
+                'tool_contract_id' => $tool->id,
+                'tool_name' => $tool->slug,
+                'status' => ToolCallStatus::Pending,
+                'arguments' => $this->redactor->arguments($run, $arguments),
+                'execution_mode' => $tool->execution_mode,
+                'sequence' => $sequence,
+                'requested_at' => Date::now(),
+            ]);
+        }, 3);
+        $this->stateStore->putToolArguments($run, $call->id, $arguments);
 
         return $call;
     }
@@ -805,6 +942,7 @@ class AgentRunner
             'result' => $this->redactResult($run, $tool, $result),
             'completed_at' => Date::now(),
         ]);
+        $this->stateStore->forgetToolArguments($run, $call->id);
     }
 
     /**
@@ -845,12 +983,16 @@ class AgentRunner
     private function complete(AgentRun $run, string $text): AgentRun
     {
         $this->appendMessage($run, LlmMessage::assistant($text));
-        $run->update([
+        if (! $this->claimTerminal($run, RunStatus::Completed, [
             'status' => RunStatus::Completed,
-            'output' => $text,
+            'reserved_tokens' => 0,
+            'output' => $this->redactor->output($run, $text),
             'completed_at' => Date::now(),
             'latency_ms' => $this->latency($run),
-        ]);
+        ])) {
+            return $run->fresh();
+        }
+        $this->stateStore->forget($run);
         $this->tracer->record($run, TraceEventType::Completed, 'Run completed.');
         $this->webhooks->emit($run, WebhookEventType::RunCompleted);
 
@@ -864,14 +1006,23 @@ class AgentRunner
      */
     private function fail(AgentRun $run, string $code, string $message, array $data = []): AgentRun
     {
-        $run->update([
+        $publicMessage = $this->publicFailureMessage($code);
+
+        if (! $this->claimTerminal($run, RunStatus::Failed, [
             'status' => RunStatus::Failed,
-            'error' => $message,
+            'reserved_tokens' => 0,
+            'error' => $publicMessage,
             'failure_reason' => $code,
             'completed_at' => Date::now(),
             'latency_ms' => $this->latency($run),
+        ])) {
+            return $run->fresh();
+        }
+        $this->stateStore->forget($run);
+        $this->tracer->record($run, TraceEventType::Failed, $publicMessage, [
+            'code' => $code,
+            'correlation_id' => $run->correlation_id,
         ]);
-        $this->tracer->record($run, TraceEventType::Failed, $message, [...$data, 'code' => $code]);
         $this->webhooks->emit($run, WebhookEventType::RunFailed);
 
         return $run;
@@ -882,14 +1033,21 @@ class AgentRunner
      */
     private function expire(AgentRun $run): AgentRun
     {
-        $run->update([
+        if (! $this->claimTerminal($run, RunStatus::Expired, [
             'status' => RunStatus::Expired,
+            'reserved_tokens' => 0,
             'error' => 'The run expired before completion.',
             'failure_reason' => 'run_expired',
             'completed_at' => Date::now(),
             'latency_ms' => $this->latency($run),
+        ])) {
+            return $run->fresh();
+        }
+        $this->stateStore->forget($run);
+        $this->tracer->record($run, TraceEventType::Failed, 'Run expired.', [
+            'code' => 'run_expired',
+            'correlation_id' => $run->correlation_id,
         ]);
-        $this->tracer->record($run, TraceEventType::Failed, 'Run expired.', ['code' => 'run_expired']);
         $this->webhooks->emit($run, WebhookEventType::RunExpired);
 
         return $run;
@@ -900,17 +1058,49 @@ class AgentRunner
      */
     private function cancel(AgentRun $run): AgentRun
     {
-        $run->update([
+        if (! $this->claimTerminal($run, RunStatus::Cancelled, [
             'status' => RunStatus::Cancelled,
+            'reserved_tokens' => 0,
             'error' => 'The run was cancelled because the agent is no longer published.',
             'failure_reason' => 'agent_unpublished',
             'completed_at' => Date::now(),
             'latency_ms' => $this->latency($run),
+        ])) {
+            return $run->fresh();
+        }
+        $this->stateStore->forget($run);
+        $this->tracer->record($run, TraceEventType::Failed, 'Run cancelled.', [
+            'code' => 'agent_unpublished',
+            'correlation_id' => $run->correlation_id,
         ]);
-        $this->tracer->record($run, TraceEventType::Failed, 'Run cancelled.', ['code' => 'agent_unpublished']);
         $this->webhooks->emit($run, WebhookEventType::RunCancelled);
 
         return $run;
+    }
+
+    /**
+     * Atomically win a terminal transition. Only the winner records terminal
+     * trace/webhook effects, preventing duplicate jobs from emitting twice.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function claimTerminal(AgentRun $run, RunStatus $status, array $attributes): bool
+    {
+        $updated = AgentRun::query()
+            ->whereKey($run->id)
+            ->whereNotIn('status', array_map(
+                static fn (RunStatus $terminal): string => $terminal->value,
+                RunStatus::terminalCases(),
+            ))
+            ->update([...$attributes, 'status' => $status->value, 'terminal_event_emitted' => true]);
+
+        if ($updated !== 1) {
+            return false;
+        }
+
+        $run->forceFill([...$attributes, 'status' => $status, 'terminal_event_emitted' => true]);
+
+        return true;
     }
 
     /**
@@ -933,6 +1123,7 @@ class AgentRunner
         $run->update([
             'tokens_in' => $run->tokens_in + $usage->tokensIn,
             'tokens_out' => $run->tokens_out + $usage->tokensOut,
+            'reserved_tokens' => max(0, $run->reserved_tokens - $usage->tokensIn - $usage->tokensOut),
             'cost' => round($run->cost + $cost, 6),
         ]);
     }
@@ -960,11 +1151,11 @@ class AgentRunner
      */
     private function appendMessage(AgentRun $run, LlmMessage $message): void
     {
-        $state = $run->state ?? [];
+        $state = $this->stateStore->get($run);
         $messages = $this->rawState($run, 'messages');
         $messages[] = $message->toArray();
         $state['messages'] = $messages;
-        $run->update(['state' => $state]);
+        $this->stateStore->put($run, $state);
     }
 
     /**
@@ -972,7 +1163,7 @@ class AgentRunner
      */
     private function stepsTaken(AgentRun $run): int
     {
-        $state = $run->state ?? [];
+        $state = $this->stateStore->get($run);
 
         return (int) ($state['steps'] ?? 0);
     }
@@ -982,9 +1173,9 @@ class AgentRunner
      */
     private function incrementSteps(AgentRun $run): void
     {
-        $state = $run->state ?? [];
+        $state = $this->stateStore->get($run);
         $state['steps'] = $this->stepsTaken($run) + 1;
-        $run->update(['state' => $state]);
+        $this->stateStore->put($run, $state);
     }
 
     /**
@@ -994,10 +1185,86 @@ class AgentRunner
      */
     private function rawState(AgentRun $run, string $key): array
     {
-        $state = $run->state ?? [];
+        $state = $this->stateStore->get($run);
         $value = $state[$key] ?? [];
 
         return is_array($value) ? array_values($value) : [];
+    }
+
+    /**
+     * Enforce the shared readiness decision before creating any run.
+     */
+    private function ensureReady(Agent $agent, Application $application, Environment $environment, bool $candidateEvaluation): void
+    {
+        if (! $this->readiness->isReady(
+            $agent,
+            $application,
+            $environment,
+            requirePublished: ! $candidateEvaluation,
+            requireEvaluations: ! $candidateEvaluation,
+            requireImmutableVersion: ! $candidateEvaluation,
+        )) {
+            throw RuntimeRequestException::invalidRuntimeConfiguration();
+        }
+    }
+
+    /**
+     * Atomically claim a run in the expected state. A stale claim can be taken
+     * over after the queue visibility timeout so crashed workers are repairable.
+     */
+    private function claim(AgentRun $run, RunStatus $expected): ?AgentRun
+    {
+        return DB::transaction(function () use ($run, $expected): ?AgentRun {
+            $locked = AgentRun::query()->lockForUpdate()->findOrFail($run->id);
+            $staleBefore = Date::now()->subSeconds((int) config('queue.connections.database.retry_after', 180));
+
+            if ($locked->status !== $expected
+                || ($locked->processing_token !== null && $locked->processing_claimed_at?->isAfter($staleBefore))) {
+                return null;
+            }
+
+            $token = (string) Str::uuid();
+            $locked->update([
+                'processing_token' => $token,
+                'processing_claimed_at' => Date::now(),
+            ]);
+            $this->activeClaims[$locked->id] = $token;
+
+            return $locked;
+        }, 3);
+    }
+
+    private function releaseClaim(AgentRun $run): void
+    {
+        $token = $this->activeClaims[$run->id] ?? null;
+
+        if (! is_string($token)) {
+            return;
+        }
+
+        unset($this->activeClaims[$run->id]);
+
+        AgentRun::query()
+            ->whereKey($run->id)
+            ->where('processing_token', $token)
+            ->update(['processing_token' => null, 'processing_claimed_at' => null]);
+    }
+
+    /**
+     * Return a stable, non-sensitive public message for a runtime failure code.
+     */
+    private function publicFailureMessage(string $code): string
+    {
+        return match ($code) {
+            'runtime_frozen' => 'The application runtime is currently unavailable.',
+            'approval_denied' => 'The run was denied by a reviewer.',
+            'model_unavailable', 'model_error' => 'The model provider could not complete this run.',
+            'step_limit_exceeded' => 'The run reached its configured step limit.',
+            'unknown_tool', 'invalid_tool_arguments', 'hosted_tool_unavailable', 'hosted_tool_failed',
+            'hosted_tool_invalid_output', 'remote_http_invalid_output', 'connector_invalid_output',
+            'knowledge_invalid_output', 'db_invalid_output', 'tool_requires_approval' => 'A requested tool could not be executed.',
+            default => 'The run could not be completed.',
+        };
     }
 
     /**

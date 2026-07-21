@@ -31,6 +31,13 @@ class LlmProviderResource extends JsonResource
             'ctx' => $this->context_window,
             'inCost' => $this->input_cost,
             'outCost' => $this->output_cost,
+            'pricing' => [
+                'currency' => $this->pricing_currency,
+                'unit' => $this->pricing_unit,
+                'source' => $this->pricing_source,
+                'version' => $this->pricing_version,
+                'effectiveAt' => $this->pricing_effective_at?->toIso8601String(),
+            ],
             'sensitivity' => $this->sensitivity->label(),
             'envs' => array_map(
                 fn (string $env): string => Environment::from($env)->label(),

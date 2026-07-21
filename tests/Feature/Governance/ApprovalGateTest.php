@@ -2,6 +2,7 @@
 
 use App\Actions\Maacc\ApproveApprovalRequest;
 use App\Enums\AgentStatus;
+use App\Enums\ApprovalStatus;
 use App\Enums\ApprovalType;
 use App\Enums\DataSourceStatus;
 use App\Enums\Environment;
@@ -48,6 +49,16 @@ test('an agent with no unmet prerequisites is approvable', function () {
         ->and(app(ApprovalGate::class)->isSatisfied($request))->toBeTrue();
 });
 
+test('a disabled agent cannot transition back to published through approval', function () {
+    [$owner, $team] = ownerAndTeam();
+    $agent = publishableAgent($team);
+    $agent->update(['status' => AgentStatus::Disabled]);
+    $request = app(ApprovalManager::class)->requestAgentPublication($agent, $owner, Environment::Production);
+
+    expect(app(ApprovalGate::class)->blockers($request))
+        ->toContain('A disabled agent cannot enter publication or evaluation.');
+});
+
 test('an agent is blocked while a required tool is still awaiting approval', function () {
     [$owner, $team] = ownerAndTeam();
     $agent = publishableAgent($team);
@@ -79,9 +90,17 @@ test('an agent is blocked while a client-side tool is unimplemented in the envir
         'application_id' => $agent->project->application_id,
         'environment' => Environment::Production->value,
         'status' => ImplStatus::Implemented,
+        'implemented_version' => $tool->version,
+        'schema_fingerprint' => $tool->schemaFingerprint(),
     ]);
 
-    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))->toBe([]);
+    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))
+        ->toContain('The agent configuration changed after this approval was requested.');
+
+    $currentRequest = app(ApprovalManager::class)->requestAgentPublication($agent->fresh(), $owner, Environment::Production);
+
+    expect(app(ApprovalGate::class)->blockers($currentRequest))->toBe([])
+        ->and($request->fresh()->status)->toBe(ApprovalStatus::Cancelled);
 });
 
 test('an agent is blocked when its model is not approved for the environment', function () {
@@ -97,7 +116,7 @@ test('an agent is blocked when its model is not approved for the environment', f
     $request = app(ApprovalManager::class)->requestAgentPublication($agent, $owner, Environment::Production);
 
     expect(app(ApprovalGate::class)->blockers($request))
-        ->toContain('Model Dev Only Model is not approved for Production.');
+        ->toContain('No project-approved model is verified, credentialed, and available for Production.');
 });
 
 test('an agent is blocked while a connector tool uses an unavailable connector', function () {
@@ -118,7 +137,13 @@ test('an agent is blocked while a connector tool uses an unavailable connector',
         'environments' => [Environment::Production->value],
     ]);
 
-    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))->toBe([]);
+    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))
+        ->toContain('The agent configuration changed after this approval was requested.');
+
+    $currentRequest = app(ApprovalManager::class)->requestAgentPublication($agent->fresh(), $owner, Environment::Production);
+
+    expect(app(ApprovalGate::class)->blockers($currentRequest))->toBe([])
+        ->and($request->fresh()->status)->toBe(ApprovalStatus::Cancelled);
 });
 
 test('an agent is blocked while a db tool uses an unavailable data source', function () {
@@ -139,12 +164,19 @@ test('an agent is blocked while a db tool uses an unavailable data source', func
         'environments' => [Environment::Production->value],
     ]);
 
-    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))->toBe([]);
+    expect(app(ApprovalGate::class)->blockers($request->fresh()->load('subject')))
+        ->toContain('The agent configuration changed after this approval was requested.');
+
+    $currentRequest = app(ApprovalManager::class)->requestAgentPublication($agent->fresh(), $owner, Environment::Production);
+
+    expect(app(ApprovalGate::class)->blockers($currentRequest))->toBe([])
+        ->and($request->fresh()->status)->toBe(ApprovalStatus::Cancelled);
 });
 
 test('non-agent approvals have no prerequisites', function () {
     [, $team] = ownerAndTeam();
-    $request = ApprovalRequest::factory()->for($team)->create(['type' => ApprovalType::ToolContract]);
+    $tool = ToolContract::factory()->for($team)->create();
+    $request = ApprovalRequest::factory()->for($team)->for($tool, 'subject')->create(['type' => ApprovalType::ToolContract]);
 
     expect(app(ApprovalGate::class)->blockers($request))->toBe([]);
 });

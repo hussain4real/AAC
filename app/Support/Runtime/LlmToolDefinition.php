@@ -11,7 +11,7 @@ use App\Models\ToolContract;
 final readonly class LlmToolDefinition
 {
     /**
-     * @param  array<string, string>  $inputSchema
+     * @param  array<string, mixed>  $inputSchema
      */
     public function __construct(
         public string $name,

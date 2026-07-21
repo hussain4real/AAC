@@ -32,7 +32,7 @@ class ProjectFactory extends Factory
             'application_id' => Application::factory(),
             'slug' => fake()->unique()->slug(2),
             'name' => Str::headline(fake()->unique()->slug(3)),
-            'environment' => fake()->randomElement(Environment::cases()),
+            'environment' => Environment::Production,
             'description' => fake()->sentence(),
             'business_owner' => fake()->name(),
             'technical_owner' => fake()->name(),

@@ -42,10 +42,15 @@ describe('page + gating', function () {
             ->assertOk()
             ->assertInertia(fn (AssertableInertia $page) => $page
                 ->component('maacc/access-control')
-                ->has('access.roles', 7)
-                ->has('access.admins')
                 ->where('capabilities.isSuperAdmin', true)
-                ->has('directory'));
+                ->missing('access')
+                ->missing('directory')
+                ->loadDeferredProps('access-control', fn (AssertableInertia $deferred) => $deferred
+                    ->has('access.roles', 7)
+                    ->has('access.admins')
+                    ->has('access.pagination.admins')
+                    ->has('directory.items')
+                    ->has('directory.pagination')));
     });
 
     it('forbids a tenant user with no platform role', function () {

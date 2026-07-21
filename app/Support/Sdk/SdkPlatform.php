@@ -32,7 +32,7 @@ class SdkPlatform
      */
     public function apiVersion(): string
     {
-        return $this->string('api_version', '0.0.1');
+        return $this->string('api_version', '1.0.0');
     }
 
     /**
@@ -40,7 +40,7 @@ class SdkPlatform
      */
     public function minimumClientVersion(): string
     {
-        return $this->string('minimum_client_version', '0.0.1');
+        return $this->string('minimum_client_version', '1.0.0');
     }
 
     /**
@@ -48,7 +48,7 @@ class SdkPlatform
      */
     public function currentClientVersion(): string
     {
-        return $this->string('current_client_version', '0.0.1');
+        return $this->string('current_client_version', '1.0.0');
     }
 
     /**
@@ -111,6 +111,7 @@ class SdkPlatform
             'streaming' => true,
             'webhooks' => true,
             'webhook_events' => WebhookEventType::values(),
+            'tool_schema_dialect' => ToolSchema::DIALECT,
             // Which tool execution modes the runtime supports, split by who runs
             // them: the calling application via the SDK (client-side) versus MAACC
             // itself (hosted utilities, remote HTTP, MCP connectors,

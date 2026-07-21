@@ -7,13 +7,16 @@
    ============================================================ */
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { replay as replayDelivery } from '@/actions/App/Http/Controllers/Maacc/WebhookDeliveryController';
 import {
     destroy as destroyWebhook,
     rotate as rotateWebhook,
     store as storeWebhook,
     update as updateWebhook,
+    verify as verifyWebhook,
 } from '@/actions/App/Http/Controllers/Maacc/WebhookEndpointController';
+import { CursorPagination } from '@/components/maacc/common';
 import {
     Badge,
     Btn,
@@ -30,12 +33,17 @@ import {
     Td,
     Toggle,
     Tr,
+    inputStyle,
 } from '@/components/maacc/ui';
 import type { Tone } from '@/components/maacc/ui';
 import { ChipMultiSelect, ENV_OPTIONS, FieldError } from '@/maacc/forms';
 import { Icon } from '@/maacc/icons';
 import { useMaaccData } from '@/maacc/use-data';
-import type { MaaccWebhookDelivery, MaaccWebhookEndpoint } from '@/types/global';
+import { webhooks as webhooksRoute } from '@/routes';
+import type {
+    MaaccWebhookDelivery,
+    MaaccWebhookEndpoint,
+} from '@/types/global';
 
 const EVENT_OPTIONS = [
     { value: '*', label: 'All events' },
@@ -314,6 +322,9 @@ export default function Webhooks() {
     const { currentTeam } = usePage().props;
     const teamSlug = currentTeam?.slug ?? '';
     const endpoints = MAACC.webhooks;
+    const [query, setQuery] = useState(
+        String(MAACC.pagination.webhooks?.filters.q ?? ''),
+    );
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<MaaccWebhookEndpoint | undefined>();
     const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -333,9 +344,19 @@ export default function Webhooks() {
     };
 
     const toggleStatus = (endpoint: MaaccWebhookEndpoint) => {
+        if (endpoint.status !== 'active') {
+            router.post(
+                verifyWebhook([teamSlug, endpoint.id]).url,
+                {},
+                { preserveScroll: true },
+            );
+
+            return;
+        }
+
         router.put(
             updateWebhook([teamSlug, endpoint.id]).url,
-            { status: endpoint.status === 'active' ? 'disabled' : 'active' },
+            { status: 'disabled' },
             { preserveScroll: true },
         );
     };
@@ -359,6 +380,25 @@ export default function Webhooks() {
         }
     };
 
+    const search = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!currentTeam) {
+            return;
+        }
+
+        router.get(
+            webhooksRoute.url(currentTeam.slug),
+            query.trim() ? { q: query.trim() } : {},
+            {
+                only: ['maacc'],
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
+        );
+    };
+
     return (
         <>
             <Head title="Webhooks" />
@@ -377,6 +417,29 @@ export default function Webhooks() {
                         </Btn>
                     }
                 />
+
+                <form
+                    aria-label="Webhook filters"
+                    onSubmit={search}
+                    style={{
+                        display: 'flex',
+                        gap: 8,
+                        marginBottom: 14,
+                        maxWidth: 520,
+                    }}
+                >
+                    <input
+                        aria-label="Search webhooks"
+                        value={query}
+                        onChange={(event) => setQuery(event.target.value)}
+                        placeholder="Search endpoint name or URL…"
+                        className="maacc-input"
+                        style={{ ...inputStyle, flex: 1 }}
+                    />
+                    <Btn type="submit" variant="default" icon="search">
+                        Search
+                    </Btn>
+                </form>
 
                 <div
                     style={{
@@ -450,6 +513,15 @@ export default function Webhooks() {
                                             Delivery failing
                                         </Badge>
                                     )}
+                                    {e.status === 'pending_verification' && (
+                                        <Badge
+                                            tone="orange"
+                                            soft
+                                            style={{ marginLeft: 8 }}
+                                        >
+                                            Test required
+                                        </Badge>
+                                    )}
                                 </Td>
                                 <Td>{e.appName ?? '—'}</Td>
                                 <Td>{eventLabels(e.events)}</Td>
@@ -503,6 +575,12 @@ export default function Webhooks() {
                         ))}
                     </Table>
                 )}
+
+                <CursorPagination
+                    pageKey="webhooks"
+                    cursorName="webhooks_cursor"
+                    label="Webhooks"
+                />
 
                 {selected && (
                     <DeliveriesPanel endpoint={selected} teamSlug={teamSlug} />

@@ -22,6 +22,7 @@ use App\Http\Controllers\Maacc\ModelRoutingPolicyController;
 use App\Http\Controllers\Maacc\PlatformAccessController;
 use App\Http\Controllers\Maacc\PlaygroundRunController;
 use App\Http\Controllers\Maacc\ProjectController;
+use App\Http\Controllers\Maacc\ProjectMemberController;
 use App\Http\Controllers\Maacc\QuotaLimitController;
 use App\Http\Controllers\Maacc\SsoConnectionController;
 use App\Http\Controllers\Maacc\ToolContractController;
@@ -31,21 +32,33 @@ use App\Http\Controllers\Maacc\WebhookDeliveryController;
 use App\Http\Controllers\Maacc\WebhookEndpointController;
 use App\Http\Controllers\SsoController;
 use App\Http\Controllers\Teams\TeamInvitationController;
+use App\Http\Middleware\EnsureCurrentTeamResourceOwnership;
 use App\Http\Middleware\EnsureTeamMembership;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::inertia('/', 'welcome')->name('home');
+Route::get('/', function (Request $request) {
+    if (! $request->user()) {
+        return redirect()->route('login');
+    }
+
+    $team = $request->user()->currentTeam;
+
+    return $team
+        ? redirect()->route('dashboard', ['current_team' => $team->slug])
+        : redirect()->route('teams.index');
+})->name('home');
 
 // Enterprise SSO login (guest-accessible auth entry points).
-Route::get('sso/{ssoConnection}/redirect', [SsoController::class, 'redirect'])->name('sso.redirect');
-Route::get('sso/{ssoConnection}/callback', [SsoController::class, 'callback'])->name('sso.callback');
+Route::get('sso/{ssoConnection}/redirect', [SsoController::class, 'redirect'])->middleware('throttle:sso')->name('sso.redirect');
+Route::get('sso/{ssoConnection}/callback', [SsoController::class, 'callback'])->middleware('throttle:sso')->name('sso.callback');
 
 Route::prefix('{current_team}')
-    ->middleware(['auth', 'verified', EnsureTeamMembership::class])
+    ->middleware(['auth', 'verified', EnsureTeamMembership::class, EnsureCurrentTeamResourceOwnership::class])
     ->group(function () {
         Route::get('dashboard', DashboardController::class)->name('dashboard');
 
-        // MAACC console (Phase 1 — mock-backed)
+        // MAACC console read routes backed by authorized page-scoped resources.
         Route::get('applications', [ConsoleController::class, 'applications'])->name('applications');
         Route::get('applications/{application}', [ConsoleController::class, 'application'])->name('applications.show');
         Route::get('projects', [ConsoleController::class, 'projects'])->name('projects');
@@ -70,7 +83,9 @@ Route::prefix('{current_team}')
         Route::get('webhooks', [ConsoleController::class, 'webhooks'])->name('webhooks');
         Route::get('vault', [ConsoleController::class, 'vault'])->name('vault');
         Route::get('routing', [ConsoleController::class, 'routing'])->name('routing');
-        Route::get('identity', [ConsoleController::class, 'identity'])->name('identity');
+        Route::get('identity', [ConsoleController::class, 'identity'])
+            ->middleware('permission:'.PlatformPermission::ViewIdentity->value)
+            ->name('identity');
         Route::get('incidents', [ConsoleController::class, 'incidents'])->name('incidents');
         Route::get('platform-settings', [ConsoleController::class, 'settings'])->name('platform-settings');
 
@@ -88,6 +103,11 @@ Route::prefix('{current_team}')
 
         Route::resource('applications', ApplicationController::class)->only(['store', 'update', 'destroy']);
         Route::resource('projects', ProjectController::class)->only(['store', 'update', 'destroy']);
+        Route::get('projects/{project}/members', [ProjectMemberController::class, 'index'])->name('projects.members.index');
+        Route::post('projects/{project}/members', [ProjectMemberController::class, 'store'])->name('projects.members.store');
+        Route::put('projects/{project}/members/{projectMember}', [ProjectMemberController::class, 'update'])->name('projects.members.update');
+        Route::post('projects/{project}/members/{projectMember}/revoke', [ProjectMemberController::class, 'revoke'])->name('projects.members.revoke');
+        Route::post('projects/{project}/members/{projectMember}/certify', [ProjectMemberController::class, 'certify'])->name('projects.members.certify');
         Route::resource('agents', AgentController::class)->only(['store', 'update', 'destroy']);
         Route::resource('tools', ToolContractController::class)->only(['store', 'update', 'destroy']);
         Route::resource('llm-providers', LlmProviderController::class)
@@ -142,6 +162,7 @@ Route::prefix('{current_team}')
             ->only(['store', 'update', 'destroy'])
             ->parameters(['webhooks' => 'webhookEndpoint']);
         Route::post('webhooks/{webhookEndpoint}/rotate', [WebhookEndpointController::class, 'rotate'])->name('webhooks.rotate');
+        Route::post('webhooks/{webhookEndpoint}/verify', [WebhookEndpointController::class, 'verify'])->name('webhooks.verify');
         Route::post('webhook-deliveries/{webhookDelivery}/replay', [WebhookDeliveryController::class, 'replay'])->name('webhook-deliveries.replay');
 
         // MAACC console (Phase 6G — enterprise identity, secrets & advanced governance)
@@ -159,6 +180,9 @@ Route::prefix('{current_team}')
         Route::resource('sso-connections', SsoConnectionController::class)
             ->only(['store', 'update', 'destroy'])
             ->parameters(['sso-connections' => 'ssoConnection']);
+        Route::post('sso-connections/{ssoConnection}/test', [SsoConnectionController::class, 'test'])->name('sso-connections.test');
+        Route::post('sso-connections/{ssoConnection}/approve', [SsoConnectionController::class, 'approve'])->name('sso-connections.approve');
+        Route::post('sso-connections/{ssoConnection}/disable', [SsoConnectionController::class, 'disable'])->name('sso-connections.disable');
 
         // MAACC console (Phase 8B — platform administration RBAC). Gated by the
         // global platform permissions; a Super Admin passes via the Gate::before

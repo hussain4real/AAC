@@ -4,6 +4,8 @@ namespace App\Http\Requests\Maacc\Concerns;
 
 use App\Enums\HttpMethod;
 use App\Enums\RemoteAuthType;
+use App\Rules\SafeOutboundUrl;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Validation\Rule;
 
 /**
@@ -19,12 +21,12 @@ trait ValidatesToolConfig
      *
      * @return array<string, array<int, mixed>>
      */
-    protected function toolConfigRules(?int $teamId): array
+    protected function toolConfigRules(?int $teamId, OutboundRequestPolicy $policy): array
     {
         return [
             'http_config' => ['nullable', 'array', 'required_if:execution_mode,http'],
             'http_config.method' => ['nullable', 'required_if:execution_mode,http', Rule::enum(HttpMethod::class)],
-            'http_config.endpoint' => ['nullable', 'required_if:execution_mode,http', 'url', 'max:2048'],
+            'http_config.endpoint' => ['nullable', 'required_if:execution_mode,http', new SafeOutboundUrl($policy, 'remote_http'), 'max:2048'],
             'http_config.auth' => ['nullable', 'array'],
             'http_config.auth.type' => ['nullable', Rule::enum(RemoteAuthType::class)],
             'http_config.auth.header' => ['nullable', 'string', 'max:128'],

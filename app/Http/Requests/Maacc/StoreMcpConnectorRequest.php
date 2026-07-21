@@ -5,6 +5,8 @@ namespace App\Http\Requests\Maacc;
 use App\Enums\Environment;
 use App\Enums\RemoteAuthType;
 use App\Enums\Sensitivity;
+use App\Rules\SafeOutboundUrl;
+use App\Support\Outbound\OutboundRequestPolicy;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +17,7 @@ class StoreMcpConnectorRequest extends FormRequest
      *
      * @return array<string, array<int, mixed>>
      */
-    public function rules(): array
+    public function rules(OutboundRequestPolicy $policy): array
     {
         $teamId = $this->user()?->currentTeam()->value('id');
 
@@ -23,7 +25,7 @@ class StoreMcpConnectorRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'application_id' => ['nullable', 'uuid', Rule::exists('applications', 'id')->where('team_id', $teamId)],
             'description' => ['nullable', 'string', 'max:1000'],
-            'server_url' => ['required', 'url', 'max:2048'],
+            'server_url' => ['required', new SafeOutboundUrl($policy, 'mcp'), 'max:2048'],
             'auth_type' => ['required', Rule::enum(RemoteAuthType::class)],
             'auth_credential' => ['nullable', 'string', 'max:2048', 'required_if:auth_type,bearer,header'],
             'auth_header' => ['nullable', 'string', 'max:128', 'required_if:auth_type,header'],

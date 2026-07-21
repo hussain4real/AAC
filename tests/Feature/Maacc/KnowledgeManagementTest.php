@@ -161,13 +161,13 @@ test('a source can be re-indexed and deleted', function () {
     expect($source->fresh()->trashed())->toBeTrue();
 });
 
-test('the shared maacc prop exposes knowledge sources with their documents', function () {
+test('the knowledge page exposes sources with their documents', function () {
     [$owner, $team] = ownerAndTeam();
     $source = KnowledgeSource::factory()->for($team)->create(['name' => 'Ops Manual']);
     app(KnowledgeIndexer::class)->ingestDocument($source, ['title' => 'Doc A', 'body' => 'content']);
 
     $this->actingAs($owner)
-        ->get(route('applications', ['current_team' => $team->slug]))
+        ->get(route('knowledge', ['current_team' => $team->slug]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('maacc.knowledgeSources', 1)

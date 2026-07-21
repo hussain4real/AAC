@@ -959,9 +959,6 @@ export default function SDKCenter() {
                                     icon="link"
                                     style={{ marginBottom: 0 }}
                                 />
-                                <Btn variant="default" size="sm" icon="refresh">
-                                    Re-validate
-                                </Btn>
                             </div>
                             <Table
                                 columns={[

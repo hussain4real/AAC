@@ -39,16 +39,12 @@ test('the run detail page surfaces the real ordered execution trace', function (
         );
 });
 
-test('the run detail page renders null trace for an unknown run', function () {
+test('the run detail page returns not found for an unknown run', function () {
     [$owner, $team] = ownerAndTeam();
 
     $this->actingAs($owner)
         ->get("/{$team->slug}/runs/does-not-exist")
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('maacc/runs/show')
-            ->where('trace', null)
-        );
+        ->assertNotFound();
 });
 
 test('the run detail trace is scoped to the team', function () {
@@ -65,9 +61,5 @@ test('the run detail trace is scoped to the team', function () {
     // The owner of a different team cannot see another team's run trace.
     $this->actingAs($owner)
         ->get("/{$team->slug}/runs/{$run->slug}")
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page
-            ->component('maacc/runs/show')
-            ->where('trace', null)
-        );
+        ->assertNotFound();
 });

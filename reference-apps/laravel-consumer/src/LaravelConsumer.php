@@ -47,6 +47,8 @@ final class LaravelConsumer
      */
     public function summarize(string $prompt, ?string $caller = 'laravel-reference'): Run
     {
-        return $this->client->run($this->agentSlug, $prompt, $this->registry, $caller);
+        $context = $this->client->issueCallerContext('reference:laravel-cli');
+
+        return $this->client->run($this->agentSlug, $prompt, $this->registry, $caller, callerContext: $context);
     }
 }

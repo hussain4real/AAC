@@ -4,9 +4,9 @@ namespace App\Support\Platform;
 
 use App\Enums\PlatformAccessKind;
 use App\Enums\PlatformRole;
-use App\Models\AuditEvent;
 use App\Models\PlatformAccessGrant;
 use App\Models\User;
+use App\Support\Governance\AuditLedger;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -20,6 +20,46 @@ use Illuminate\Support\Facades\DB;
  */
 class PlatformAccessManager
 {
+    /**
+     * Idempotently bootstrap an uncategorized privileged role from deployment
+     * configuration. The system attribution and absent certification make the
+     * grant visible to the first human access-review cycle.
+     */
+    public function bootstrap(User $target, PlatformRole $role, string $source): PlatformAccessGrant
+    {
+        return DB::transaction(function () use ($target, $role, $source): PlatformAccessGrant {
+            $grant = PlatformAccessGrant::query()
+                ->where('user_id', $target->id)
+                ->where('role', $role->value)
+                ->active()
+                ->lockForUpdate()
+                ->first();
+
+            if ($grant instanceof PlatformAccessGrant) {
+                $target->assignRole($role->value);
+
+                return $grant;
+            }
+
+            $target->assignRole($role->value);
+            $grant = PlatformAccessGrant::create([
+                'user_id' => $target->id,
+                'role' => $role->value,
+                'kind' => PlatformAccessKind::Standard->value,
+                'reason' => 'Uncertified bootstrap grant from '.$source,
+            ]);
+
+            $this->audit($grant, null, 'platform_access.bootstrapped', [
+                'role' => $role->value,
+                'target' => $target->email,
+                'source' => $source,
+                'certification_required' => true,
+            ]);
+
+            return $grant;
+        });
+    }
+
     /**
      * Grant a platform role to a user as a deliberate, certified assignment.
      */
@@ -169,9 +209,13 @@ class PlatformAccessManager
      *
      * @return Collection<int, PlatformAccessGrant>
      */
-    public function dueForExpiry(): Collection
+    public function dueForExpiry(?int $limit = null): Collection
     {
-        return PlatformAccessGrant::query()->dueForExpiry()->with('user')->get();
+        return PlatformAccessGrant::query()
+            ->dueForExpiry()
+            ->with('user')
+            ->when($limit !== null, fn ($query) => $query->limit($limit))
+            ->get();
     }
 
     /**
@@ -180,7 +224,7 @@ class PlatformAccessManager
      *
      * @return Collection<int, PlatformAccessGrant>
      */
-    public function needingCertification(): Collection
+    public function needingCertification(?int $limit = null): Collection
     {
         $threshold = now()->subDays($this->certificationDays());
 
@@ -189,6 +233,7 @@ class PlatformAccessManager
             ->where('kind', PlatformAccessKind::Standard->value)
             ->where(fn ($query) => $query->whereNull('certified_at')->orWhere('certified_at', '<', $threshold))
             ->with('user')
+            ->when($limit !== null, fn ($query) => $query->limit($limit))
             ->get();
     }
 
@@ -198,24 +243,21 @@ class PlatformAccessManager
      *
      * @return Collection<int, PlatformAccessGrant>
      */
-    public function staleGrants(): Collection
+    public function staleGrants(?int $limit = null): Collection
     {
         $threshold = now()->subDays($this->staleDays());
 
         return PlatformAccessGrant::query()
             ->active()
             ->where('created_at', '<', $threshold)
+            ->whereNotExists(fn ($query) => $query
+                ->selectRaw('1')
+                ->from('audit_events')
+                ->whereColumn('audit_events.actor_user_id', 'platform_access_grants.user_id')
+                ->where('audit_events.created_at', '>=', $threshold))
             ->with('user')
-            ->get()
-            ->filter(function (PlatformAccessGrant $grant) use ($threshold): bool {
-                $recentlyActive = AuditEvent::query()
-                    ->where('actor_user_id', $grant->user_id)
-                    ->where('created_at', '>=', $threshold)
-                    ->exists();
-
-                return ! $recentlyActive;
-            })
-            ->values();
+            ->when($limit !== null, fn ($query) => $query->limit($limit))
+            ->get();
     }
 
     /**
@@ -269,7 +311,7 @@ class PlatformAccessManager
         $actorTeamId = $actor?->current_team_id;
         $actorName = $actor?->name;
 
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $actorTeamId ?? $grant->user->current_team_id,
             'actor_user_id' => $actor?->id,
             'actor_label' => $actorName ?? 'system',

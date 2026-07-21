@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Maacc;
 
+use App\Actions\Maacc\CreateQuotaLimit;
+use App\Actions\Maacc\UpdateQuotaLimit;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Maacc\StoreQuotaLimitRequest;
 use App\Http\Requests\Maacc\UpdateQuotaLimitRequest;
@@ -16,12 +18,12 @@ class QuotaLimitController extends Controller
     /**
      * Create a rate limit / quota for the current team.
      */
-    public function store(StoreQuotaLimitRequest $request): RedirectResponse
+    public function store(StoreQuotaLimitRequest $request, CreateQuotaLimit $createQuotaLimit): RedirectResponse
     {
         Gate::authorize('create', QuotaLimit::class);
 
         $team = $request->user()->currentTeam()->firstOrFail();
-        $team->quotaLimits()->create($request->validated());
+        $createQuotaLimit->handle($team, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Quota created.']);
 
@@ -31,11 +33,11 @@ class QuotaLimitController extends Controller
     /**
      * Update the given quota.
      */
-    public function update(UpdateQuotaLimitRequest $request, string $currentTeam, QuotaLimit $quotaLimit): RedirectResponse
+    public function update(UpdateQuotaLimitRequest $request, string $currentTeam, QuotaLimit $quotaLimit, UpdateQuotaLimit $updateQuotaLimit): RedirectResponse
     {
         Gate::authorize('update', $quotaLimit);
 
-        $quotaLimit->update($request->validated());
+        $updateQuotaLimit->handle($quotaLimit, $request->validated());
 
         Inertia::flash('toast', ['type' => 'success', 'message' => 'Quota updated.']);
 

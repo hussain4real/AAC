@@ -3,42 +3,68 @@
 namespace App\Actions\Maacc;
 
 use App\Enums\AgentStatus;
+use App\Exceptions\ApprovalBlockedException;
 use App\Models\Agent;
 use App\Models\User;
+use App\Support\Governance\AgentReadinessGate;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 class PublishAgent
 {
+    public function __construct(private readonly AgentReadinessGate $readiness) {}
+
     /**
      * Publish the agent and snapshot its current configuration.
      */
     public function handle(Agent $agent, User $publisher): Agent
     {
         return DB::transaction(function () use ($agent, $publisher): Agent {
-            $nextVersion = 'v'.((int) ltrim($agent->version, 'v') + 1);
-            $publishedAt = Carbon::now();
+            $locked = Agent::query()->lockForUpdate()->findOrFail($agent->id);
+            $locked->loadMissing('project.application');
+            $blockers = $this->readiness->blockers(
+                $locked,
+                $locked->project->application,
+                $locked->project->environment,
+                requirePublished: false,
+                requireEvaluations: true,
+                requireImmutableVersion: false,
+            );
 
-            $version = $agent->versions()->create([
+            if ($blockers !== []) {
+                throw new ApprovalBlockedException($blockers);
+            }
+
+            $nextVersion = 'v'.((int) ltrim($locked->version, 'v') + 1);
+            $publishedAt = Carbon::now();
+            $snapshot = $this->readiness->executionSnapshot($locked);
+            $configurationHash = hash('sha256', (string) json_encode($snapshot, JSON_THROW_ON_ERROR));
+
+            $version = $locked->versions()->create([
                 'version' => $nextVersion,
-                'system_prompt' => $agent->system_prompt,
-                'llm_provider_id' => $agent->llm_provider_id,
-                'temperature' => $agent->temperature,
-                'max_tokens' => $agent->max_tokens,
-                'settings' => ['temperature' => $agent->temperature, 'max_tokens' => $agent->max_tokens],
+                'system_prompt' => $locked->system_prompt,
+                'llm_provider_id' => $locked->llm_provider_id,
+                'temperature' => $locked->temperature,
+                'max_tokens' => $locked->max_tokens,
+                'settings' => [
+                    'temperature' => $locked->temperature,
+                    'max_tokens' => $locked->max_tokens,
+                    'configuration_hash' => $configurationHash,
+                    'execution_snapshot' => $snapshot,
+                ],
                 'status' => AgentStatus::Published->value,
                 'published_at' => $publishedAt,
                 'published_by' => $publisher->id,
             ]);
 
-            $agent->update([
+            $locked->update([
                 'status' => AgentStatus::Published->value,
                 'published_at' => $publishedAt,
                 'version' => $nextVersion,
                 'current_version_id' => $version->id,
             ]);
 
-            return $agent;
+            return $locked;
         });
     }
 }

@@ -5,7 +5,9 @@ namespace App\Support\Runtime;
 use App\Enums\TraceEventType;
 use App\Models\AgentRun;
 use App\Models\TraceEvent;
+use App\Support\Governance\RunRedactor;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Appends ordered {@see TraceEvent} records to an agent run, maintaining a
@@ -13,6 +15,8 @@ use Illuminate\Support\Facades\Date;
  */
 class RunTracer
 {
+    public function __construct(private readonly RunRedactor $redactor) {}
+
     /**
      * Record a trace event for the run.
      *
@@ -20,14 +24,20 @@ class RunTracer
      */
     public function record(AgentRun $run, TraceEventType $type, ?string $message = null, array $data = []): TraceEvent
     {
-        $max = $run->traceEvents()->max('sequence');
+        return DB::transaction(function () use ($run, $type, $message, $data): TraceEvent {
+            $locked = AgentRun::query()->lockForUpdate()->findOrFail($run->id);
+            $sequence = $locked->next_trace_sequence;
+            $locked->increment('next_trace_sequence');
+            $run->setAttribute('next_trace_sequence', $sequence + 1);
 
-        return $run->traceEvents()->create([
-            'type' => $type,
-            'message' => $message,
-            'data' => $data === [] ? null : $data,
-            'sequence' => $max === null ? 0 : ((int) $max) + 1,
-            'occurred_at' => Date::now(),
-        ]);
+            return TraceEvent::query()->create([
+                'agent_run_id' => $run->id,
+                'type' => $type,
+                'message' => $this->redactor->output($run, $message),
+                'data' => $data === [] ? null : $this->redactor->result($run, $data),
+                'sequence' => $sequence,
+                'occurred_at' => Date::now(),
+            ]);
+        }, 3);
     }
 }

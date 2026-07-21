@@ -1,8 +1,7 @@
 name: deploy
 
-# Deploys to the production VM whenever main advances (i.e. a PR merges).
-# main is branch-protected and requires the lint + tests checks to pass before
-# merge, so anything that reaches main has already been validated.
+# Deploys to the production VM only after the enterprise gate succeeds on main.
+# Repository branch protection remains an independently required control.
 #
 # The VM pins the deploy SSH key to a forced command (/usr/local/bin/maacc-deploy.sh),
 # so this job only needs to open an SSH connection to trigger a deploy — the key
@@ -10,13 +9,13 @@ name: deploy
 #   DEPLOY_SSH_KEY    - private key whose public half is in the VM authorized_keys
 #   DEPLOY_HOST       - VM host/IP
 #   DEPLOY_USER       - VM ssh user
-#   DEPLOY_KNOWN_HOSTS- (optional) pinned host key; falls back to ssh-keyscan
-# Without the secrets the job no-ops, so merging this file is safe on its own.
+#   DEPLOY_KNOWN_HOSTS- pinned host key for the production VM
 
 on:
-  push:
+  workflow_run:
+    workflows: [enterprise-gate]
+    types: [completed]
     branches: [main]
-  workflow_dispatch: {}
 
 concurrency:
   group: deploy-production
@@ -25,6 +24,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy to production VM
+    if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions: {}
     steps:
@@ -37,22 +37,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "${DEPLOY_SSH_KEY:-}" ] || [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_USER:-}" ]; then
-            echo "::warning title=Deploy skipped::Add the DEPLOY_SSH_KEY, DEPLOY_HOST and DEPLOY_USER repository secrets to enable deployment."
-            exit 0
+          if [ -z "${DEPLOY_SSH_KEY:-}" ] || [ -z "${DEPLOY_HOST:-}" ] || [ -z "${DEPLOY_USER:-}" ] || [ -z "${DEPLOY_KNOWN_HOSTS:-}" ]; then
+            echo "::error title=Deployment configuration missing::DEPLOY_SSH_KEY, DEPLOY_HOST, DEPLOY_USER and DEPLOY_KNOWN_HOSTS are all required."
+            exit 1
           fi
 
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          if [ -n "${DEPLOY_KNOWN_HOSTS:-}" ]; then
-            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
-          else
-            ssh-keyscan -T 10 "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null || true
-          fi
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-          echo "Deploying ${GITHUB_SHA::7} to ${DEPLOY_HOST} ..."
+          release_sha="${{ github.event.workflow_run.head_sha }}"
+          echo "Deploying ${release_sha::7} to ${DEPLOY_HOST} ..."
           # The forced command on the server runs the deploy; the trailing word
           # is ignored. SSH blocks until the deploy finishes and streams its log,
           # and a non-zero exit here fails the job.

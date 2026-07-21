@@ -2,6 +2,7 @@
 
 namespace App\Support\Sso;
 
+use App\Enums\SsoFailureCode;
 use RuntimeException;
 
 /**
@@ -11,5 +12,8 @@ use RuntimeException;
  */
 class SsoException extends RuntimeException
 {
-    //
+    public function __construct(string $message, public readonly SsoFailureCode $failureCode = SsoFailureCode::LoginRejected)
+    {
+        parent::__construct($message);
+    }
 }

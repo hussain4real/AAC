@@ -16,8 +16,10 @@ class StoreProjectRequest extends FormRequest
      */
     public function rules(): array
     {
+        $teamId = $this->user()?->currentTeam()->value('id');
+
         return [
-            'application_id' => ['required', 'string', Rule::exists('applications', 'id')],
+            'application_id' => ['required', 'string', Rule::exists('applications', 'id')->where('team_id', $teamId)->where('status', 'active')],
             'name' => ['required', 'string', 'max:255'],
             'environment' => ['required', Rule::enum(Environment::class)],
             'description' => ['nullable', 'string'],
@@ -25,7 +27,7 @@ class StoreProjectRequest extends FormRequest
             'technical_owner' => ['nullable', 'string', 'max:255'],
             'status' => ['sometimes', Rule::enum(ProjectStatus::class)],
             'llm_provider_ids' => ['sometimes', 'array'],
-            'llm_provider_ids.*' => ['string', Rule::exists('llm_providers', 'id')],
+            'llm_provider_ids.*' => ['string', Rule::exists('llm_providers', 'id')->where('team_id', $teamId)->where('status', 'approved')],
         ];
     }
 }

@@ -22,6 +22,23 @@ class ToolImplementationFactory extends Factory
     protected $model = ToolImplementation::class;
 
     /**
+     * Keep implementation compatibility metadata aligned with its contract.
+     */
+    public function configure(): static
+    {
+        return $this->afterMaking(function (ToolImplementation $implementation): void {
+            $tool = ToolContract::query()->find($implementation->tool_contract_id);
+
+            if (! $tool instanceof ToolContract) {
+                return;
+            }
+
+            $implementation->implemented_version ??= $tool->version;
+            $implementation->schema_fingerprint ??= $tool->schemaFingerprint();
+        });
+    }
+
+    /**
      * Define the model's default state.
      *
      * @return array<string, mixed>
@@ -35,6 +52,7 @@ class ToolImplementationFactory extends Factory
             'status' => ImplStatus::Implemented,
             'handler_name' => fake()->word(),
             'implemented_version' => '1.0.0',
+            'schema_fingerprint' => null,
             'last_validated_at' => fake()->dateTimeBetween('-1 day', 'now'),
         ];
     }

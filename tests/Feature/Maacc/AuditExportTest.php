@@ -4,10 +4,16 @@ use App\Enums\MaaccRole;
 use App\Models\Application;
 use App\Models\AuditEvent;
 use App\Models\Project;
+use App\Support\Governance\AuditLedger;
+use App\Support\Governance\AuditSigner;
+use Illuminate\Support\Facades\Storage;
 
 test('a platform admin can export the audit log as JSON with a signed manifest', function () {
+    Storage::fake('audit_archive');
     [$owner, $team] = ownerAndTeam();
-    AuditEvent::factory()->for($team)->count(3)->create();
+    foreach (range(1, 3) as $index) {
+        app(AuditLedger::class)->record(['team_id' => $team->id, 'action' => "test.event_{$index}"]);
+    }
 
     $response = $this->actingAs($owner)
         ->get(route('audit-export', ['current_team' => $team->slug]))
@@ -19,9 +25,14 @@ test('a platform admin can export the audit log as JSON with a signed manifest',
 
     expect($payload['manifest']['count'])->toBe(3)
         ->and($payload['manifest']['team'])->toBe($team->slug)
-        ->and($payload['manifest']['checksum'])->toBe(hash('sha256', (string) json_encode($payload['events'])))
+        ->and($payload['manifest']['rows_digest'])->toBe(hash('sha256', (string) json_encode($payload['events'])))
+        ->and($payload['manifest']['chain_integrity']['valid'])->toBeTrue()
+        ->and(app(AuditSigner::class)->verifyExport(
+            collect($payload['manifest'])->except('signature')->all(),
+            $payload['manifest']['signature'],
+        ))->toBeTrue()
         ->and($payload['manifest']['truncated'])->toBeFalse()
-        ->and($response->headers->get('X-Maacc-Audit-Checksum'))->toBe($payload['manifest']['checksum'])
+        ->and($response->headers->get('X-Maacc-Audit-Signature'))->toBe($payload['manifest']['signature'])
         ->and($response->headers->get('Content-Disposition'))->toContain('attachment');
 });
 

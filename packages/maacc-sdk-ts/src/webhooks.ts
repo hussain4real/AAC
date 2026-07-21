@@ -46,3 +46,60 @@ export function verifyWebhook(
 
   return timingSafeEqual(Buffer.from(expected), Buffer.from(provided));
 }
+
+export interface WebhookDeliveryHeaders {
+  signature: string;
+  timestamp: string;
+  deliveryId: string;
+  sequence: string;
+}
+
+export interface VerifiedWebhookDelivery<T = unknown> {
+  accepted: boolean;
+  duplicate: boolean;
+  deliveryId: string;
+  sequence: number;
+  payload?: T;
+}
+
+/**
+ * Stateful receiver helper: verify first, then deduplicate by the stable
+ * delivery ID. Persist processed IDs in durable storage in production and
+ * still return 2xx for `duplicate: true` deliveries.
+ */
+export class WebhookDeliveryVerifier {
+  private readonly processed = new Set<string>();
+  private readonly secret: string;
+  private readonly toleranceSeconds: number;
+
+  constructor(secret: string, toleranceSeconds = 300) {
+    this.secret = secret;
+    this.toleranceSeconds = toleranceSeconds;
+  }
+
+  verify<T = unknown>(body: string, headers: WebhookDeliveryHeaders, now?: number): VerifiedWebhookDelivery<T> {
+    const sequence = Number(headers.sequence);
+    const accepted =
+      headers.deliveryId.trim() !== '' &&
+      Number.isSafeInteger(sequence) &&
+      sequence > 0 &&
+      verifyWebhook(body, headers.signature, headers.timestamp, this.secret, this.toleranceSeconds, now);
+
+    if (!accepted) {
+      return { accepted: false, duplicate: false, deliveryId: headers.deliveryId, sequence };
+    }
+
+    let payload: T;
+
+    try {
+      payload = JSON.parse(body) as T;
+    } catch {
+      return { accepted: false, duplicate: false, deliveryId: headers.deliveryId, sequence };
+    }
+
+    const duplicate = this.processed.has(headers.deliveryId);
+    this.processed.add(headers.deliveryId);
+
+    return { accepted: true, duplicate, deliveryId: headers.deliveryId, sequence, payload };
+  }
+}

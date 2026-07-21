@@ -14,6 +14,7 @@ enum ApprovalStatus: string
     case Approved = 'approved';
     case Rejected = 'rejected';
     case Cancelled = 'cancelled';
+    case Expired = 'expired';
 
     /**
      * Get the human-readable label for the status.

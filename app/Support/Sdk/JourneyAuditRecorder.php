@@ -4,10 +4,10 @@ namespace App\Support\Sdk;
 
 use App\Enums\Environment;
 use App\Enums\ImplStatus;
-use App\Models\AuditEvent;
 use App\Models\ToolContract;
 use App\Models\ToolContractVersion;
 use App\Models\ToolImplementation;
+use App\Support\Governance\AuditLedger;
 
 /**
  * Records audit-log entries for the version journey's governance-relevant
@@ -58,7 +58,7 @@ class JourneyAuditRecorder
     {
         $user = auth()->user();
 
-        AuditEvent::create([
+        app(AuditLedger::class)->record([
             'team_id' => $teamId,
             'actor_user_id' => $user?->getAuthIdentifier(),
             'actor_label' => $user?->name,

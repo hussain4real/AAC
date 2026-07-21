@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\ApprovalType;
 use App\Enums\LlmStatus;
 use App\Enums\VaultSecretKind;
+use App\Models\ApprovalRequest;
 use App\Models\LlmProvider;
 use App\Models\Team;
 use App\Support\Runtime\RuntimeAgent;
@@ -71,7 +73,7 @@ test('verify is forbidden to a non-admin', function () {
         ->assertForbidden();
 });
 
-test('publishing verifies then approves a working model', function () {
+test('publishing verifies then stages a working model for separate approval', function () {
     [$owner, $team] = ownerAndTeam();
     $provider = keyedDraftProvider($team);
     Ai::fakeAgent(RuntimeAgent::class, ['ok']);
@@ -80,7 +82,25 @@ test('publishing verifies then approves a working model', function () {
         ->post(route('llm-providers.publish', ['current_team' => $team->slug, 'llmProvider' => $provider->slug]))
         ->assertRedirect();
 
-    expect($provider->fresh()->status)->toBe(LlmStatus::Approved);
+    $approval = ApprovalRequest::query()->pending()->where('type', ApprovalType::ModelAccess)->firstOrFail();
+
+    expect($provider->fresh()->status)->toBe(LlmStatus::Draft)
+        ->and($approval->subject->is($provider))->toBeTrue()
+        ->and($approval->requested_by)->toBe($owner->id)
+        ->and($approval->subject_version_hash)->not->toBeNull();
+});
+
+test('publishing a model without an environment stages production approval', function () {
+    [$owner, $team] = ownerAndTeam();
+    $provider = keyedDraftProvider($team, ['environments' => []]);
+    Ai::fakeAgent(RuntimeAgent::class, ['ok']);
+
+    $this->actingAs($owner)
+        ->post(route('llm-providers.publish', ['current_team' => $team->slug, 'llmProvider' => $provider->slug]))
+        ->assertRedirect();
+
+    expect(ApprovalRequest::query()->pending()->firstOrFail()->environment?->value)
+        ->toBe('production');
 });
 
 test('publishing refuses a model that fails its connection check', function () {

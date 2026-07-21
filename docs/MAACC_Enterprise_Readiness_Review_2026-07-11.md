@@ -4,6 +4,7 @@
 **Reviewed branch / revision:** `dev` at `a6684b96f614`  
 **Primary acceptance baseline:** `docs/MAACC_BRS(1).md`  
 **Supporting baselines:** `docs/MAACC_Architecture_Document.md`, `docs/MAACC_Phased_Implementation_Plan.md`, source code, migrations, tests, SDK packages, CI/CD workflows, and the running local console at `https://maac.test`  
+**Four-phase remediation plan:** [MAACC Enterprise Readiness Remediation Plan](MAACC_Enterprise_Readiness_Remediation_Plan.md)<br>
 **Decision:** **NO-GO for enterprise production or a real-data pilot**
 
 ## Contents
@@ -744,6 +745,8 @@ These findings are material but sit below the headline release blockers or are b
 - Critical tables have useful indexes, but there are no cross-table/composite ownership constraints capable of proving same-tenant relationships.
 
 ## 12. Execution plan
+
+The detailed four-phase delivery ledger for closing every readiness gap, edge case, BRS shortfall, verification item, and enterprise gate is maintained in the [MAACC Enterprise Readiness Remediation Plan](MAACC_Enterprise_Readiness_Remediation_Plan.md). The work packages and delivery waves below remain the source estimates that the four phases consolidate.
 
 ### 12.1 Planning assumptions
 

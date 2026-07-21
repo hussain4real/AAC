@@ -2,6 +2,8 @@
 
 namespace App\Support\Governance;
 
+use App\Enums\PayloadHandling;
+use App\Enums\Sensitivity;
 use App\Models\AgentRun;
 use App\Models\GovernanceSetting;
 
@@ -28,7 +30,26 @@ class RunRedactor
      */
     public function input(AgentRun $run, ?string $value): ?string
     {
-        return $this->masker->maskText($value, $this->masksInputs($run), $run->sensitivity, $this->blocks($run));
+        return $this->masker->maskText($value, $this->masksInputs($run), $this->sensitivity($run), $this->blocks($run));
+    }
+
+    /**
+     * Redact a model response before it crosses a retained storage boundary.
+     */
+    public function output(AgentRun $run, ?string $value): ?string
+    {
+        return $this->masker->maskText($value, $this->masksOutputs($run), $this->sensitivity($run), $this->blocks($run));
+    }
+
+    /**
+     * Redact tool arguments before they are persisted or emitted.
+     *
+     * @param  array<string, mixed>|null  $value
+     * @return array<string, mixed>|null
+     */
+    public function arguments(AgentRun $run, ?array $value): ?array
+    {
+        return $this->masker->maskArray($value, $this->masksInputs($run), $this->sensitivity($run), $this->blocks($run));
     }
 
     /**
@@ -40,7 +61,18 @@ class RunRedactor
      */
     public function result(AgentRun $run, ?array $value): ?array
     {
-        return $this->masker->maskArray($value, $this->masksOutputs($run), $run->sensitivity, $this->blocks($run));
+        $handling = $this->settings($run)->toolResultHandling($run->environment);
+
+        if ($handling === PayloadHandling::Exclude) {
+            return null;
+        }
+
+        return $this->masker->maskArray(
+            $value,
+            $handling === PayloadHandling::Mask,
+            $this->sensitivity($run),
+            $this->blocks($run),
+        );
     }
 
     /**
@@ -49,7 +81,7 @@ class RunRedactor
     public function applies(AgentRun $run): bool
     {
         return $this->masker->wouldRedact(
-            $run->sensitivity,
+            $this->sensitivity($run),
             $this->masksInputs($run) || $this->masksOutputs($run),
             $this->blocks($run),
         );
@@ -77,6 +109,14 @@ class RunRedactor
     private function blocks(AgentRun $run): bool
     {
         return $this->settings($run)->blocksRestrictedLogging($run->environment);
+    }
+
+    /**
+     * Treat legacy runs without an explicit classification as Internal.
+     */
+    private function sensitivity(AgentRun $run): Sensitivity
+    {
+        return $run->sensitivity;
     }
 
     /**

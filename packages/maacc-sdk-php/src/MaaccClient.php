@@ -12,6 +12,7 @@ use Maacc\Sdk\Exceptions\RunNotResolvedException;
 use Maacc\Sdk\Http\CurlTransport;
 use Maacc\Sdk\Http\HttpRequest;
 use Maacc\Sdk\Http\HttpResponse;
+use Maacc\Sdk\Resources\CallerContextEnvelope;
 use Maacc\Sdk\Resources\Manifest;
 use Maacc\Sdk\Resources\ManifestTool;
 use Maacc\Sdk\Resources\Run;
@@ -40,7 +41,7 @@ final class MaaccClient
      * request (`X-Maacc-Sdk-Version`) and in implementation reports so the server
      * can flag clients below its supported minimum.
      */
-    public const VERSION = '0.2.0';
+    public const VERSION = '1.0.0';
 
     /**
      * The SDK language identifier reported to MAACC.
@@ -181,7 +182,7 @@ final class MaaccClient
      * long-running run for a worker (driven via polling, streaming, or webhooks)
      * instead of blocking the request.
      */
-    public function startRun(string $agentSlug, string $input, ?string $caller = null, string $mode = self::MODE_SYNC): Run
+    public function startRun(string $agentSlug, string $input, ?string $caller = null, string $mode = self::MODE_SYNC, ?CallerContextEnvelope $callerContext = null, ?string $idempotencyKey = null): Run
     {
         $payload = ['input' => $input, 'mode' => $mode];
 
@@ -189,9 +190,45 @@ final class MaaccClient
             $payload['caller'] = $caller;
         }
 
-        $response = $this->request(HttpRequest::json('POST', $this->config->url('/api/v1/agents/'.rawurlencode($agentSlug).'/runs'), $payload));
+        if ($callerContext !== null) {
+            $payload['caller_context'] = $callerContext->envelope;
+        }
+
+        $idempotencyKey ??= 'sdk_'.bin2hex(random_bytes(16));
+        $response = $this->request(HttpRequest::json(
+            'POST',
+            $this->config->url('/api/v1/agents/'.rawurlencode($agentSlug).'/runs'),
+            $payload,
+            ['Idempotency-Key' => $idempotencyKey],
+        ));
 
         return Run::fromArray($this->decode($response));
+    }
+
+    /**
+     * Ask MAACC to issue a short-lived signed caller-context envelope.
+     *
+     * @param  array<int, string>  $roles
+     */
+    public function issueCallerContext(
+        string $subject,
+        ?string $department = null,
+        array $roles = [],
+        ?string $nonce = null,
+        ?string $correlationId = null,
+        int $expiresIn = 300,
+    ): CallerContextEnvelope {
+        $payload = array_filter([
+            'subject' => $subject,
+            'department' => $department,
+            'roles' => array_values($roles),
+            'nonce' => $nonce,
+            'correlation_id' => $correlationId,
+            'expires_in' => $expiresIn,
+        ], fn (mixed $value): bool => $value !== null);
+        $response = $this->request(HttpRequest::json('POST', $this->config->url('/api/v1/caller-contexts'), $payload));
+
+        return CallerContextEnvelope::fromArray($this->decode($response));
     }
 
     /**
@@ -227,7 +264,7 @@ final class MaaccClient
      * the request never blocks while the model works — MAACC's worker advances the
      * run and this loop polls for the next decision point.
      *
-     * @param  array{maxIterations?: int, maxAttempts?: int, intervalMs?: int}  $options
+     * @param  array{maxIterations?: int, maxAttempts?: int, intervalMs?: int, callerContext?: CallerContextEnvelope}  $options
      *
      * @throws MissingToolHandlerException when MAACC pauses for an unregistered tool
      * @throws RunNotResolvedException when the run cannot be driven to a terminal state
@@ -238,7 +275,8 @@ final class MaaccClient
         $maxAttempts = $options['maxAttempts'] ?? 60;
         $intervalMs = $options['intervalMs'] ?? 1000;
 
-        $started = $this->startRun($agentSlug, $input, $caller, self::MODE_ASYNC);
+        $callerContext = $options['callerContext'] ?? null;
+        $started = $this->startRun($agentSlug, $input, $caller, self::MODE_ASYNC, $callerContext);
         $run = $this->pollRun($started->runId, $maxAttempts, $intervalMs);
 
         for ($iteration = 0; $run->isWaiting(); $iteration++) {
@@ -299,9 +337,9 @@ final class MaaccClient
      * @throws MissingToolHandlerException when MAACC pauses for an unregistered tool
      * @throws RunNotResolvedException when the run cannot be driven to a terminal state
      */
-    public function run(string $agentSlug, string $input, ToolHandlerRegistry $registry, ?string $caller = null, int $maxIterations = 16): Run
+    public function run(string $agentSlug, string $input, ToolHandlerRegistry $registry, ?string $caller = null, int $maxIterations = 16, ?CallerContextEnvelope $callerContext = null): Run
     {
-        $run = $this->startRun($agentSlug, $input, $caller);
+        $run = $this->startRun($agentSlug, $input, $caller, callerContext: $callerContext);
 
         for ($iteration = 0; $run->isWaiting(); $iteration++) {
             if ($iteration >= $maxIterations) {
@@ -365,6 +403,20 @@ final class MaaccClient
             fn (array $row): WebhookEndpoint => WebhookEndpoint::fromArray($row),
             array_filter($rows, 'is_array'),
         ));
+    }
+
+    /**
+     * Send a signed test delivery and activate the endpoint when acknowledged.
+     */
+    public function verifyWebhook(string $id): WebhookEndpoint
+    {
+        $response = $this->request(HttpRequest::json(
+            'POST',
+            $this->config->url('/api/v1/webhook-endpoints/'.rawurlencode($id).'/verify'),
+            [],
+        ));
+
+        return WebhookEndpoint::fromArray($this->decode($response));
     }
 
     /**

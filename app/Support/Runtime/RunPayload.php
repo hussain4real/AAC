@@ -22,19 +22,32 @@ class RunPayload
     {
         $payload = [
             'run_id' => $run->slug,
+            'correlation_id' => $run->correlation_id,
             'agent_slug' => $run->agent->agent_slug,
             'status' => $run->status->value,
+            'caller_context' => $run->caller_context,
             'usage' => [
                 'tokens_in' => $run->tokens_in,
                 'tokens_out' => $run->tokens_out,
             ],
             'cost' => $run->cost,
+            'currency' => $run->cost_currency,
+            'cost_estimated' => true,
+            'pricing' => [
+                'source' => $run->pricing_source,
+                'version' => $run->pricing_version,
+                'effective_at' => $run->pricing_effective_at?->toIso8601String(),
+            ],
         ];
 
         return match ($run->status) {
             RunStatus::Completed => [...$payload, 'response' => $run->output],
             RunStatus::WaitingForClient => [...$payload, 'tool_call' => self::toolCall($run)],
-            RunStatus::Failed, RunStatus::Expired, RunStatus::Cancelled => [...$payload, 'error' => $run->error],
+            RunStatus::Failed, RunStatus::Expired, RunStatus::Cancelled => [
+                ...$payload,
+                'error_code' => $run->failure_reason,
+                'error' => $run->error,
+            ],
             default => $payload,
         };
     }
@@ -55,7 +68,7 @@ class RunPayload
         return [
             'id' => $call->id,
             'tool' => $call->tool_name,
-            'arguments' => $call->arguments,
+            'arguments' => app(RunStateStore::class)->toolArguments($run, $call->id) ?? $call->arguments,
             'output_schema' => $call->toolContract?->output_schema,
         ];
     }
