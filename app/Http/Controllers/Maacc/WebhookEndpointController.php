@@ -93,7 +93,7 @@ class WebhookEndpointController extends Controller
     {
         Gate::authorize('update', $webhookEndpoint);
 
-        $verified = $verifier->verify($webhookEndpoint);
+        $verified = $verifier->verify($webhookEndpoint, allowDisabled: true);
         Inertia::flash('toast', [
             'type' => $verified ? 'success' : 'error',
             'message' => $verified

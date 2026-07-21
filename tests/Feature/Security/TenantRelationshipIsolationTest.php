@@ -22,7 +22,10 @@ use App\Models\ToolContract;
 use App\Models\User;
 use App\Support\GovernanceConsoleData;
 use Illuminate\Database\QueryException;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 test('project creation rejects an application owned by another tenant', function () {
@@ -199,6 +202,130 @@ test('project model assignments are protected by application and database invari
 
     expect($agent->fresh()->llm_provider_id)->not->toBe($unapprovedProvider->id)
         ->and($project->llmProviders()->whereKey($agent->fresh()->llm_provider_id)->exists())->toBeTrue();
+});
+
+test('the provider invariant migration repairs legacy agent links before adding its constraint', function () {
+    $defaultConnection = DB::getDefaultConnection();
+    $connection = 'legacy_provider_invariant';
+    $projectId = (string) Str::uuid();
+    $providerId = (string) Str::uuid();
+    $agentId = (string) Str::uuid();
+    $applicationId = (string) Str::uuid();
+    $migration = require database_path('migrations/2026_07_15_103958_enforce_agent_project_provider_invariant.php');
+
+    config(["database.connections.{$connection}" => [
+        ...config('database.connections.sqlite'),
+        'database' => ':memory:',
+        'foreign_key_constraints' => true,
+    ]]);
+    DB::purge($connection);
+    DB::setDefaultConnection($connection);
+
+    try {
+        Schema::create('applications', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->unsignedBigInteger('team_id');
+        });
+        Schema::create('projects', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('application_id');
+        });
+        Schema::create('llm_providers', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->unsignedBigInteger('team_id');
+        });
+        Schema::create('project_llm_provider', function (Blueprint $table): void {
+            $table->id();
+            $table->uuid('project_id');
+            $table->uuid('llm_provider_id');
+            $table->timestamps();
+            $table->unique(['project_id', 'llm_provider_id']);
+        });
+        Schema::create('agents', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('project_id');
+            $table->uuid('llm_provider_id');
+        });
+        DB::table('applications')->insert(['id' => $applicationId, 'team_id' => 1]);
+        DB::table('projects')->insert(['id' => $projectId, 'application_id' => $applicationId]);
+        DB::table('llm_providers')->insert(['id' => $providerId, 'team_id' => 1]);
+        DB::table('agents')->insert([
+            'id' => $agentId,
+            'project_id' => $projectId,
+            'llm_provider_id' => $providerId,
+        ]);
+
+        expect(DB::table('project_llm_provider')->count())->toBe(0);
+
+        $migration->up();
+
+        expect(DB::table('project_llm_provider')->where([
+            'project_id' => $projectId,
+            'llm_provider_id' => $providerId,
+        ])->exists())->toBeTrue();
+    } finally {
+        DB::setDefaultConnection($defaultConnection);
+        DB::purge($connection);
+    }
+});
+
+test('the provider invariant migration refuses to legitimize a cross-tenant legacy agent', function () {
+    $defaultConnection = DB::getDefaultConnection();
+    $connection = 'cross_tenant_provider_invariant';
+    $applicationId = (string) Str::uuid();
+    $projectId = (string) Str::uuid();
+    $providerId = (string) Str::uuid();
+    $migration = require database_path('migrations/2026_07_15_103958_enforce_agent_project_provider_invariant.php');
+
+    config(["database.connections.{$connection}" => [
+        ...config('database.connections.sqlite'),
+        'database' => ':memory:',
+        'foreign_key_constraints' => true,
+    ]]);
+    DB::purge($connection);
+    DB::setDefaultConnection($connection);
+
+    try {
+        Schema::create('applications', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->unsignedBigInteger('team_id');
+        });
+        Schema::create('projects', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('application_id');
+        });
+        Schema::create('llm_providers', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->unsignedBigInteger('team_id');
+        });
+        Schema::create('project_llm_provider', function (Blueprint $table): void {
+            $table->id();
+            $table->uuid('project_id');
+            $table->uuid('llm_provider_id');
+            $table->timestamps();
+            $table->unique(['project_id', 'llm_provider_id']);
+        });
+        Schema::create('agents', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('project_id');
+            $table->uuid('llm_provider_id');
+        });
+        DB::table('applications')->insert(['id' => $applicationId, 'team_id' => 1]);
+        DB::table('projects')->insert(['id' => $projectId, 'application_id' => $applicationId]);
+        DB::table('llm_providers')->insert(['id' => $providerId, 'team_id' => 2]);
+        DB::table('agents')->insert([
+            'id' => (string) Str::uuid(),
+            'project_id' => $projectId,
+            'llm_provider_id' => $providerId,
+        ]);
+
+        expect(fn () => $migration->up())
+            ->toThrow(RuntimeException::class, '1 legacy agent(s) reference a provider outside');
+        expect(DB::table('project_llm_provider')->count())->toBe(0);
+    } finally {
+        DB::setDefaultConnection($defaultConnection);
+        DB::purge($connection);
+    }
 });
 
 test('direct tool actions reject a foreign application before persistence', function () {

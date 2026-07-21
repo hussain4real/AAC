@@ -17,8 +17,14 @@ class WebhookEndpointVerifier
     /**
      * Send a signed test event and activate only after a successful response.
      */
-    public function verify(WebhookEndpoint $endpoint): bool
+    public function verify(WebhookEndpoint $endpoint, bool $allowDisabled = false): bool
     {
+        $initialStatus = $endpoint->refresh()->status;
+
+        if ($initialStatus === WebhookEndpointStatus::Disabled && ! $allowDisabled) {
+            return false;
+        }
+
         $timestamp = (string) Date::now()->getTimestamp();
         $deliveryId = 'test_'.Str::lower((string) Str::ulid());
         $body = (string) json_encode([
@@ -45,18 +51,42 @@ class WebhookEndpointVerifier
                 'max_redirects' => 0,
             ]);
         } catch (ConnectionException|OutboundRequestBlocked) {
-            $endpoint->update(['status' => WebhookEndpointStatus::PendingVerification]);
+            $this->updateStatusIfUnchanged(
+                $endpoint,
+                $initialStatus,
+                $initialStatus === WebhookEndpointStatus::Disabled
+                    ? WebhookEndpointStatus::Disabled
+                    : WebhookEndpointStatus::PendingVerification,
+            );
 
             return false;
         }
 
         $verified = $response->successful();
-        $endpoint->update([
-            'status' => $verified
+        $statusUpdated = $this->updateStatusIfUnchanged(
+            $endpoint,
+            $initialStatus,
+            $verified
                 ? WebhookEndpointStatus::Active
-                : WebhookEndpointStatus::PendingVerification,
-        ]);
+                : ($initialStatus === WebhookEndpointStatus::Disabled
+                    ? WebhookEndpointStatus::Disabled
+                    : WebhookEndpointStatus::PendingVerification),
+        );
 
-        return $verified;
+        return $verified && $statusUpdated;
+    }
+
+    /**
+     * Preserve any status decision made while verification is in flight.
+     */
+    private function updateStatusIfUnchanged(
+        WebhookEndpoint $endpoint,
+        WebhookEndpointStatus $expected,
+        WebhookEndpointStatus $status,
+    ): bool {
+        return WebhookEndpoint::query()
+            ->whereKey($endpoint->getKey())
+            ->where('status', $expected->value)
+            ->update(['status' => $status]) === 1;
     }
 }

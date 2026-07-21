@@ -10,7 +10,9 @@ use App\Models\LlmProvider;
 use App\Models\Project;
 use App\Models\Team;
 use App\Models\ToolContract;
+use App\Models\VaultSecret;
 use App\Support\Governance\AgentReadinessGate;
+use App\Support\Secrets\Contracts\SecretVault;
 
 /**
  * Build an application, project and approved model for the given team.
@@ -118,6 +120,24 @@ test('publishing an agent snapshots a new version and bumps the version label', 
         ->and($agent->currentVersion->settings['execution_snapshot']['tools'])->toBe([])
         ->and($agent->currentVersion->settings['configuration_hash'])
         ->toBe(app(AgentReadinessGate::class)->configurationHash($agent));
+});
+
+test('vault reads keep an approved configuration current while secret rotation invalidates it', function () {
+    [, $team] = ownerAndTeam();
+    [$project, $provider] = projectWithModel($team);
+    $secret = VaultSecret::factory()->for($team)->llmKey()->withValue('sk-before')->create();
+    $provider->update(['vault_secret_id' => $secret->id]);
+    $agent = Agent::factory()->for($project)->for($provider, 'llmProvider')->create();
+    $readiness = app(AgentReadinessGate::class);
+    $approvedHash = $readiness->configurationHash($agent);
+
+    app(SecretVault::class)->read($secret);
+
+    expect($readiness->configurationHash($agent))->toBe($approvedHash);
+
+    app(SecretVault::class)->rotate($secret, 'sk-after');
+
+    expect($readiness->configurationHash($agent))->not->toBe($approvedHash);
 });
 
 test('a developer can create an agent in a project they belong to', function () {

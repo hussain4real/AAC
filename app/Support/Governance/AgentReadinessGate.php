@@ -219,7 +219,7 @@ class AgentReadinessGate
                 'status' => $agent->llmProvider->status->value,
                 'environments' => $agent->llmProvider->environments,
                 'vault_secret_id' => $agent->llmProvider->vault_secret_id,
-                'vault_secret_updated_at' => $agent->llmProvider->vaultSecret?->updated_at?->toJSON(),
+                'vault_secret_version' => $agent->llmProvider->vaultSecret?->version,
                 'platform_owned' => $agent->llmProvider->platform_owned,
                 'verified_at' => $agent->llmProvider->verified_at?->toJSON(),
             ],

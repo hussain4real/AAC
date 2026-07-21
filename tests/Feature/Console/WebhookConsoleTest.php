@@ -65,6 +65,24 @@ test('a pending webhook activates only after a successful signed test delivery',
         && $request->hasHeader('X-Maacc-Signature'));
 });
 
+test('a platform admin can explicitly reactivate a disabled webhook with a successful test', function () {
+    $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
+        'status' => WebhookEndpointStatus::Disabled,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 204)]);
+
+    $this->actingAs($this->owner)
+        ->post(route('webhooks.verify', [
+            'current_team' => $this->team->slug,
+            'webhookEndpoint' => $endpoint->id,
+        ]))
+        ->assertRedirect();
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::Active);
+    Http::assertSentCount(1);
+});
+
 test('a failed webhook test remains pending verification', function () {
     $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
         'status' => WebhookEndpointStatus::PendingVerification,

@@ -338,6 +338,38 @@ test('an application activates a webhook only after a successful test delivery',
         ->assertJsonPath('status', 'active');
 });
 
+test('an application cannot reactivate a disabled webhook by verifying it', function () {
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 204)]);
+    $endpoint = webhookEndpoint(['status' => WebhookEndpointStatus::Disabled]);
+
+    test()->postJson("/api/v1/webhook-endpoints/{$endpoint->id}/verify")
+        ->assertUnprocessable()
+        ->assertJsonPath('verified', false)
+        ->assertJsonPath('status', WebhookEndpointStatus::Disabled->value);
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::Disabled);
+    Http::assertNothingSent();
+});
+
+test('webhook verification preserves a disable that occurs while the request is in flight', function () {
+    Http::preventStrayRequests();
+    $endpoint = webhookEndpoint(['status' => WebhookEndpointStatus::PendingVerification]);
+    Http::fake(function () use ($endpoint) {
+        $endpoint->update(['status' => WebhookEndpointStatus::Disabled]);
+
+        return Http::response('', 204);
+    });
+
+    test()->postJson("/api/v1/webhook-endpoints/{$endpoint->id}/verify")
+        ->assertUnprocessable()
+        ->assertJsonPath('verified', false)
+        ->assertJsonPath('status', WebhookEndpointStatus::Disabled->value);
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::Disabled);
+    Http::assertSentCount(1);
+});
+
 test('verifying an unknown application webhook returns a controlled error', function () {
     test()->postJson('/api/v1/webhook-endpoints/missing/verify')
         ->assertNotFound()
