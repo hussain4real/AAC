@@ -83,6 +83,41 @@ test('a platform admin can explicitly reactivate a disabled webhook with a succe
     Http::assertSentCount(1);
 });
 
+test('a failed admin reactivation keeps a disabled webhook disabled', function () {
+    $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
+        'status' => WebhookEndpointStatus::Disabled,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 500)]);
+
+    $this->actingAs($this->owner)
+        ->post(route('webhooks.verify', [
+            'current_team' => $this->team->slug,
+            'webhookEndpoint' => $endpoint->id,
+        ]))
+        ->assertRedirect();
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::Disabled);
+    Http::assertSentCount(1);
+});
+
+test('a blocked admin reactivation keeps a disabled webhook disabled', function () {
+    $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
+        'status' => WebhookEndpointStatus::Disabled,
+    ]);
+    Http::preventStrayRequests();
+    Http::fake(fn () => throw new ConnectionException('blocked'));
+
+    $this->actingAs($this->owner)
+        ->post(route('webhooks.verify', [
+            'current_team' => $this->team->slug,
+            'webhookEndpoint' => $endpoint->id,
+        ]))
+        ->assertRedirect();
+
+    expect($endpoint->fresh()->status)->toBe(WebhookEndpointStatus::Disabled);
+});
+
 test('a failed webhook test remains pending verification', function () {
     $endpoint = WebhookEndpoint::factory()->for($this->application)->create([
         'status' => WebhookEndpointStatus::PendingVerification,
