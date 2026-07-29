@@ -133,11 +133,15 @@ class RemoteHttpToolExecutor
         $credential = (string) ($auth['credential'] ?? '');
         $header = (string) ($auth['header'] ?? '');
 
-        return match ($type) {
-            RemoteAuthType::None => [],
-            RemoteAuthType::Bearer => ['Authorization' => "Bearer {$credential}"],
-            RemoteAuthType::Header => [($header !== '' ? $header : 'Authorization') => $credential],
-        };
+        if ($type === RemoteAuthType::None) {
+            return [];
+        }
+
+        if ($type === RemoteAuthType::Bearer) {
+            return ['Authorization' => "Bearer {$credential}"];
+        }
+
+        return [($header !== '' ? $header : 'Authorization') => $credential];
     }
 
     /**

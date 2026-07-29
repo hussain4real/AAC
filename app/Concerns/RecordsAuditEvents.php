@@ -30,6 +30,11 @@ trait RecordsAuditEvents
     public function recordAuditEvent(string $event): void
     {
         $team = $this->auditTeam();
+        $metadata = null;
+
+        if ($event === 'updated') {
+            $metadata = Arr::except($this->getChanges(), ['updated_at']) ?: null;
+        }
 
         if ($team !== null) {
             $user = auth()->user();
@@ -41,9 +46,7 @@ trait RecordsAuditEvents
                 'action' => Str::snake(class_basename($this)).'.'.$event,
                 'auditable_type' => $this::class,
                 'auditable_id' => (string) $this->getKey(),
-                'metadata' => $event === 'updated'
-                    ? (Arr::except($this->getChanges(), ['updated_at']) ?: null)
-                    : null,
+                'metadata' => $metadata,
                 'ip_address' => request()->ip(),
             ]);
         }

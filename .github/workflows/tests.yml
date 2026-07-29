@@ -30,6 +30,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup PHP
@@ -51,6 +52,16 @@ jobs:
       - name: Install PHP dependencies from lock file
         run: composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
 
+      - name: Restore PHP-specific TIA state
+        id: tia-cache
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.pest/tia
+          key: pest-tia-${{ runner.os }}-${{ runner.arch }}-php-${{ matrix.php }}-${{ hashFiles('composer.lock', 'package-lock.json', 'phpunit.xml') }}-${{ github.sha }}
+          restore-keys: |
+            pest-tia-${{ runner.os }}-${{ runner.arch }}-php-${{ matrix.php }}-${{ hashFiles('composer.lock', 'package-lock.json', 'phpunit.xml') }}-
+            pest-tia-${{ runner.os }}-${{ runner.arch }}-php-${{ matrix.php }}-
+
       - name: Copy Environment File
         run: cp .env.example .env
 
@@ -67,10 +78,17 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run non-mutating aggregate engineering gate
-        run: composer ci:check
+        run: composer ci:check:static
 
       - name: Enforce complete PHP line coverage
-        run: php artisan test --coverage --min=100 --compact
+        run: ./vendor/bin/pest --coverage --min=100 --compact --tia
 
       - name: Verify checks did not mutate tracked files
         run: git diff --exit-code
+
+      - name: Save PHP-specific TIA state
+        if: steps.tia-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.pest/tia
+          key: ${{ steps.tia-cache.outputs.cache-primary-key }}

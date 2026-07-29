@@ -34,9 +34,9 @@
         "laravel/sail": "^1.53",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.9.3",
-        "pestphp/pest": "^4.7",
-        "pestphp/pest-plugin-browser": "^4.3",
-        "pestphp/pest-plugin-laravel": "^4.1"
+        "pestphp/pest": "^5.0",
+        "pestphp/pest-plugin-browser": "^5.0",
+        "pestphp/pest-plugin-laravel": "^5.0"
     },
     "autoload": {
         "psr-4": {
@@ -76,6 +76,10 @@
             "@php vendor/bin/phpstan analyse --memory-limit=1G --debug --no-progress"
         ],
         "ci:check": [
+            "@ci:check:static",
+            "@test"
+        ],
+        "ci:check:static": [
             "Composer\\Config::disableProcessTimeout",
             "npm run lint:check",
             "npm run format:check",
@@ -83,8 +87,7 @@
             "npm run types:check:sdk",
             "npm run test:sdk",
             "@php artisan maacc:sdk-fixtures --check",
-            "@analyse",
-            "@test"
+            "@analyse"
         ],
         "types:check": [
             "phpstan analyse"
