@@ -76,6 +76,10 @@
             "@php vendor/bin/phpstan analyse --memory-limit=1G --debug --no-progress"
         ],
         "ci:check": [
+            "@ci:check:static",
+            "@test"
+        ],
+        "ci:check:static": [
             "Composer\\Config::disableProcessTimeout",
             "npm run lint:check",
             "npm run format:check",
@@ -83,8 +87,7 @@
             "npm run types:check:sdk",
             "npm run test:sdk",
             "@php artisan maacc:sdk-fixtures --check",
-            "@analyse",
-            "@test"
+            "@analyse"
         ],
         "types:check": [
             "phpstan analyse"
