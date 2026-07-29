@@ -70,7 +70,7 @@ jobs:
         run: composer ci:check
 
       - name: Enforce complete PHP line coverage
-        run: php artisan test --coverage --min=100 --compact
+        run: php artisan test --coverage --min=100 --compact --tia
 
       - name: Verify checks did not mutate tracked files
         run: git diff --exit-code
