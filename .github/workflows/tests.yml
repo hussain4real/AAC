@@ -15,7 +15,6 @@ on:
       - workos
 
 permissions:
-  actions: read
   contents: read
 
 jobs:
@@ -82,9 +81,6 @@ jobs:
         run: composer ci:check:static
 
       - name: Enforce complete PHP line coverage
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PEST_TIA_BASELINED: 1
         run: ./vendor/bin/pest --coverage --min=100 --compact --tia
 
       - name: Verify checks did not mutate tracked files

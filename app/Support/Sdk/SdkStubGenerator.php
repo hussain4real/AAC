@@ -37,11 +37,15 @@ class SdkStubGenerator
      */
     public function generate(ToolContract $tool, SdkLanguage $language): string
     {
-        return match ($language) {
-            SdkLanguage::TypeScript => $this->typescript($tool),
-            SdkLanguage::Php => $this->php($tool),
-            SdkLanguage::Python => $this->python($tool),
-        };
+        if ($language === SdkLanguage::TypeScript) {
+            return $this->typescript($tool);
+        }
+
+        if ($language === SdkLanguage::Php) {
+            return $this->php($tool);
+        }
+
+        return $this->python($tool);
     }
 
     /**

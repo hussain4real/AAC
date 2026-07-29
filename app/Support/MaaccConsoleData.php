@@ -104,6 +104,11 @@ class MaaccConsoleData
             fn (array $run): bool => $projectSlugs->contains($run['projectId'] ?? null),
         )->values();
         $llmSlugs = $projects->flatMap(fn (array $project): array => $project['llms'] ?? [])->unique();
+        $memberDirectory = [];
+
+        if (in_array('project:manage', $access['permissions'], true)) {
+            $memberDirectory = $data['memberDirectory'];
+        }
 
         return [
             ...$data,
@@ -138,9 +143,7 @@ class MaaccConsoleData
             'providerHealth' => [],
             'incidents' => [],
             'ssoConnections' => [],
-            'memberDirectory' => in_array('project:manage', $access['permissions'], true)
-                ? $data['memberDirectory']
-                : [],
+            'memberDirectory' => $memberDirectory,
         ];
     }
 

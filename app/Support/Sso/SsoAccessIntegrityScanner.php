@@ -41,15 +41,19 @@ class SsoAccessIntegrityScanner
             ? $configuredConnection
             : null;
         $sessionTable = (string) config('session.table', 'sessions');
+        $sessionCoverageReason = null;
+
+        if ($sessionDriver !== 'database') {
+            $sessionCoverageReason = "The {$sessionDriver} session driver cannot be inventoried by this database-backed audit.";
+        }
+
         $sessionCoverage = [
             'driver' => $sessionDriver,
             'supported' => $sessionDriver === 'database',
             'available' => $sessionDriver === 'database',
             'connection' => $sessionConnection ?? (string) config('database.default'),
             'table' => $sessionDriver === 'database' ? $sessionTable : null,
-            'reason' => $sessionDriver === 'database'
-                ? null
-                : "The {$sessionDriver} session driver cannot be inventoried by this database-backed audit.",
+            'reason' => $sessionCoverageReason,
         ];
 
         $roleUserIds = User::query()

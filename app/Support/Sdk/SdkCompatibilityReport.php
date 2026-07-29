@@ -154,12 +154,19 @@ class SdkCompatibilityReport
      */
     private function countKey(ImplStatus $status): string
     {
-        return match ($status) {
-            ImplStatus::Implemented => 'implemented',
-            ImplStatus::Outdated => 'outdated',
-            ImplStatus::Incompatible => 'incompatible',
-            default => 'required',
-        };
+        if ($status === ImplStatus::Implemented) {
+            return 'implemented';
+        }
+
+        if ($status === ImplStatus::Outdated) {
+            return 'outdated';
+        }
+
+        if ($status === ImplStatus::Incompatible) {
+            return 'incompatible';
+        }
+
+        return 'required';
     }
 
     /**
