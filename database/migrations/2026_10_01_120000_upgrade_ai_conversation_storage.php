@@ -46,6 +46,19 @@ return new class extends AiMigration
             }
         });
 
+        $db->table($messages)->select('conversation_id')->distinct()->orderBy('conversation_id')->chunk(100, function ($conversations) use ($db, $messages) {
+            foreach ($conversations as $conversation) {
+                $callIds = [];
+                $rows = $db->table($messages)->where('conversation_id', $conversation->conversation_id)->where('role', 'assistant')->orderBy('id')->get();
+                $this->assertUnambiguousResults($rows->flatMap(fn (object $row) => $this->decoded($row->tool_results))->all());
+                foreach ($rows as $row) {
+                    foreach ($this->decoded($row->tool_calls) as $call) {
+                        $this->assertUniqueCallId($call['id'], $callIds);
+                    }
+                }
+            }
+        });
+
         foreach ([$conversations, $messages] as $table) {
             if (! $schema->hasColumn($table, 'participant_type')) {
                 $schema->table($table, function (Blueprint $blueprint) {
@@ -134,6 +147,26 @@ return new class extends AiMigration
             }
         }
 
+        // Admit every row before changing ownership, payloads, or schema.
+        $db->table($messages)->select('conversation_id')->distinct()->orderBy('conversation_id')->chunk(100, function ($conversations) use ($db, $messages) {
+            foreach ($conversations as $conversation) {
+                $rows = $db->table($messages)->where('conversation_id', $conversation->conversation_id)->orderBy('id')->get();
+                $results = $rows->where('role', 'assistant')->flatMap(fn (object $row) => $this->decoded($row->tool_results));
+                $this->assertUnambiguousResults($results->all());
+                $results = $results->keyBy('id')->all();
+                $callIds = [];
+                foreach ($rows as $row) {
+                    $this->assertLegacyRollbackHistory($row, $results);
+                    foreach ($this->decoded($row->steps) as $step) {
+                        foreach ($step['tool_calls'] as $call) {
+                            $this->assertUniqueCallId($call['id'], $callIds);
+                        }
+                    }
+                    $this->decoded($row->meta);
+                    $this->decoded(json_encode($this->legacyUsage($this->decoded($row->usage)), JSON_THROW_ON_ERROR));
+                }
+            }
+        });
         foreach ([$messages, $conversations] as $table) {
             if ($schema->hasColumn($table, 'user_id')) {
                 $db->table($table)->update(['user_id' => DB::raw('participant_id')]);
@@ -160,11 +193,12 @@ return new class extends AiMigration
                         $calls[] = $call;
                     }
                 }
+                $steps = $this->decoded($row->steps);
                 $db->table($messages)->where('id', $row->id)->update([
                     'tool_calls' => json_encode($calls, JSON_THROW_ON_ERROR),
                     'tool_results' => json_encode($results, JSON_THROW_ON_ERROR),
                     'usage' => json_encode($this->legacyUsage($this->decoded($row->usage)), JSON_THROW_ON_ERROR),
-                    'meta' => json_encode([...$this->decoded($row->meta), 'reasoning' => collect($this->decoded($row->steps))->pluck('reasoning')->filter()->implode("\n")], JSON_THROW_ON_ERROR),
+                    'meta' => json_encode([...$this->decoded($row->meta), 'reasoning' => ($steps[array_key_last($steps)]['reasoning'] ?? '')], JSON_THROW_ON_ERROR),
                 ]);
             }
         });
@@ -178,6 +212,95 @@ return new class extends AiMigration
         $schema->table($conversations, function (Blueprint $blueprint) use ($conversations) {
             $blueprint->dropIndex($conversations.'_ai_participant_updated');
         });
+    }
+
+    /** @param  array<array-key, mixed>  $results */
+    protected function assertUnambiguousResults(array $results): void
+    {
+        $seen = [];
+        foreach ($results as $result) {
+            if (! is_array($result) || ! is_string($result['id'] ?? null)) {
+                throw new RuntimeException('AI conversation tool results must contain an ID.');
+            }
+            if (isset($seen[$result['id']]) && $seen[$result['id']] !== $result) {
+                throw new RuntimeException('Preserve ambiguous AI tool results before changing conversation storage.');
+            }
+            $seen[$result['id']] = $result;
+        }
+    }
+
+    /** @param  array<string, bool>  $seen */
+    protected function assertUniqueCallId(string $id, array &$seen): void
+    {
+        if (isset($seen[$id])) {
+            throw new RuntimeException('Preserve ambiguous AI tool-call IDs before changing conversation storage.');
+        }
+        $seen[$id] = true;
+    }
+
+    /** @param  array<string, array<string, mixed>>  $legacyResults */
+    protected function assertLegacyRollbackHistory(stdClass $row, array $legacyResults): void
+    {
+        $steps = $this->decoded($row->steps);
+        if (! array_is_list($steps)) {
+            throw new RuntimeException('AI conversation steps must contain a list.');
+        }
+
+        $normalized = [];
+        $calls = [];
+        $callIds = [];
+        foreach ($steps as $step) {
+            if (! is_array($step) || array_diff(array_keys($step), ['content', 'tool_calls', 'reasoning', 'replay_blocks', 'provider_tool_calls']) !== []
+                || ! is_string($step['content'] ?? null) || ! is_string($step['reasoning'] ?? null)
+                || ! is_array($step['tool_calls'] ?? null) || ! array_is_list($step['tool_calls'])) {
+                throw new RuntimeException('Preserve unrepresentable SDK v1 history before rolling back conversation storage.');
+            }
+            if (($step['provider_tool_calls'] ?? []) !== [] || ($step['replay_blocks'] ?? []) !== []) {
+                throw new RuntimeException('Preserve SDK v1 provider-tool and replay history before rolling back conversation storage.');
+            }
+            foreach ($step['tool_calls'] as $call) {
+                if (! is_array($call) || ! is_string($call['id'] ?? null) || ! is_string($call['name'] ?? null)
+                    || ! is_array($call['arguments'] ?? null)
+                    || in_array($call['id'], $callIds, true)
+                    || ((array_key_exists('denied', $call) || array_key_exists('failed', $call)) && ! array_key_exists('result', $call))
+                    || (array_key_exists('denied', $call) && $call['denied'] !== true)
+                    || (array_key_exists('failed', $call) && $call['failed'] !== true)) {
+                    throw new RuntimeException('Preserve unrepresentable SDK v1 tool history before rolling back conversation storage.');
+                }
+                $calls[] = $call;
+                $callIds[] = $call['id'];
+            }
+            $normalized[] = $this->step($step['content'], $step['tool_calls'], $step['reasoning']);
+        }
+
+        if ($row->role !== 'assistant') {
+            $expected = [];
+        } else {
+            $reasoning = $steps[array_key_last($steps)]['reasoning'] ?? '';
+            $meta = $this->decoded($row->meta);
+            if ($row->tool_calls !== null && $row->tool_results !== null) {
+                $reasoning = $meta['reasoning'] ?? '';
+                $calls = collect($this->decoded($row->tool_calls))->map(function (array $call) use ($legacyResults): array {
+                    $result = $legacyResults[$call['id']] ?? null;
+
+                    return $result === null ? $call : [...$call, 'result' => $result['result'] ?? null, ...array_filter([
+                        'denied' => $result['denied'] ?? false,
+                        'failed' => $result['failed'] ?? false,
+                    ])];
+                })->values()->all();
+            }
+            $content = (string) $row->content;
+            $expected = $calls !== [] && $content !== ''
+                ? [$this->step('', $calls), $this->step($content, [], $reasoning)]
+                : [$this->step($content, $calls, $reasoning)];
+            if (($row->tool_calls === null || $row->tool_results === null) && array_key_exists('reasoning', $meta) && $meta['reasoning'] !== $reasoning) {
+                throw new RuntimeException('Preserve conflicting SDK v1 reasoning history before rolling back conversation storage.');
+            }
+        }
+
+        if ($normalized !== $expected) {
+            throw new RuntimeException('Preserve SDK v1 step boundaries before rolling back conversation storage.');
+        }
     }
 
     /**
@@ -207,7 +330,7 @@ return new class extends AiMigration
         return $usage;
     }
 
-    /** @return array<string, mixed> */
+    /** @return array<array-key, mixed> */
     protected function decoded(?string $json): array
     {
         $decoded = json_decode($json ?? '[]', true, flags: JSON_THROW_ON_ERROR);
