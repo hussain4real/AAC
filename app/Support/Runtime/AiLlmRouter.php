@@ -73,8 +73,8 @@ class AiLlmRouter implements LlmRouter
         ));
 
         $usage = new LlmUsage(
-            $response->usage->promptTokens,
-            $response->usage->completionTokens,
+            $response->usage->inputTokens,
+            $response->usage->outputTokens,
         );
 
         $names = array_map(fn (LlmToolDefinition $tool): string => $tool->name, $request->tools);
