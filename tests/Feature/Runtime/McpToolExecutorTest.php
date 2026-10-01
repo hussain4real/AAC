@@ -12,6 +12,7 @@ use App\Support\Runtime\Mcp\McpToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Laravel\Mcp\Enums\ProtocolVersion;
 use Laravel\Mcp\Exceptions\ClientException;
 use Laravel\Mcp\Exceptions\SessionExpiredException;
 use Tests\Support\Mcp\FakeMcpServer;
@@ -117,6 +118,7 @@ it('maps a JSON-RPC error to a controlled connector failure', function () {
         $payload = json_decode($request->body(), true) ?: [];
 
         return match ($payload['method'] ?? null) {
+            'server/discover' => Http::response(['jsonrpc' => '2.0', 'id' => $payload['id'] ?? null, 'result' => ['supportedVersions' => ['2026-07-28'], 'capabilities' => (object) []]]),
             'initialize' => Http::response(['jsonrpc' => '2.0', 'id' => $payload['id'] ?? null, 'result' => [
                 'protocolVersion' => '2025-11-25', 'capabilities' => (object) [], 'serverInfo' => ['name' => 'x', 'version' => '1'],
             ]]),
@@ -184,6 +186,7 @@ it('the guarded transport expires stale sessions and handles unexpected response
         ->push('{}', 200, ['MCP-Session-Id' => 'session-1'])
         ->push('', 404);
     $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->useProtocol(ProtocolVersion::V2025_11_25);
     $transport->send('{}');
 
     expect($transport->receive())->toBe('{}')
@@ -208,6 +211,7 @@ it('the guarded transport reads SSE messages and terminates remote sessions', fu
         ])
         ->push('', 204);
     $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->useProtocol(ProtocolVersion::V2025_11_25);
     $transport->send('{}');
 
     expect($transport->receive())->toContain('jsonrpc');
@@ -228,8 +232,19 @@ it('remote MCP session termination is best effort', function () {
         throw new ConnectionException('disconnect failed');
     });
     $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->useProtocol(ProtocolVersion::V2025_11_25);
     $transport->send('{}');
     $transport->disconnect();
 
     expect($calls)->toBe(2);
+});
+
+it('the guarded transport forwards per-message protocol headers and keeps redirect protection', function () {
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('{}')]);
+    $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->send('{}', ['MCP-Protocol-Version' => '2026-07-28', 'MCP-Method' => 'tools/call']);
+
+    Http::assertSent(fn ($request): bool => $request->hasHeader('MCP-Method', 'tools/call') && $request->hasHeader('MCP-Protocol-Version', '2026-07-28'));
+    expect($transport->receive())->toBe('{}');
 });

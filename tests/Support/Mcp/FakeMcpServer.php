@@ -110,6 +110,10 @@ class FakeMcpServer
             $id = $payload['id'] ?? null;
 
             return match ($payload['method'] ?? null) {
+                'server/discover' => $this->result($id, [
+                    'supportedVersions' => ['2026-07-28', '2025-11-25'],
+                    'capabilities' => (object) [],
+                ]),
                 'initialize' => $this->result($id, [
                     'protocolVersion' => '2025-11-25',
                     'capabilities' => (object) [],
