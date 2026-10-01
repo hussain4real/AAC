@@ -180,13 +180,19 @@ return new class extends AiMigration
         });
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param  array<int, array<string, mixed>>  $calls
+     * @return array<string, mixed>
+     */
     protected function step(string $content, array $calls = [], string $reasoning = ''): array
     {
         return ['content' => $content, 'tool_calls' => $calls, 'reasoning' => $reasoning, 'replay_blocks' => [], 'provider_tool_calls' => []];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param  array<string, mixed>  $usage
+     * @return array<string, mixed>
+     */
     protected function legacyUsage(array $usage): array
     {
         if (array_key_exists('input_tokens', $usage)) {
