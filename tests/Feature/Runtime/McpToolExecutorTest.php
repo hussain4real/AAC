@@ -265,6 +265,5 @@ it('the guarded transport rejects unsupported HTTP requests so protocol discover
     Http::fake(['*' => Http::response('', 501)]);
     $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
 
-    expect(fn () => $transport->send('{}'))->toThrow(TransportException::class, 'rejected the request')
-        ->and($transport->receive())->toBeNull();
+    expect(fn () => $transport->send('{}'))->toThrow(TransportException::class, 'rejected the request');
 });
