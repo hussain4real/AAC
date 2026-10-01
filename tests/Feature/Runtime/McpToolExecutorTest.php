@@ -12,6 +12,7 @@ use App\Support\Runtime\Mcp\McpToolExecutor;
 use App\Support\Runtime\ToolExecutionException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Laravel\Mcp\Client\Exceptions\TransportException;
 use Laravel\Mcp\Enums\ProtocolVersion;
 use Laravel\Mcp\Exceptions\ClientException;
 use Laravel\Mcp\Exceptions\SessionExpiredException;
@@ -247,4 +248,23 @@ it('the guarded transport forwards per-message protocol headers and keeps redire
 
     Http::assertSent(fn ($request): bool => $request->hasHeader('MCP-Method', 'tools/call') && $request->hasHeader('MCP-Protocol-Version', '2026-07-28'));
     expect($transport->receive())->toBe('{}');
+});
+
+it('the guarded transport delivers JSON-RPC errors returned with an HTTP error status', function () {
+    Http::preventStrayRequests();
+    $error = ['jsonrpc' => '2.0', 'id' => 1, 'error' => ['code' => -32601, 'message' => 'Discovery not supported']];
+    Http::fake(['*' => Http::response($error, 400)]);
+    $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+    $transport->send('{"jsonrpc":"2.0","id":1,"method":"server/discover"}');
+
+    expect(json_decode($transport->receive(), true))->toBe($error);
+});
+
+it('the guarded transport rejects unsupported HTTP requests so protocol discovery can fall back', function () {
+    Http::preventStrayRequests();
+    Http::fake(['*' => Http::response('', 501)]);
+    $transport = new GuardedHttpTransport('https://mcp.example.com/mcp', app(OutboundHttpClient::class));
+
+    expect(fn () => $transport->send('{}'))->toThrow(TransportException::class, 'rejected the request')
+        ->and($transport->receive())->toBeNull();
 });
