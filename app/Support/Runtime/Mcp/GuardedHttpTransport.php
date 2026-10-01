@@ -6,8 +6,10 @@ use App\Exceptions\OutboundRequestBlocked;
 use App\Support\Outbound\OutboundHttpClient;
 use Illuminate\Http\Client\ConnectionException;
 use Laravel\Mcp\Client\Exceptions\AuthorizationRequiredException;
+use Laravel\Mcp\Client\Exceptions\TransportException;
 use Laravel\Mcp\Client\OAuth\WwwAuthenticateChallenge;
 use Laravel\Mcp\Client\Transport\HttpTransport;
+use Laravel\Mcp\Enums\ProtocolHandshake;
 use Laravel\Mcp\Exceptions\SessionExpiredException;
 use Throwable;
 
@@ -21,13 +23,13 @@ class GuardedHttpTransport extends HttpTransport
         parent::__construct($url);
     }
 
-    public function send(string $message): void
+    public function send(string $message, array $headers = []): void
     {
         $hadSession = $this->sessionId !== null;
 
         try {
             $response = $this->http->send('mcp', 'POST', $this->url, [
-                'headers' => $this->headers(),
+                'headers' => $this->headers($headers),
                 'body' => $message,
                 'timeout' => $this->timeoutSeconds,
                 'connect_timeout' => $this->connectTimeoutSeconds,
@@ -57,10 +59,26 @@ class GuardedHttpTransport extends HttpTransport
         }
 
         if (! $response->successful()) {
-            $this->failWith("The MCP server returned unexpected HTTP status [{$response->status()}].");
+            $content = trim($response->body());
+
+            if ($this->hasJsonRpcError($content)) {
+                $this->queue[] = $content;
+
+                return;
+            }
+
+            if ($response->notFound() || ($response->serverError() && $response->status() !== 501)) {
+                $this->failWith("The MCP server returned unexpected HTTP status [{$response->status()}].");
+            }
+
+            $this->reset();
+
+            throw new TransportException("The MCP server rejected the request with HTTP status [{$response->status()}].");
         }
 
-        $this->initialized = true;
+        if ($this->protocolVersion?->handshake() === ProtocolHandshake::Initialize) {
+            $this->initialized = true;
+        }
 
         if (str_contains($response->header('Content-Type'), 'text/event-stream')) {
             $this->readSseStream($response);

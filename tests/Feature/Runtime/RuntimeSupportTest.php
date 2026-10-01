@@ -20,6 +20,7 @@ use App\Support\Runtime\ModelPricing;
 use App\Support\Runtime\RunPayload;
 use App\Support\Runtime\RuntimeAgent;
 use App\Support\Runtime\RuntimeTool;
+use Aws\BedrockRuntime\BedrockRuntimeClient;
 use Illuminate\JsonSchema\JsonSchemaTypeFactory;
 use Laravel\Ai\Ai;
 use Laravel\Ai\Contracts\Providers\TextProvider;
@@ -318,10 +319,7 @@ test('the AI router surfaces a native tool call returned by the provider', funct
 });
 
 test('the AI router exposes web search as a provider-hosted tool', function () {
-    Ai::fakeAgent(RuntimeAgent::class, [
-        new ToolCall('call_1', 'webSearch', ['query' => 'latest world cup scores']),
-        'Provider searched the web.',
-    ]);
+    Ai::fakeAgent(RuntimeAgent::class, ['Provider searched the web.']);
 
     $completion = (new AiLlmRouter)->complete(new LlmRequest(
         providerDriver: 'openai',
@@ -432,4 +430,21 @@ test('the run payload returns a null tool call when none is pending', function (
     $run = AgentRun::factory()->create(['status' => RunStatus::WaitingForClient]);
 
     expect(RunPayload::for($run->load('agent'))['tool_call'])->toBeNull();
+});
+
+test('the AI router retains the advertised Bedrock provider with an isolated fake', function () {
+    config(['ai.providers.bedrock' => ['driver' => 'bedrock', 'name' => 'bedrock', 'key' => 'test-token', 'use_default_credential_provider' => false]]);
+    Ai::fakeAgent(RuntimeAgent::class, ['Bedrock answer.']);
+
+    $completion = (new AiLlmRouter)->complete(new LlmRequest(
+        providerDriver: 'bedrock',
+        modelCode: 'test-model',
+        systemPrompt: 'You help.',
+        messages: [LlmMessage::user('hello')],
+        apiKey: 'test-scoped-token',
+    ));
+
+    expect(class_exists(BedrockRuntimeClient::class))->toBeTrue()
+        ->and($completion->text)->toBe('Bedrock answer.')
+        ->and(config('ai.providers.bedrock.key'))->toBe('test-token');
 });
