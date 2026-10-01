@@ -83,7 +83,7 @@ return new class extends AiMigration
                             'denied' => $result['denied'] ?? false,
                             'failed' => $result['failed'] ?? false,
                         ])];
-                    })->all();
+                    })->values()->all();
                     $content = (string) $row->content;
                     $steps = $calls !== [] && $content !== ''
                         ? [$this->step('', $calls), $this->step($content, [], $meta['reasoning'] ?? '')]
