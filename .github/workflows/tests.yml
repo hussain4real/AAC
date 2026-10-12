@@ -41,7 +41,7 @@ jobs:
           coverage: xdebug
 
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
         with:
           node-version: '22'
           cache: npm
@@ -54,7 +54,7 @@ jobs:
 
       - name: Restore PHP-specific TIA state
         id: tia-cache
-        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.pest/tia
           key: pest-tia-${{ runner.os }}-${{ runner.arch }}-php-${{ matrix.php }}-${{ hashFiles('composer.lock', 'package-lock.json', 'phpunit.xml') }}-${{ github.sha }}
@@ -88,7 +88,7 @@ jobs:
 
       - name: Save PHP-specific TIA state
         if: steps.tia-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.pest/tia
           key: ${{ steps.tia-cache.outputs.cache-primary-key }}
